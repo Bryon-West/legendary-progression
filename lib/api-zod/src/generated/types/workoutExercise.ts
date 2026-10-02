@@ -6,12 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { WorkoutExerciseBaselineStatus } from './workoutExerciseBaselineStatus';
-import type { WorkoutExerciseCalibrationRir } from './workoutExerciseCalibrationRir';
 import type { WorkoutExerciseCategory } from './workoutExerciseCategory';
 import type { WorkoutExerciseRecommendationOutcome } from './workoutExerciseRecommendationOutcome';
 import type { WorkoutSet } from './workoutSet';
 
 export interface WorkoutExercise {
+  loadIncrement?: number;
+  /** @nullable */
+  recoveryAdjustment?: string | null;
+  /** @nullable */
+  normalSetCount?: number | null;
   id: number;
   sessionId: number;
   exerciseId: number;
@@ -47,10 +51,12 @@ export interface WorkoutExercise {
   substitutedFromExerciseId: number | null;
   calibrationMode: boolean;
   /**
-     * Calibration always prescribes approximately 3 RIR independent of week target.
+     * Calibration uses the configured week RIR.
+     * @minimum 0
+     * @maximum 10
      * @nullable
      */
-  calibrationRir: WorkoutExerciseCalibrationRir;
+  calibrationRir: number | null;
   /** @nullable */
   baselineStatus: WorkoutExerciseBaselineStatus;
   sets: WorkoutSet[];

@@ -9,7 +9,7 @@ import {
 import type { Exercise, MesocycleCreateInputCreateMode, MesocycleDayInput, MesocycleTemplate, CopyEligibleWeek } from '@workspace/api-client-react';
 import { useActiveProfile } from '@/lib/profile';
 import { localToday } from '@/lib/dates';
-import { MesocycleBuilder, defaultWeeks, exFromInput, nk, type Draft, type DraftDay } from '@/components/mesocycle-builder';
+import { MesocycleBuilder, defaultWeeks, newWeekOcc, exFromInput, nk, type Draft, type DraftDay } from '@/components/mesocycle-builder';
 import { Empty, ErrorNote, Loading, QueryError } from '@/components/ui-bits';
 
 type Source = { createMode: MesocycleCreateInputCreateMode; templateId?: string; sourceWeekId?: number; description?: string };
@@ -36,7 +36,7 @@ export default function MesocycleNewPage() {
   const begin = (days: MesocycleDayInput[], rirs: number[], name: string, source: Source) => {
     const start = localToday();
     const dd: DraftDay[] = days.map((d) => ({ key: nk(), name: d.name, exercises: d.exercises.map((x) => exFromInput(x, byId, unit)) }));
-    setStarted({ draft: { name, startDate: start, days: dd, weeks: defaultWeeks(rirs, dd, start) }, source });
+    setStarted({ draft: { name, startDate: start, days: dd, weeks: [...defaultWeeks(rirs, dd, start), { key: nk(), kind: 'deload' as const, rir: String(settings.data?.deloadRir ?? 4), state: 'new' as const, occ: newWeekOcc(dd, start, rirs.length) }] }, source });
   };
   const startTemplate = (t: MesocycleTemplate) => begin(t.days, t.defaultLoadingRirs.length ? t.defaultLoadingRirs : [3, 2, 1, 0], t.name, { createMode: 'template', templateId: t.templateId, description: `Based on template ${t.name}` });
   const startCopy = (chosen?: CopyEligibleWeek) => {
@@ -66,7 +66,6 @@ export default function MesocycleNewPage() {
   const tabs: { id: Tab; label: string; icon: typeof Copy }[] = [{ id: 'template', label: 'Start from template', icon: LayoutTemplate }, { id: 'copy', label: 'Copy previous', icon: Copy }, { id: 'build', label: 'Build my own', icon: Hammer }];
   return <main className="page-wrap enter">
     <Link href="/splits" className="btn btn-ghost" style={{ textDecoration: 'none', padding: 0 }}><ArrowLeft size={17}/> Plans</Link>
-    <img src="/brand/legendary-logo.png" alt="Legendary Progression" style={{ display: 'block', width: 'min(100%, 300px)', margin: '18px auto 4px' }}/>
     <div className="eyebrow" style={{ marginTop: 10 }}>New mesocycle</div>
     <h1 className="display" style={{ fontSize: 44, margin: '8px 0 6px' }}>How do you want<br/>to start?</h1>
     <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 0 }}>Every option opens an editable draft. Nothing is saved until you press Save &amp; Exit.</p>

@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ProjectedExerciseBaselineStatus } from './projectedExerciseBaselineStatus';
-import type { ProjectedExerciseCalibrationRir } from './projectedExerciseCalibrationRir';
 
 export interface ProjectedExercise {
   exerciseId: number;
@@ -24,8 +23,12 @@ export interface ProjectedExercise {
   targetRir: number;
   baselineStatus: ProjectedExerciseBaselineStatus;
   calibrationMode: boolean;
-  /** @nullable */
-  calibrationRir: ProjectedExerciseCalibrationRir;
+  /**
+     * @minimum 0
+     * @maximum 10
+     * @nullable
+     */
+  calibrationRir: number | null;
   /** @nullable */
   calibrationInstruction: string | null;
   /** @nullable */

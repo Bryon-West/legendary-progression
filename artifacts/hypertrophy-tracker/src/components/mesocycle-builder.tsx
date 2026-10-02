@@ -75,7 +75,6 @@ export function toInput(draft: Draft, unit: WeightUnit): { input?: NewMesocycleI
       if ([s, lo, hi, a, b, r].some((v) => !Number.isInteger(v))) { errors.push(`${x.name}: fill in every number.`); return; }
       if (lo < 1 || hi > 20 || lo > hi) errors.push(`${x.name}: working sets must run from at least 1 up to 20, minimum not above maximum.`);
       if (s < lo || s > hi) errors.push(`${x.name}: starting sets must sit between the minimum and maximum.`);
-      if (a < 1 || b > 100 || a > b) errors.push(`${x.name}: rep minimum cannot exceed the maximum.`);
       if (r < 0 || r > 10) errors.push(`${x.name}: RIR must be 0 to 10.`);
       if (Number.isNaN(parseInputToKg(x.weight, unit))) errors.push(`${x.name}: weight must be a positive number.`);
     });
@@ -85,7 +84,7 @@ export function toInput(draft: Draft, unit: WeightUnit): { input?: NewMesocycleI
     name: draft.name.trim(), startDate: draft.startDate, cycleLengthWeeks: draft.weeks.length,
     days: draft.days.map((d, di) => ({ ...(d.id ? { id: d.id } : {}), name: d.name.trim(), dayIndex: di, exercises: d.exercises.map((x, xi) => ({
       ...(x.id ? { id: x.id } : {}), exerciseId: x.exerciseId, orderIndex: xi, targetSets: n(x.sets), minimumWorkingSets: n(x.minSets), maximumWorkingSets: n(x.maxSets),
-      targetRepsMin: n(x.repsMin), targetRepsMax: n(x.repsMax), targetRir: n(x.rir), targetWeight: parseInputToKg(x.weight, unit),
+      targetRepsMin: 6, targetRepsMax: 30, targetRir: n(x.rir), targetWeight: parseInputToKg(x.weight, unit),
     })) })),
     weeks: draft.weeks.map((w, wi) => ({
       ...(w.id ? { id: w.id } : {}), weekIndex: wi + 1, kind: w.kind, targetRir: n(w.rir),
@@ -123,7 +122,7 @@ export function MesocycleBuilder({ initial, mode, splitId, profileId, unit, delo
 
   const addExercise = (e: Exercise) => {
     if (!pickerDay) return;
-    patchDay(pickerDay, (d) => ({ ...d, exercises: [...d.exercises, { key: nk(), exerciseId: e.id, name: e.name, muscle: e.muscleGroup, sets: '3', minSets: '2', maxSets: '4', repsMin: String(e.defaultRepMin ?? 8), repsMax: String(e.defaultRepMax ?? 12), rir: '2', weight: '' }] }));
+    patchDay(pickerDay, (d) => ({ ...d, exercises: [...d.exercises, { key: nk(), exerciseId: e.id, name: e.name, muscle: e.muscleGroup, sets: '3', minSets: '2', maxSets: '4', repsMin: '6', repsMax: '30', rir: '2', weight: '' }] }));
     setPickerDay(null);
   };
   const shiftWeek = (w: DraftWeek, by: number): DraftWeek => locked(w) ? w : ({ ...w, occ: w.occ.map((o) => ({ ...o, date: addDays(o.date, by) })) });
@@ -211,7 +210,7 @@ export function MesocycleBuilder({ initial, mode, splitId, profileId, unit, delo
             <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Move ${x.name} up`} disabled={xi === 0} onClick={() => patchDay(day.key, (d) => ({ ...d, exercises: move(d.exercises, xi, -1) }))}><ArrowUp size={14}/></button>
             <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Move ${x.name} down`} disabled={xi === day.exercises.length - 1} onClick={() => patchDay(day.key, (d) => ({ ...d, exercises: move(d.exercises, xi, 1) }))}><ArrowDown size={14}/></button>
             <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Remove ${x.name}`} onClick={() => patchDay(day.key, (d) => ({ ...d, exercises: d.exercises.filter((e) => e.key !== x.key) }))}><Trash2 size={14}/></button></div></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5, marginBottom: 6 }}>{cell(day, x, 'Min reps', 'repsMin')}{cell(day, x, 'Max reps', 'repsMax')}{cell(day, x, 'Base RIR', 'rir')}{cell(day, x, `Weight (${unit})`, 'weight', 'any')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 5, marginBottom: 6 }}>{cell(day, x, 'Base RIR', 'rir')}{cell(day, x, `Weight (${unit})`, 'weight', 'any')}</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5 }}>{cell(day, x, 'Min working sets', 'minSets')}{cell(day, x, 'Start sets', 'sets')}{cell(day, x, 'Max working sets', 'maxSets')}</div>
       </div>)}</div> : <div style={{ padding: '12px 2px', color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No exercises prescribed yet.</div>}
       <button className="btn btn-secondary" style={{ width: '100%', marginTop: 12, minHeight: 42 }} onClick={() => setPickerDay(day.key)} data-testid={`button-add-movement-${di}`}><Plus size={16}/> Add movement</button>

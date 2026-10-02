@@ -65,9 +65,10 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
           {skipped && <span className="badge badge-warning">Skipped</span>}
           {superseded && <span className="badge">Replaced</span>}
           {exercise.painReported && <span className="badge badge-warning">Discomfort noted</span>}
+          {exercise.recoveryAdjustment && !['train_as_planned', 'pending', 'repeat_limited'].includes(exercise.recoveryAdjustment) && <span className="badge badge-warning" data-testid={`badge-recovery-${exercise.id}`}>Recovery-adjusted</span>}
         </div>
         <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 8 }}>
-          {!calibration && <>Reps <b style={{ color: 'hsl(var(--foreground))' }}>{exercise.targetRepsMin}–{exercise.targetRepsMax}</b> · </>}RIR <b style={{ color: 'hsl(var(--foreground))' }}>{calibration ? (exercise.calibrationRir ?? 3) : exercise.targetRir}</b>{calibration && ' (calibration)'} · Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
+          RIR <b style={{ color: 'hsl(var(--foreground))' }}>{calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir}</b>{calibration && ' (calibration)'} · Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
         </div>
       </div>
     </div>
@@ -75,7 +76,7 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
     {skipped && !superseded && <div className="notice-warn" style={{ marginBottom: 10 }}>Skipped. It is recorded as skipped and does not count against progression.</div>}
     {!readOnly && calibration && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-calibration-${exercise.id}`}>
       <span className="badge badge-red">Calibration mode</span>
-      <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.45 }}>Choose a weight you believe you can perform at approximately {exercise.calibrationRir ?? 3} RIR.</div>
+      <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.45 }}>Choose a weight you believe you can perform at approximately {exercise.calibrationRir ?? exercise.targetRir} RIR.</div>
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>{baseline === 'expired' ? 'Your last baseline for this exercise has expired. ' : ''}Record weight, reps and actual RIR. This sets your baseline; no target is shown until it exists.</div>
     </div>}
     {!readOnly && !calibration && outcome && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-recommendation-${exercise.id}`}>
@@ -103,7 +104,7 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
     {statusSet && <Modal title={statusLabel(statusPicked)} close={() => setStatusSet(null)}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><span className={`status-btn ${statusClass(statusPicked)}`}><StatusIcon status={statusPicked}/></span><span style={{ fontSize: 14, lineHeight: 1.5 }}>{statusSet.targetExplanation ?? 'This set was logged before target ratings existed, so it has no rating.'}</span></div>
       <div className="eyebrow">Target</div>
-      <p style={{ margin: '4px 0 12px' }}>{statusSet.targetRepsMin ?? exercise.targetRepsMin}–{statusSet.targetRepsMax ?? exercise.targetRepsMax} reps around {statusSet.adaptiveTargetRir ?? exercise.targetRir} RIR{statusSet.adaptiveTargetWeight != null ? <><br/><span className="metric">Adjusted: {fmtWeight(statusSet.adaptiveTargetWeight, unit)}{statusSet.adaptiveTargetReps ? ` × ${statusSet.adaptiveTargetReps}` : ''}</span></> : null}</p>
+      <p style={{ margin: '4px 0 12px' }}>{statusSet.targetRepsMin != null && statusSet.targetRepsMax != null ? `Snapshot ${statusSet.targetRepsMin}–${statusSet.targetRepsMax} reps, ` : ''}RIR effort target {statusSet.adaptiveTargetRir ?? exercise.targetRir}{statusSet.adaptiveTargetWeight != null ? <><br/><span className="metric">Adjusted: {fmtWeight(statusSet.adaptiveTargetWeight, unit)}{statusSet.adaptiveTargetReps ? ` × ${Math.round(statusSet.adaptiveTargetReps)}` : ''}</span></> : null}</p>
       <div className="eyebrow">Completed</div>
       <p className="metric" style={{ margin: '4px 0 0' }}>{fmtWeight(statusSet.actualWeight, unit)} × {statusSet.actualReps ?? '—'} @ {statusSet.actualRir ?? '—'} RIR</p>
       {statusSet.algorithmVersion && <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 12 }}>Rating model {String(statusSet.algorithmVersion)}</div>}

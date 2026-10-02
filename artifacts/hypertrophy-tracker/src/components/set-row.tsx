@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Lock, Pencil, Trash2, X } from 'lucide-react';
-import { useCompleteWorkoutSet, useUpdateWorkoutSet } from '@workspace/api-client-react';
+import { getGetProfileEngineSettingsQueryKey, useCompleteWorkoutSet, useGetProfileEngineSettings, useUpdateWorkoutSet } from '@workspace/api-client-react';
 import type { WorkoutExercise, WorkoutSet, WorkoutSetUpdate } from '@workspace/api-client-react';
 import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/components/status';
 import { fmtWeight, inputValue, parseInputToKg, parseIntOrNull, type WeightUnit } from '@/lib/units';
+import { useActiveProfile } from '@/lib/profile';
 import { useWorkoutDrafts } from '@/lib/workout-drafts';
 
 type Field = 'w' | 'r' | 'i';
@@ -16,13 +17,14 @@ export function SetRow({ set, label, exercise, sessionId, unit, readOnly, locked
 }) {
   const isWork = set.setType === 'work';
   const calibration = isWork && exercise.calibrationMode;
+  const activeProfileId = useActiveProfile().profile?.id ?? 0;
   const update = useUpdateWorkoutSet();
   const complete = useCompleteWorkoutSet();
   // Prefills: only unlocked working rows with a valid recommendation, or the calibration RIR.
   const canPrefill = isWork && !locked && !set.completed;
   const prefillW = canPrefill && !calibration ? (set.adaptiveTargetWeight ?? set.targetWeight ?? exercise.recommendedWeight ?? null) : null;
   const prefillR = canPrefill && !calibration ? (set.adaptiveTargetReps ?? exercise.recommendedReps ?? null) : null;
-  const prefillI = canPrefill ? (calibration ? (exercise.calibrationRir ?? 3) : (set.adaptiveTargetRir ?? exercise.targetRir)) : null;
+  const prefillI = canPrefill ? (calibration ? (exercise.calibrationRir ?? exercise.targetRir) : (set.adaptiveTargetRir ?? exercise.targetRir)) : null;
   const serverText = () => ({
     w: inputValue(set.actualWeight ?? prefillW, unit),
     r: numText(set.actualReps ?? prefillR),
@@ -147,7 +149,27 @@ export function SetRow({ set, label, exercise, sessionId, unit, readOnly, locked
   const tw = set.adaptiveTargetWeight ?? set.targetWeight ?? exercise.recommendedWeight ?? null;
   const tr = set.adaptiveTargetReps ?? exercise.recommendedReps ?? null;
   const rirT = set.adaptiveTargetRir ?? exercise.targetRir;
-  const range = `${set.targetRepsMin ?? exercise.targetRepsMin}–${set.targetRepsMax ?? exercise.targetRepsMax}`;
+  const historical = set.completed || readOnly;
+  const rangeText = historical && set.targetRepsMin != null && set.targetRepsMax != null ? `snapshot ${set.targetRepsMin}–${set.targetRepsMax} reps` : '6–30 guardrail';
+  const settings = useGetProfileEngineSettings(activeProfileId, { query: { enabled: !!activeProfileId && !historical && !calibration, queryKey: getGetProfileEngineSettingsQueryKey(activeProfileId) } });
+  const incText = exercise.loadIncrement != null ? `Load steps of ${inputValue(exercise.loadIncrement, unit)} ${unit}.` : settings.data ? `Load steps of ${unit === 'lb' ? settings.data.loadIncrementLb : settings.data.loadIncrementKg} ${unit}.` : '';
+  const liveInfo = (() => {
+    if (!isWork || calibration || historical || tw == null) return '';
+    const kg = parseInputToKg(w, unit);
+    const parts: string[] = [];
+    if (kg !== null && !Number.isNaN(kg)) {
+      const dLb = (kg - (set.referenceTargetWeight ?? tw)) * 2.20462262185;
+      if (Math.abs(dLb) > 20.00001) parts.push("Outside prediction range. Legendary Progression can't reliably estimate the equivalent rep change at this load difference. Train to the prescribed RIR and your completed set will help establish a new reference.");
+      else if (Math.abs(dLb) >= 0.05) {
+        const reps = Math.round(dLb / 5);
+        const expected = set.referenceTargetReps != null
+          ? set.referenceTargetReps + (set.referenceTargetRir ?? exercise.targetRir) - (set.adaptiveTargetRir ?? exercise.targetRir) - dLb / 5
+          : tr != null ? tr - dLb / 5 : null;
+        parts.push(`${Math.abs(dLb).toFixed(1)} lb ${dLb > 0 ? 'above' : 'below'} the reference${expected != null ? `; approximately ${Math.abs(dLb / 5).toFixed(1)} rep${reps === 1 ? '' : 's'} ${dLb > 0 ? 'fewer' : 'more'} (5 lb is roughly 1 rep). Expect about ${Math.max(6, Math.min(30, Math.round(expected)))} reps` : ''}.`);
+      }
+    }
+    return parts.join(' ');
+  })();
   const warning = isWork && !calibration && set.adaptiveWarning ? set.adaptiveWarning : '';
   const kind = isWork ? 'Set' : 'Warm-up';
   const rowClass = `${isWork ? '' : 'set-warm'} ${locked && !set.completed ? 'set-locked' : ''} ${set.completed && !editing ? 'set-done' : ''}`;
@@ -161,10 +183,11 @@ export function SetRow({ set, label, exercise, sessionId, unit, readOnly, locked
         : <span className="set-head" style={{ fontSize: 8, display: 'grid', placeItems: 'center' }}>{locked && !set.completed ? <Lock size={13}/> : set.completed ? <Check size={14} color="hsl(var(--primary))"/> : isWork ? '' : 'warm-up'}</span>}
     </div>
     {isWork ? <div style={{ fontSize: 10.5, color: 'hsl(var(--muted-foreground))', margin: '4px 0 0 39px', lineHeight: 1.4 }} data-testid={`text-target-${set.id}`}>
-      {calibration ? <>Calibration set. About {exercise.calibrationRir ?? 3} RIR. Not rated.</>
+      {calibration ? <>Calibration set. About {exercise.calibrationRir ?? exercise.targetRir} RIR. Not rated.</>
         : locked && !set.completed ? <>Locked until the previous working set is completed.</>
-        : <>Target <b className="metric" style={{ color: 'hsl(var(--foreground))' }}>{fmtWeight(tw, unit)}{tr ? ` × ${tr}` : ''}</b> · range {range} reps · {rirT} RIR</>}
+        : <>Target <b className="metric" style={{ color: 'hsl(var(--foreground))' }}>{fmtWeight(tw, unit)}{tr ? ` × ${Math.round(tr)}` : ''}</b> · {rangeText}, {rirT} RIR effort target</>}
     </div> : <div style={{ fontSize: 10.5, color: 'hsl(var(--muted-foreground))', margin: '4px 0 0 39px' }}>Warm-up, not rated and not counted</div>}
+    {(liveInfo || incText) && !readOnly && !set.completed && isWork && !calibration && <div role="status" style={{ margin: '4px 0 0 39px', fontSize: 10.5, color: 'hsl(var(--primary))', lineHeight: 1.4 }} data-testid={`text-live-info-${set.id}`}>{liveInfo} {incText}</div>}
     {warning && <div className="notice-warn" style={{ margin: '5px 0 0 39px' }} data-testid={`text-warning-${set.id}`}>{warning}</div>}
     {localError && <div role="alert" style={{ margin: '5px 0 0 39px', fontSize: 12, color: 'hsl(var(--destructive))' }} data-testid={`text-error-${set.id}`}>{localError}</div>}
     {!readOnly && <div style={{ display: 'flex', gap: 6, margin: '7px 0 0 39px', alignItems: 'center' }}>

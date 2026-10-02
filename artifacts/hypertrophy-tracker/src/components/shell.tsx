@@ -20,10 +20,11 @@ export function Shell({ children }: { children: ReactNode }) {
     <header className="topbar">
       <div style={{ maxWidth: 720, margin: 'auto', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <Link href="/" className="brand" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <img src="/brand/dragon-mark.png" alt="" width={38} height={38} style={{ width: 38, height: 38, objectFit: 'contain' }}/>
+          <span style={{ width: 36, height: 36, flex: '0 0 36px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}><img src="/brand/dragon-mark.png" alt="" style={{ maxWidth: 36, maxHeight: 36, width: 'auto', height: 'auto', objectFit: 'contain' }}/></span>
           <div><div className="display" style={{ fontSize: 'clamp(12px, 3.1vw, 19px)', fontWeight: 800, letterSpacing: '.03em', whiteSpace: 'nowrap', color: 'hsl(var(--primary))' }}>LEGENDARY PROGRESSION</div></div>
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '0 1 170px' }}>
+          <Link href="/calendar" aria-label="Open calendar" data-testid="link-header-calendar" className="btn btn-ghost" style={{ minHeight: 40, width: 40, padding: 0, flex: '0 0 40px' }}><CalendarDays size={19}/></Link>
           {profile && <Link href="/profiles" className="badge badge-red" data-testid="badge-unit" style={{ textDecoration: 'none' }} aria-label={`Weight unit ${unit}`}>{unit}</Link>}
           <label aria-label="Choose training profile" style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
             <select data-testid="select-active-profile" className="field" style={{ width: '100%', minWidth: 0, minHeight: 40, padding: '0 30px 0 12px', borderRadius: 12, appearance: 'none', fontSize: 13, fontWeight: 700 }}

@@ -95,6 +95,7 @@ export async function updateBaselinesFromCompletedSession(sessionId: number) {
     .where(and(
       eq(workoutExercisesTable.sessionId, sessionId),
       eq(workoutExercisesTable.skipped, false),
+      sql`(${workoutExercisesTable.recoveryAdjustment} IS NULL OR ${workoutExercisesTable.recoveryAdjustment}='train_as_planned')`,
       eq(workoutSetsTable.setType, "work"),
       eq(workoutSetsTable.completed, true),
       eq(workoutSetsTable.removed, false),
@@ -122,6 +123,8 @@ export async function updateBaselinesFromCompletedSession(sessionId: number) {
       lastRir: row.rir!,
     }).onConflictDoUpdate({
       target: [exerciseBaselinesTable.profileId, exerciseBaselinesTable.exerciseId],
+      setWhere: sql`${exerciseBaselinesTable.establishedAt} <= ${establishedAt}
+        AND ${exerciseBaselinesTable.sourceSetId} IS DISTINCT FROM ${row.setId}`,
       set: {
         sourceSessionId: session.id,
         sourceSetId: row.setId,

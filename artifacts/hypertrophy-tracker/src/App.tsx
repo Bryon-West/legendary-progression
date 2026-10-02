@@ -14,6 +14,7 @@ import MesocyclesPage from '@/pages/mesocycles';
 import MesocycleEditorPage from '@/pages/mesocycle-editor';
 import CalendarPage from '@/pages/calendar';
 import MesocycleNewPage from '@/pages/mesocycle-new';
+import PlannedPage from '@/pages/planned';
 import ProfilesPage from '@/pages/profile';
 
 const queryClient = new QueryClient({
@@ -33,6 +34,7 @@ function Router() {
     <Route path="/splits/new" component={MesocycleNewPage}/>
     <Route path="/calendar" component={CalendarPage}/>
     <Route path="/splits/:splitId" component={MesocycleEditorPage}/>
+    <Route path="/planned/:plannedId" component={PlannedPage}/>
     <Route path="/profiles" component={ProfilesPage}/>
     <Route component={NotFound}/>
   </Switch></Shell></ErrorBoundary>;

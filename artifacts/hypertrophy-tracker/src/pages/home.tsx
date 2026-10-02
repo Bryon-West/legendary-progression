@@ -55,7 +55,6 @@ export default function HomePage() {
   const maxSets = Math.max(1, ...weekly.map((m) => m.workingSetCount));
   return <main className="page-wrap enter">
     <section style={{ marginBottom: 24 }}>
-      <img src="/brand/legendary-logo.png" alt="Legendary Progression" style={{ display: 'block', width: 'min(100%, 340px)', margin: '0 auto 18px' }}/>
       <div className="eyebrow">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
       <h1 className="display" style={{ fontSize: 48, margin: '9px 0 5px' }}>Earn it.<br/><span style={{ color: 'hsl(var(--primary))' }}>Log it right.</span></h1>
       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>Good to see you, {profile.name}.</div>
@@ -69,7 +68,7 @@ export default function HomePage() {
       {pending && <div className="badge badge-red" style={{ margin: '8px 0 0' }} data-testid="text-week-label">{weekLabel(pending.w.kind, pending.w.weekIndex, pending.w.targetRir)} · {pending.x.scheduledDate === todayStr ? 'today' : pending.x.scheduledDate}</div>}
       {next ? <><h2 className="display" style={{ fontSize: 35, margin: '8px 0 4px' }}>{next.dayName}</h2><div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>{next.splitName} · {next.exerciseCount} exercises</div>
         {nextDay?.exercises?.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>{nextDay.exercises.slice(0, 4).map((x) => <span key={x.id} style={{ borderRadius: 20, padding: '6px 10px', background: 'hsl(var(--secondary))', fontSize: 11 }}>{x.exercise.name}</span>)}</div> : null}
-        <button className="btn btn-primary" data-testid="button-start-workout" style={{ width: '100%', marginTop: 18 }} onClick={() => setStartFor({ dayId: next.dayId, plannedId: pending?.x.id })}>Start workout<ArrowRight size={18}/></button>
+        <button className="btn btn-primary" data-testid="button-start-workout" disabled={!!calSplit && cal.isLoading} style={{ width: '100%', marginTop: 18 }} onClick={() => setStartFor({ dayId: next.dayId, plannedId: pending?.x.id })}>Start workout<ArrowRight size={18}/></button>
       </> : <><h2 className="display" style={{ fontSize: 32, margin: '8px 0' }}>No mesocycle yet</h2><p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Create a mesocycle or start an open session when you’re ready.</p><div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}><Link href="/splits" className="btn btn-primary" style={{ textDecoration: 'none' }}>Build a mesocycle <ArrowRight size={16}/></Link><button className="btn btn-secondary" onClick={() => setStartFor({ dayId: null })}>Start open session</button></div></>}
     </section>}
     <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11, marginBottom: 18 }}>

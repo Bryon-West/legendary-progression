@@ -33,7 +33,7 @@ export type ProgressionInput = {
 
 export type ProgressionRecommendation = {
   recommendedWeight: number | null;
-  recommendedReps: number;
+  recommendedReps: number | null;
   targetSets: number;
   outcome: "increase_load" | "increase_reps" | "increase_sets" | "decrease_sets" | "maintain";
   rationale: string;

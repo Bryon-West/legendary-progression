@@ -3,7 +3,7 @@ import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Plus } from 'lucide-react';
 import { Link, useLocation, useParams } from 'wouter';
 import {
-  getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getGetWorkoutQueryKey, getListExercisesQueryKey,
+  getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getGetWorkoutStructureChangesQueryKey, getWorkoutStructureChanges, useGetWorkoutStructureChanges, getGetWorkoutQueryKey, getListExercisesQueryKey,
   getListSplitsQueryKey, getListWorkoutsQueryKey, useAddExerciseToWorkout, useFinishWorkout, useGetWorkout,
   useListExercises, useSubstituteWorkoutExercise,
 } from '@workspace/api-client-react';
@@ -16,6 +16,8 @@ import { ExercisePicker } from '@/components/exercise-picker';
 import { ExerciseCard } from '@/components/exercise-card';
 import { CompletedWorkout, SessionContext } from '@/components/completed-workout';
 import { MuscleTotals } from '@/components/muscle-totals';
+import { ExerciseTools, FeedbackSheet, RecoveryPrompt, recoveryPromptKind } from '@/components/v22-workout';
+import { asChanges, type StructureChanges } from '@/lib/v22';
 import { WorkoutDraftsContext, useWorkoutDraftRegistry } from '@/lib/workout-drafts';
 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
@@ -36,6 +38,9 @@ export default function WorkoutPage() {
   const draftRegistry = useWorkoutDraftRegistry();
   const [swapTargetId, setSwapTargetId] = useState<number | null>(null);
   const [swapChoice, setSwapChoice] = useState<Exercise | null>(null);
+  const [decision, setDecision] = useState<StructureChanges | null>(null);
+  const [skippedFb, setSkippedFb] = useState<number[]>([]);
+  const changesQuery = useGetWorkoutStructureChanges(id, { query: { enabled: Number.isFinite(id) && workoutQuery.data?.status === 'active', queryKey: getGetWorkoutStructureChangesQueryKey(id) } });
   const workout = workoutQuery.data;
   const addExercise = useAddExerciseToWorkout();
   const substitute = useSubstituteWorkoutExercise();
@@ -67,7 +72,7 @@ export default function WorkoutPage() {
   if (workoutQuery.isError || !workout) return <main className="page-wrap"><QueryError retry={() => void workoutQuery.refetch()}/></main>;
   if (workout.status === 'completed') return <CompletedWorkout workout={workout} unit={unit}/>;
 
-  const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetWorkoutQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId: workout.profileId }) }); };
+  const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetWorkoutStructureChangesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetWorkoutQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId: workout.profileId }) }); };
   const settle = async () => {
     setSettling(true);
     try {
@@ -80,11 +85,17 @@ export default function WorkoutPage() {
       setSettling(false);
     }
   };
-  const finishSession = async () => {
+  const finishSession = async (structureDecision?: 'today_only' | 'keep') => {
     setSaveError(null);
     try { await settle(); }
     catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save all set entries.'); return; }
-    finish.mutate({ sessionId: id }, { onSuccess: (result) => {
+    if (!structureDecision) {
+      try {
+        const ch = asChanges(await qc.fetchQuery({ queryKey: getGetWorkoutStructureChangesQueryKey(id), queryFn: () => getWorkoutStructureChanges(id), staleTime: 0 }));
+        if (ch.changes?.length) { setModal(null); setDecision(ch); return; }
+      } catch { setSaveError('Could not check structure changes. Try again.'); return; }
+    }
+    finish.mutate({ sessionId: id, ...(structureDecision ? { data: { structureDecision } } : {}) }, { onSuccess: (result) => {
       const sets = result.workout.exercises.filter((e) => !e.skipped).reduce((n, e) => n + e.sets.filter((s) => s.completed && s.setType === 'work' && !s.removed).length, 0);
       setSummary({ duration: Math.max(0, Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000)), sets, result });
       qc.setQueryData(getGetWorkoutQueryKey(id), result.workout);
@@ -93,7 +104,7 @@ export default function WorkoutPage() {
       void qc.invalidateQueries({ queryKey: getGetOverviewQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ queryKey: getListSplitsQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('/api/') && q.queryKey[0] !== getGetWorkoutQueryKey(id)[0] });
-      setModal(null);
+      setModal(null); setDecision(null);
     } });
   };
   const addWith = (exercise: Exercise) => {
@@ -107,6 +118,13 @@ export default function WorkoutPage() {
       setSwapChoice(null); setSwapTargetId(null);
     } });
   };
+  const recMap = new Map((changesQuery.data ? asChanges(changesQuery.data).recovery ?? [] : []).map((r) => [r.workoutExerciseId, r]));
+  const savedFb = new Set((changesQuery.data ? asChanges(changesQuery.data).feedback : []).map((f) => f.workoutExerciseId));
+  const feedbackFor = workout.status === 'active' && changesQuery.data ? workout.exercises.find((x) => {
+    if (x.skipped || x.superseded || savedFb.has(x.id) || skippedFb.includes(x.id)) return false;
+    const w = x.sets.filter((q) => !q.removed && q.setType === 'work');
+    return w.length > 0 && w.every((q) => q.completed);
+  }) ?? null : null;
   const busy = settling || finish.isPending || pending > 0;
   return <WorkoutDraftsContext.Provider value={draftRegistry}><main className="page-wrap enter">
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -122,7 +140,10 @@ export default function WorkoutPage() {
     <SessionContext workout={workout}/>
     {!workout.exercises.length ? <Empty title="Your session is ready" detail="Add an exercise from your library to start logging sets." action={<button className="btn btn-primary" onClick={() => setModal('add')}><Plus size={17}/> Add exercise</button>}/> : null}
     <div style={{ display: 'grid', gap: 13 }}>
-      {workout.exercises.map((exercise) => <ExerciseCard key={exercise.id} exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>)}
+      {workout.exercises.map((exercise, i, all) => recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
+        ? <RecoveryPrompt key={exercise.id} exercise={exercise} rec={recMap.get(exercise.id)} sessionId={id} onDone={invalidate} onChangeExercise={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
+        : <div key={exercise.id}><ExerciseCard exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
+          {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} first={i === 0} last={i === all.length - 1} onChanged={invalidate}/>}</div>)}
     </div>
     <button className="btn btn-secondary" style={{ width: '100%', marginTop: 14 }} onClick={() => setModal('add')} data-testid="button-add-exercise"><Plus size={18}/> Add exercise</button>
     <button className="btn btn-primary" data-testid="button-finish-workout" style={{ width: '100%', marginTop: 10, minHeight: 56 }} disabled={finish.isPending} onClick={() => setModal('finish')}><CheckCircle2 size={19}/> Finish workout</button>
@@ -138,11 +159,21 @@ export default function WorkoutPage() {
     {swapChoice && swapTarget && <Modal title="Replace exercise" close={() => { setSwapChoice(null); setSwapTargetId(null); }}>
       <p style={{ lineHeight: 1.5, marginTop: 0 }}>Replace <b>{swapTarget.exerciseName}</b> with <b>{swapChoice.name}</b>. Anything already logged stays in your history.</p>
       <div style={{ display: 'grid', gap: 8 }}>
-        <button className="btn btn-primary" disabled={substitute.isPending} onClick={() => doSwap(false)} data-testid="button-swap-once">This workout only</button>
-        {workout.splitDayId != null && <button className="btn btn-secondary" disabled={substitute.isPending} onClick={() => doSwap(true)} data-testid="button-swap-permanent">This workout and update the mesocycle</button>}
+        <button className="btn btn-primary" disabled={substitute.isPending} onClick={() => doSwap(false)} data-testid="button-swap-once">Replace in today's workout</button>
+        {workout.splitDayId != null && <p style={{ margin: 0, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>At Finish Workout, choose once whether to keep all changes for the rest of the mesocycle.</p>}
         <button className="btn btn-ghost" onClick={() => { setSwapChoice(null); setSwapTargetId(null); }}>Cancel</button>
       </div>
       {substitute.isError && <ErrorNote message="Could not replace the exercise."/>}
+    </Modal>}
+    {feedbackFor && <FeedbackSheet exercise={feedbackFor} sessionId={id} onDone={invalidate} onSkip={() => setSkippedFb((v) => [...v, feedbackFor.id])}/>}
+    {decision && <Modal title="Keep these changes?" close={() => setDecision(null)}>
+      <ul style={{ margin: '0 0 14px', paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }} data-testid="list-structure-changes">{decision.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <button className="btn btn-primary" disabled={busy} onClick={() => void finishSession('keep')} data-testid="button-structure-keep">Keep for rest of mesocycle</button>
+        <button className="btn btn-secondary" disabled={busy} onClick={() => void finishSession('today_only')} data-testid="button-structure-today">Today only</button>
+        <button className="btn btn-ghost" onClick={() => setDecision(null)}>Keep training</button>
+      </div>
+      {finish.isError && <ErrorNote message="Could not finish this workout. Your session is still saved as active."/>}
     </Modal>}
   </main></WorkoutDraftsContext.Provider>;
 }

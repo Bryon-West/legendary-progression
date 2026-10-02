@@ -1,3 +1,4 @@
+export * from "./legendary-v22";
 // Export your models here. Add one export per file
 // export * from "./posts";
 //

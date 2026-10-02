@@ -13,9 +13,10 @@ import {
   workoutSessionsTable,
   workoutSetsTable,
 } from "@workspace/db";
-import { adaptiveRepsForWeight } from "./progression";
+import { adaptiveRepsForWeight, getProfileLoadIncrement } from "./progression";
 import { primaryMuscleVolume } from "./volume";
 import { sequentialSetStates } from "./workout-core";
+import { equivalence } from "./legendary-v22-core";
 
 export async function getSplitTree(splitId: number) {
   const [split] = await db
@@ -49,13 +50,14 @@ export async function getSplitTree(splitId: number) {
     }
     resultDays.push({ ...day, exercises });
   }
-  const elapsed = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(`${split.startDate}T00:00:00Z`).getTime()) / 604800000),
-  );
+  const weeks = await db.select().from(mesocycleWeeksTable).where(eq(mesocycleWeeksTable.splitId, split.id)).orderBy(asc(mesocycleWeeksTable.weekIndex));
+  const history = await db.select({ id: workoutSessionsTable.id }).from(workoutSessionsTable).where(eq(workoutSessionsTable.splitId, split.id)).limit(1);
   return {
     ...split,
-    currentWeek: Math.min(split.cycleLengthWeeks, elapsed + 1),
+    pausedAt: split.pausedAt?.toISOString() ?? null,
+    endedAt: split.endedAt?.toISOString() ?? null,
+    currentWeek: weeks.find(w => w.status === "in_progress")?.weekIndex ?? weeks.find(w => w.status === "future")?.weekIndex ?? weeks.at(-1)?.weekIndex ?? 1,
+    hasWorkoutHistory: history.length > 0,
     days: resultDays,
   };
 }
@@ -81,6 +83,7 @@ export async function getWorkoutTree(
     : rows.filter((row) => !row.superseded);
 
   const exercises = [];
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, session.profileId)).limit(1);
   for (const row of selectedRows) {
     const sets = await db
       .select()
@@ -90,20 +93,23 @@ export async function getWorkoutTree(
     const workflow = sequentialSetStates(sets);
     exercises.push({
       ...row,
+      loadIncrement: await getProfileLoadIncrement(session.profileId, row.exerciseId, profile?.weightUnit ?? "kg"),
       baselineStatus: row.baselineStatus ?? "no_baseline",
       sets: sets.map((set) => ({
         ...set,
         workflowState: workflow.get(set.id) ?? "unlocked",
         adaptiveWarning: set.setType === "work" && !set.completed && !row.calibrationMode &&
           set.actualWeight !== null && set.referenceTargetRepsMin !== null && set.referenceTargetRepsMax !== null
-          ? adaptiveRepsForWeight(
+          ? (set.referenceTargetRepsMin === 6 && set.referenceTargetRepsMax === 30 && set.referenceTargetWeight !== null && set.referenceTargetReps !== null
+            ? equivalence(set.actualWeight, { weight: set.referenceTargetWeight, reps: set.referenceTargetReps, rir: set.referenceTargetRir ?? row.targetRir }, row.targetRir).warning
+            : adaptiveRepsForWeight(
               set.actualWeight,
               set.referenceTargetWeight,
               set.referenceTargetReps ?? set.referenceTargetRepsMin,
               set.referenceTargetRepsMin,
               set.referenceTargetRepsMax,
               set.referenceTargetRir ?? row.targetRir,
-            ).warning ?? set.targetExplanation
+            ).warning) ?? set.targetExplanation
           : null,
       })),
     });
@@ -280,6 +286,7 @@ export async function getNextWorkout(profileId: number) {
     .from(trainingSplitsTable)
     .where(and(
       eq(trainingSplitsTable.profileId, profileId),
+      sql`${trainingSplitsTable.lifecycleStatus} IN ('active','planned')`,
       sql`(
         NOT EXISTS (SELECT 1 FROM mesocycle_weeks mw WHERE mw.split_id = ${trainingSplitsTable.id})
         OR EXISTS (
@@ -292,7 +299,7 @@ export async function getNextWorkout(profileId: number) {
         )
       )`,
     ))
-    .orderBy(asc(trainingSplitsTable.createdAt), asc(trainingSplitsTable.id))
+    .orderBy(sql`CASE WHEN ${trainingSplitsTable.lifecycleStatus}='active' THEN 0 ELSE 1 END`, asc(trainingSplitsTable.createdAt), asc(trainingSplitsTable.id))
     .limit(1);
   if (!split) return null;
 

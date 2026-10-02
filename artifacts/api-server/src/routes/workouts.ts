@@ -11,6 +11,7 @@ import {
   CompleteWorkoutSetParams,
   CompleteWorkoutSetResponse,
   FinishWorkoutResponse,
+  FinishWorkoutBody,
   FinishWorkoutParams,
   GetActiveWorkoutQueryParams,
   GetActiveWorkoutResponse,
@@ -61,6 +62,10 @@ import {
 } from "../lib/progression";
 import { primaryMuscleVolume } from "../lib/volume";
 import { getExerciseBaseline, updateBaselinesFromCompletedSession } from "../lib/baseline";
+import { getPrescription, initializeV22Session, generateNextOccurrence, type Prescription } from "../lib/legendary-prescriptions";
+import { activateMesocycle } from "../lib/legendary-lifecycle";
+import { applyAcceptedStructure, structuralState } from "../lib/legendary-structure";
+import { equivalence, performanceStatus, prescribe } from "../lib/legendary-v22-core";
 import {
   canEditSet,
   calibrationTargets,
@@ -78,7 +83,15 @@ function assessSet(input: {
   rir: number;
   actualWeight: number;
   reference: SetTargetReference;
+  prescribedRir?: number;
 }) {
+  if (input.reference.repsMin === 6 && input.reference.repsMax === 30) {
+    const result = performanceStatus({ weight: input.actualWeight, reps: input.reps, rir: input.rir },
+      input.reference.weight !== null && input.reference.reps !== null
+        ? { weight: input.reference.weight, reps: input.reference.reps, rir: input.reference.rir } : null,
+      input.prescribedRir ?? input.reference.rir);
+    return result.status ? { status: result.status, explanation: result.explanation! } : null;
+  }
   const status = classifySetAtReference({
     actualWeight: input.actualWeight,
     actualReps: input.reps,
@@ -106,7 +119,7 @@ async function recalculatePendingSetTargets(
   const baseline: SetTargetReference = {
     weight: calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
     reps: calibrationMode ? null : exercise.recommendedReps ?? exercise.targetRepsMin,
-    rir: calibrationMode ? 3 : exercise.targetRir,
+    rir: exercise.targetRir,
     repsMin: calibrationMode ? null : exercise.targetRepsMin,
     repsMax: calibrationMode ? null : exercise.targetRepsMax,
   };
@@ -129,13 +142,41 @@ async function recalculatePendingSetTargets(
       repsMax: latest.referenceTargetRepsMax,
     },
   } : null;
-  const recommendation = recommendationAfterCompletedWork({
+  if (!calibrationMode && baseline.repsMin === 6 && baseline.repsMax === 30) {
+    const source = latest ?? rows.find((r: typeof workoutSetsTable.$inferSelect) => r.setType === "work" && !r.removed);
+    const reference = latest && latest.actualWeight !== null && latest.actualReps !== null && latest.actualRir !== null
+      ? { weight: latest.actualWeight, reps: latest.actualReps, rir: latest.actualRir, prescribedRir: exercise.targetRir }
+      : source?.referenceTargetWeight != null && source?.referenceTargetReps != null
+        ? { weight: source.referenceTargetWeight, reps: source.referenceTargetReps, rir: source.referenceTargetRir ?? exercise.targetRir } : null;
+    const held = reference && latest ? prescribe(reference, exercise.targetRir, options.loadIncrement, exercise.isCompound, true) : null;
+    for (const row of rows.filter((r: typeof workoutSetsTable.$inferSelect) => r.setType === "work" && !r.completed && !r.removed)) {
+      const userOverride = row.targetWeight !== exercise.recommendedWeight ? row.targetWeight : null;
+      const selectedWeight = row.actualWeight ?? userOverride ?? held?.weight ?? row.adaptiveTargetWeight ?? row.targetWeight;
+      const estimate = reference && selectedWeight !== null ? equivalence(selectedWeight, reference, exercise.targetRir) : null;
+      await tx.update(workoutSetsTable).set({
+        referenceTargetWeight: reference?.weight ?? null, referenceTargetReps: reference?.reps ?? null,
+        referenceTargetRir: reference?.rir ?? exercise.targetRir, referenceTargetRepsMin: 6, referenceTargetRepsMax: 30,
+        targetRepsMin: 6, targetRepsMax: 30, targetWeight: selectedWeight, adaptiveTargetWeight: selectedWeight,
+        adaptiveTargetReps: estimate?.expected == null ? null : Math.max(6, Math.min(30, Math.round(estimate.expected))),
+        adaptiveTargetRir: exercise.targetRir, targetStatus: null, targetExplanation: estimate?.warning ?? null,
+        algorithmVersion: PROGRESSION_ALGORITHM_VERSION,
+      }).where(eq(workoutSetsTable.id, row.id));
+    }
+    return;
+  }
+  let recommendation = recommendationAfterCompletedWork({
     calibrationMode,
     allowIncrease: options.allowIncrease,
     baseline,
     anchor,
     loadIncrement: options.loadIncrement,
   });
+  if (!calibrationMode && baseline.repsMin === 6 && baseline.repsMax === 30 && anchor &&
+    anchor.actualWeight !== null && anchor.actualReps !== null && anchor.actualRir !== null) {
+    const next = prescribe({ weight: anchor.actualWeight, reps: anchor.actualReps, rir: anchor.actualRir, prescribedRir: exercise.targetRir },
+      exercise.targetRir, options.loadIncrement, exercise.isCompound, true);
+    recommendation = { weight: next.weight, reps: next.reps, rir: exercise.targetRir, repsMin: 6, repsMax: 30 };
+  }
   const pending = rows.filter((row: typeof workoutSetsTable.$inferSelect) =>
     row.setType === "work" && !row.completed && !row.removed,
   );
@@ -209,7 +250,7 @@ async function addPlannedWorkingSets(exercise: {
     referenceTargetReps: exercise.calibrationMode
       ? null
       : exercise.recommendedReps ?? exercise.targetRepsMin,
-    referenceTargetRir: exercise.calibrationMode ? 3 : exercise.targetRir ?? 2,
+    referenceTargetRir: exercise.targetRir ?? 3,
     referenceTargetRepsMin: exercise.calibrationMode ? null : exercise.targetRepsMin,
     referenceTargetRepsMax: exercise.calibrationMode ? null : exercise.targetRepsMax,
     adaptiveTargetWeight: exercise.calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
@@ -411,9 +452,22 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
     (selectedWeek.status === "future" || selectedWeek.programSnapshot === null)
     ? await currentProgramSnapshot(split.id)
     : selectedWeek?.programSnapshot ?? null;
+  let v22Bundle: Prescription | null = null;
+  if (plannedWorkoutId !== null) {
+    try {
+      v22Bundle = await getPrescription(plannedWorkoutId);
+      if (v22Bundle.state === "load_not_calculated") {
+        res.status(409).json({ error: v22Bundle.message, ...v22Bundle }); return;
+      }
+      if (split && !["active", "planned"].includes(split.lifecycleStatus)) {
+        res.status(409).json({ error: "Resume this mesocycle before starting a workout." }); return;
+      }
+    } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Unable to prepare prescription" }); return; }
+  }
   let session: typeof workoutSessionsTable.$inferSelect;
   try {
     session = await db.transaction(async (tx) => {
+      if (split && v22Bundle) await activateMesocycle(split.id, tx);
       if (selectedWeek && split && frozenSnapshot) {
         await tx.update(mesocycleWeeksTable).set({
           ...(selectedWeek.status === "future" ? { status: "in_progress" as const } : {}),
@@ -444,6 +498,7 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
           targetRirSnapshot: weekTargetRir,
           recoveryMode: weekKind === "deload" ? "deload" : null,
         }).returning();
+      if (v22Bundle) await initializeV22Session(created.id, v22Bundle, tx);
       return created;
     });
   } catch (error) {
@@ -458,7 +513,7 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
     })));
   }
 
-  if (day) {
+  if (day && !v22Bundle) {
     const snapshot = frozenSnapshot as {
       days?: Array<{
         dayIndex: number;
@@ -645,15 +700,13 @@ router.post(
     }
     const baseline = await getExerciseBaseline(session.profileId, exercise.id);
     const calibrationMode = baseline.status !== "active";
-    const targetRir = calibrationMode ? 3 : week?.kind === "deload"
-      ? profile.deloadRir
-      : week?.targetRir ?? 2;
+    const targetRir = week?.targetRir ?? session.targetRirSnapshot ?? 3;
     const recommendation = calibrationMode ? {
       recommendedWeight: null,
       recommendedReps: null,
       targetSets: body.data.targetSets,
       outcome: "maintain" as const,
-      rationale: "First working exposure is calibration; choose a load near 3 RIR.",
+      rationale: `First working exposure is calibration; choose a load near ${targetRir} RIR.`,
     } : await recommendationForExercise(
       session.profileId,
       exercise.id,
@@ -665,8 +718,8 @@ router.post(
         targetSets: body.data.targetSets,
         minimumWorkingSets: body.data.minimumWorkingSets ?? 1,
         maximumWorkingSets: body.data.maximumWorkingSets ?? 5,
-        targetRepsMin: body.data.targetRepsMin ?? 8,
-        targetRepsMax: body.data.targetRepsMax ?? 12,
+        targetRepsMin: 6,
+        targetRepsMax: 30,
         targetRir,
         targetWeight: body.data.targetWeight ?? null,
       },
@@ -686,15 +739,15 @@ router.post(
         category: exercise.category,
         isCompound: exercise.isCompound,
         targetRir,
-        targetRepsMin: calibrationMode ? null : body.data.targetRepsMin ?? 8,
-        targetRepsMax: calibrationMode ? null : body.data.targetRepsMax ?? 12,
+        targetRepsMin: calibrationMode ? null : 6,
+        targetRepsMax: calibrationMode ? null : 30,
         targetWeight: calibrationMode ? null : body.data.targetWeight ?? null,
         recommendedWeight: recommendation.recommendedWeight,
         recommendedReps: recommendation.recommendedReps,
         recommendationOutcome: "maintain",
         recommendationRationale: recommendation.rationale,
         calibrationMode,
-        calibrationRir: calibrationMode ? 3 : null,
+        calibrationRir: calibrationMode ? targetRir : null,
         baselineStatus: baseline.status,
       })
       .returning();
@@ -794,7 +847,7 @@ router.patch(
             adaptiveTargetRir: updated.targetRir,
             referenceTargetWeight: updated.calibrationMode ? null : safeRecommendation.recommendedWeight,
             referenceTargetReps: updated.calibrationMode ? null : safeRecommendation.recommendedReps,
-            referenceTargetRir: updated.calibrationMode ? 3 : updated.targetRir,
+            referenceTargetRir: updated.targetRir,
             referenceTargetRepsMin: updated.calibrationMode ? null : updated.targetRepsMin,
             referenceTargetRepsMax: updated.calibrationMode ? null : updated.targetRepsMax,
             algorithmVersion: updated.calibrationMode ? null : PROGRESSION_ALGORITHM_VERSION,
@@ -861,14 +914,14 @@ router.patch(
       res.status(404).json({ error: "Profile not found" });
       return;
     }
-    const targetRir = calibrationMode ? 3 : current.targetRir;
+    const targetRir = session.targetRirSnapshot ?? current.targetRir;
     const replacementRecommendation = calibrationMode
       ? {
           recommendedWeight: null,
           recommendedReps: null,
           targetSets: current.targetSets,
           outcome: "maintain" as const,
-          rationale: "This substituted movement has no active baseline; calibrate the load at approximately 3 RIR.",
+          rationale: `This substituted movement has no active baseline; calibrate the load at approximately ${targetRir} RIR.`,
         }
       : await recommendationForExercise(
           session.profileId,
@@ -881,8 +934,8 @@ router.patch(
             targetSets: current.targetSets,
             minimumWorkingSets: current.minimumWorkingSets,
             maximumWorkingSets: current.maximumWorkingSets,
-            targetRepsMin: current.targetRepsMin ?? 8,
-            targetRepsMax: current.targetRepsMax ?? 12,
+            targetRepsMin: 6,
+            targetRepsMax: 30,
             targetRir,
             targetWeight: null,
           },
@@ -936,7 +989,7 @@ router.patch(
           recommendationOutcome: replacementOutcome,
           recommendationRationale: replacementRationale,
           calibrationMode,
-          calibrationRir: calibrationMode ? 3 : null,
+          calibrationRir: calibrationMode ? targetRir : null,
           baselineStatus: baseline.status,
           substitutedFromExerciseId: current.exerciseId,
         })
@@ -960,7 +1013,7 @@ router.patch(
           recommendationOutcome: replacementOutcome,
           recommendationRationale: replacementRationale,
           calibrationMode,
-          calibrationRir: calibrationMode ? 3 : null,
+          calibrationRir: calibrationMode ? targetRir : null,
           baselineStatus: baseline.status,
           painReported: false,
           painNote: null,
@@ -994,25 +1047,7 @@ router.patch(
           eq(workoutSetsTable.removed, false),
         ));
     }
-    if (body.data.updateMesocycle && session.splitDayId !== null) {
-      await db.update(splitDayExercisesTable)
-        .set({ exerciseId: exercise.id, targetWeight: replacementTargetWeight })
-        .where(and(
-          eq(splitDayExercisesTable.dayId, session.splitDayId),
-          eq(splitDayExercisesTable.exerciseId, current.exerciseId),
-        ));
-      if (session.splitId !== null) {
-        const futureWeeks = await db.select({ id: mesocycleWeeksTable.id })
-          .from(mesocycleWeeksTable)
-          .where(and(
-            eq(mesocycleWeeksTable.splitId, session.splitId),
-            eq(mesocycleWeeksTable.status, "future"),
-          ));
-        const snapshot = await currentProgramSnapshot(session.splitId);
-        for (const week of futureWeeks) await db.update(mesocycleWeeksTable)
-          .set({ programSnapshot: snapshot }).where(eq(mesocycleWeeksTable.id, week.id));
-      }
-    }
+    // Replacement belongs to today's structure until the single Finish decision.
     const workout = await getWorkoutTree(session.id);
     const result = workout?.exercises.find((item) => item.id === replacement.id);
     res.json(
@@ -1100,7 +1135,7 @@ router.post(
     const reference: SetTargetReference = {
       weight: row.calibrationMode ? null : row.recommendedWeight ?? row.targetWeight,
       reps: row.calibrationMode ? null : row.recommendedReps ?? row.targetRepsMin,
-      rir: row.calibrationMode ? 3 : row.targetRir,
+      rir: row.targetRir,
       repsMin: row.calibrationMode ? null : row.targetRepsMin,
       repsMax: row.calibrationMode ? null : row.targetRepsMax,
     };
@@ -1110,6 +1145,7 @@ router.post(
           rir: actualRir ?? row.targetRir,
           actualWeight: actualWeight ?? targetWeight ?? 0,
           reference,
+          prescribedRir: row.targetRir,
         })
       : null;
     const [created] = await db
@@ -1132,7 +1168,7 @@ router.post(
         completedAt: completed ? new Date() : null,
         adaptiveTargetWeight: calibration || body.data.setType === "warmup" ? null : actualWeight ?? targetWeight,
         adaptiveTargetReps: calibration || body.data.setType === "warmup" ? null : initialTarget.reps,
-        adaptiveTargetRir: calibration ? 3 : row.targetRir,
+        adaptiveTargetRir: row.targetRir,
         targetStatus: performance?.status ?? null,
         targetExplanation: performance?.explanation ?? (calibration || body.data.setType === "warmup"
           ? null
@@ -1240,6 +1276,7 @@ router.post(
               rir: body.data.actualRir,
               actualWeight: body.data.actualWeight,
               reference,
+              prescribedRir: current.exercise.targetRir,
             })
           : null;
         const [updated] = await tx.update(workoutSetsTable).set({
@@ -1253,7 +1290,7 @@ router.post(
             ? body.data.actualWeight
             : null,
           adaptiveTargetReps: adaptive.reps,
-          adaptiveTargetRir: reference.rir,
+          adaptiveTargetRir: current.exercise.targetRir,
           targetStatus: performance?.status ?? null,
           targetExplanation: performance?.explanation ?? null,
           algorithmVersion: performance ? PROGRESSION_ALGORITHM_VERSION : null,
@@ -1401,7 +1438,7 @@ router.patch(
         const performance = completed && current.set.setType === "work" &&
           !calibration && adaptive.reps !== null &&
           actualWeight !== null && actualReps !== null && actualRir !== null
-          ? assessSet({ reps: actualReps, rir: actualRir, actualWeight, reference })
+          ? assessSet({ reps: actualReps, rir: actualRir, actualWeight, reference, prescribedRir: current.exercise.targetRir })
           : null;
         const { editIntent: _editIntent, ...updates } = body.data;
         const [updated] = await tx.update(workoutSetsTable).set({
@@ -1412,7 +1449,7 @@ router.patch(
           targetWeight,
           adaptiveTargetWeight: calibration || current.set.setType !== "work" ? null : selectedWeight,
           adaptiveTargetReps: adaptive.reps,
-          adaptiveTargetRir: reference.rir,
+          adaptiveTargetRir: current.exercise.targetRir,
           targetStatus: performance?.status ?? null,
           targetExplanation: performance?.explanation ?? (completed ? null : adaptive.warning),
           algorithmVersion: performance ? PROGRESSION_ALGORITHM_VERSION : null,
@@ -1551,6 +1588,12 @@ router.post(
       res.status(404).json({ error: "Workout not found" });
       return;
     }
+    const finishBody = FinishWorkoutBody.safeParse(req.body ?? {});
+    if (!finishBody.success) { res.status(400).json({ error: finishBody.error.message }); return; }
+    const structural = await structuralState(session.id);
+    if (session.status === "active" && structural.changes.length && !finishBody.data.structureDecision) {
+      res.status(409).json({ error: "Confirm Today Only or Keep for Rest of Mesocycle.", changes: structural.changes }); return;
+    }
     try {
       await db.transaction(async (tx) => {
         const [locked] = await tx.select()
@@ -1559,6 +1602,7 @@ router.post(
           .for("update")
           .limit(1);
         if (!locked || locked.status !== "active") return;
+        await applyAcceptedStructure(session.id, finishBody.data.structureDecision ?? "today_only", tx);
         const rows = await tx.select({
           set: workoutSetsTable,
           exercise: workoutExercisesTable,
@@ -1633,6 +1677,7 @@ router.post(
       return;
     }
     await updateBaselinesFromCompletedSession(session.id);
+    await generateNextOccurrence(session.id);
     const workout = await getWorkoutTree(session.id, true);
     const summary = await getWorkoutSummary(session.id);
     if (!workout || !summary) {

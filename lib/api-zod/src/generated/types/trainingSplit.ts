@@ -8,6 +8,15 @@
 import type { SplitDay } from './splitDay';
 
 export interface TrainingSplit {
+  hasWorkoutHistory?: boolean;
+  lifecycleStatus?: string;
+  programmingVersion?: string;
+  /** @nullable */
+  pausedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  restartFromId?: number | null;
   id: number;
   profileId: number;
   name: string;

@@ -38,6 +38,7 @@ import {
   workoutSessionsTable,
 } from "@workspace/db";
 import { getExerciseBaseline } from "../lib/baseline";
+import { getPrescription, initializePrescriptions, invalidateFuturePrescriptions } from "../lib/legendary-prescriptions";
 import {
   adaptiveRepsForWeight,
   getProfileLoadIncrement,
@@ -201,6 +202,11 @@ async function getMesocycleTree(splitId: number) {
     weeks.find((week) => week.status === "future")?.weekIndex ?? 1;
   return {
     id: split.id,
+    lifecycleStatus: split.lifecycleStatus,
+    programmingVersion: split.programmingVersion,
+    pausedAt: split.pausedAt?.toISOString() ?? null,
+    endedAt: split.endedAt?.toISOString() ?? null,
+    restartFromId: split.restartFromId,
     profileId: split.profileId,
     name: split.name,
     nextDayIndex: split.nextDayIndex,
@@ -330,8 +336,8 @@ async function resolveTemplateLayouts() {
           targetSets,
           minimumWorkingSets: Math.max(1, targetSets - 1),
           maximumWorkingSets: Math.min(20, targetSets + 2),
-          targetRepsMin,
-          targetRepsMax,
+          targetRepsMin: 6,
+          targetRepsMax: 30,
           targetRir: 2,
           targetWeight: null,
         });
@@ -532,6 +538,7 @@ router.post("/mesocycles", async (req, res): Promise<void> => {
         name: draft.name.trim(),
         startDate: draft.startDate,
         cycleLengthWeeks,
+        programmingVersion: "legendary-v2.2",
       }).returning();
       const dayIds = new Map<number, number>();
       for (const day of draft.days) {
@@ -549,8 +556,8 @@ router.post("/mesocycles", async (req, res): Promise<void> => {
             targetSets: item.targetSets,
             minimumWorkingSets: item.minimumWorkingSets,
             maximumWorkingSets: item.maximumWorkingSets,
-            targetRepsMin: item.targetRepsMin,
-            targetRepsMax: item.targetRepsMax,
+            targetRepsMin: 6,
+            targetRepsMax: 30,
             targetRir: item.targetRir,
             targetWeight: item.targetWeight ?? null,
           });
@@ -590,6 +597,7 @@ router.post("/mesocycles", async (req, res): Promise<void> => {
       }
       return createdSplit;
     });
+    await initializePrescriptions(split.id);
     const tree = await getMesocycleTree(split.id);
     res.status(201).json(CreateMesocycleResponse.parse(tree));
   } catch (error) {
@@ -724,10 +732,11 @@ router.put("/splits/:splitId", async (req, res): Promise<void> => {
             exerciseId: exercise.exerciseId,
             orderIndex: exercise.orderIndex,
             targetSets: exercise.targetSets,
+            anchorWeek: previous.find(p => p.id === exercise.id)?.anchorWeek ?? 1,
             minimumWorkingSets: exercise.minimumWorkingSets,
             maximumWorkingSets: exercise.maximumWorkingSets,
-            targetRepsMin: exercise.targetRepsMin,
-            targetRepsMax: exercise.targetRepsMax,
+            targetRepsMin: 6,
+            targetRepsMax: 30,
             targetRir: exercise.targetRir,
             targetWeight: exercise.targetWeight ?? null,
           };
@@ -872,6 +881,8 @@ router.put("/splits/:splitId", async (req, res): Promise<void> => {
         }
       }
     });
+    await invalidateFuturePrescriptions(splitId);
+    await initializePrescriptions(splitId);
     const tree = await getMesocycleTree(splitId);
     res.json(SaveMesocycleResponse.parse(tree));
   } catch (error) {
@@ -973,88 +984,19 @@ router.get("/mesocycles/calendar", async (req, res): Promise<void> => {
   const rangeEnd = query.data.to ?? "9999-12-31";
   const result = [];
   for (const week of tree?.weeks ?? []) {
-    const fixedRange = fixedWeekRange(split.startDate, week.weekIndex);
+    const fixedRange = week.scheduleStartDate ? fixedWeekRange(week.scheduleStartDate, 1) : fixedWeekRange(split.startDate, week.weekIndex);
     if (fixedRange.endDate < rangeStart || fixedRange.startDate > rangeEnd) continue;
     const workouts = [];
     for (const occurrence of week.scheduledWorkouts) {
-      const projectedExercises = [];
-      const day = tree?.days.find((item) => item.id === occurrence.splitDayId);
-      for (const prescription of day?.exercises ?? []) {
-        const baseline = await getExerciseBaseline(split.profileId, prescription.exerciseId);
-        const validBaseline = baseline.status === "active";
-        const exercise = prescription.exercise;
-        let targetSets = prescription.targetSets;
-        let targetWeight: number | null = null;
-        let targetRepsMin: number | null = null;
-        let targetRepsMax: number | null = null;
-        let recommendationExplanation: string | null = null;
-        let calibrationMode = !validBaseline;
-        let calibrationRir: 3 | null = calibrationMode ? 3 : null;
-        if (week.kind === "deload") {
-          targetSets = Math.max(1, Math.round(targetSets * (profileSettings?.deloadSetFraction ?? 0.5)));
-        }
-        let targetRir = week.kind === "deload"
-          ? profileSettings?.deloadRir ?? 4
-          : week.targetRir;
-        if (validBaseline) {
-          const increment = await getProfileLoadIncrement(
-            split.profileId,
-            exercise.id,
-            profileSettings?.weightUnit ?? "kg",
-          );
-          const recommendation = await recommendationForExercise(
-            split.profileId,
-            exercise.id,
-            {
-              category: exercise.category,
-              equipment: exercise.equipment,
-              isCompound: exercise.isCompound,
-              muscleGroup: exercise.muscleGroup,
-              targetSets,
-              minimumWorkingSets: prescription.minimumWorkingSets,
-              maximumWorkingSets: prescription.maximumWorkingSets,
-              targetRepsMin: prescription.targetRepsMin,
-              targetRepsMax: prescription.targetRepsMax,
-              targetRir,
-              targetWeight: prescription.targetWeight,
-            },
-            0,
-            false,
-            increment,
-          );
-          targetWeight = recommendation.recommendedWeight;
-          targetRepsMin = recommendation.recommendedReps;
-          targetRepsMax = recommendation.recommendedReps;
-          recommendationExplanation = recommendation.rationale;
-          calibrationMode = false;
-          calibrationRir = null;
-        }
-        if (week.kind === "deload" && targetWeight !== null) {
-          targetWeight *= profileSettings?.deloadLoadFraction ?? 0.9;
-          if (profileSettings?.weightUnit === "lb") {
-            targetWeight = Math.round(targetWeight / (exercise.loadIncrementLb ?? profileSettings.loadIncrementLb)) *
-              (exercise.loadIncrementLb ?? profileSettings.loadIncrementLb);
-          } else {
-            targetWeight = Math.round(targetWeight / (exercise.loadIncrementKg ?? profileSettings?.loadIncrementKg ?? 2.5)) *
-              (exercise.loadIncrementKg ?? profileSettings?.loadIncrementKg ?? 2.5);
-          }
-        }
-        if (profileSettings?.weightUnit === "lb" && targetWeight !== null) targetWeight /= 2.2046226218;
-        projectedExercises.push({
-          exerciseId: exercise.id,
-          exerciseName: exercise.name,
-          targetSets,
-          targetRepsMin,
-          targetRepsMax,
-          targetWeight,
-          targetRir,
-          baselineStatus: baseline.status,
-          calibrationMode,
-          calibrationRir,
-          calibrationInstruction: calibrationMode ? CALIBRATION_INSTRUCTION : null,
-          recommendationExplanation,
-        });
-      }
+      const bundle = await getPrescription(occurrence.id);
+      const projectedExercises = bundle.exercises.map(e => ({
+        exerciseId: e.exerciseId, exerciseName: e.exerciseName, targetSets: e.targetSets,
+        targetRepsMin: e.sets[0]?.expectedReps ?? null, targetRepsMax: e.sets[0]?.expectedReps ?? null,
+        targetWeight: e.sets[0]?.weight ?? null, targetRir: week.targetRir, baselineStatus: e.baselineStatus,
+        calibrationMode: e.calibrationMode, calibrationRir: e.calibrationMode ? week.targetRir : null,
+        calibrationInstruction: e.calibrationMode ? `Choose a load and stop near ${week.targetRir} RIR.` : null,
+        recommendationExplanation: e.rationale,
+      }));
       const relativeState = occurrence.scheduledDate < new Date().toISOString().slice(0, 10)
         ? "past"
         : occurrence.scheduledDate === new Date().toISOString().slice(0, 10) ? "today" : "future";
@@ -1117,7 +1059,7 @@ router.patch("/planned-workouts/:plannedWorkoutId/reschedule", async (req, res):
     res.status(404).json({ error: "Planned workout not found" });
     return;
   }
-  const range = fixedWeekRange(current.split.startDate, current.week.weekIndex);
+  const range = current.week.scheduleStartDate ? fixedWeekRange(current.week.scheduleStartDate, 1) : fixedWeekRange(current.split.startDate, current.week.weekIndex);
   if (current.week.status !== "future" || current.occurrence.status !== "scheduled" ||
     !isDateInsideWeek(body.data.scheduledDate, range.startDate, range.endDate)) {
     res.status(409).json({ error: "Only future-week workouts may move and dates must remain within the fixed week" });

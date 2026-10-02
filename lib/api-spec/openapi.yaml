@@ -19,6 +19,156 @@ tags:
   - name: mesocycles
     description: Mesocycle planning, templates, weeks, and calendar
 paths:
+  /mesocycles/{splitId}/delete-unstarted:
+    delete:
+      operationId: deleteUnstartedMesocycle
+      tags: [mesocycles]
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Unstarted mesocycle removed }
+  /planned-workouts/{plannedId}/prescription:
+    get:
+      operationId: getPlannedPrescription
+      tags: [mesocycles]
+      parameters:
+        - { name: plannedId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Persisted next-exposure prescription or explicit uncalculated state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /mesocycles/{splitId}/lifecycle:
+    post:
+      operationId: transitionMesocycle
+      tags: [mesocycles]
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LifecycleInput" }
+      responses:
+        "200":
+          description: Lifecycle state and optional new instance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /mesocycles/{splitId}/weeks:
+    post:
+      operationId: addLoadingWeek
+      tags: [mesocycles]
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddWeekInput" }
+      responses:
+        "200":
+          description: Updated weeks
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /mesocycles/{splitId}/loading-week:
+    delete:
+      operationId: removeFinalLoadingWeek
+      tags: [mesocycles]
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Final unstarted loading week removed, recovery remains anchored
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /workouts/{sessionId}/structure-changes:
+    get:
+      operationId: getWorkoutStructureChanges
+      tags: [workouts]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Structural changes, feedback and recovery context
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /workouts/{sessionId}/exercises/{workoutExerciseId}/recovery:
+    post:
+      operationId: adjustExerciseRecovery
+      tags: [workouts]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+        - { name: workoutExerciseId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoveryChoiceInput" }
+      responses:
+        "200":
+          description: Today-only recovery choice saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkoutSession" }
+  /workouts/{sessionId}/exercises/{workoutExerciseId}/post-feedback:
+    put:
+      operationId: saveExercisePostFeedback
+      tags: [workouts]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+        - { name: workoutExerciseId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PostFeedbackInput" }
+      responses:
+        "200":
+          description: Feedback saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/V22Document" }
+  /workouts/{sessionId}/exercises/{workoutExerciseId}/order:
+    patch:
+      operationId: reorderWorkoutExercise
+      tags: [workouts]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+        - { name: workoutExerciseId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderInput" }
+      responses:
+        "200":
+          description: Exercise order saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkoutSession" }
+  /workouts/{sessionId}/exercises/{workoutExerciseId}/remove:
+    post:
+      operationId: removeWorkoutExercise
+      tags: [workouts]
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+        - { name: workoutExerciseId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RemoveExerciseInput" }
+      responses:
+        "200":
+          description: Exercise archived, performed sets remain in history
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkoutSession" }
   /healthz:
     get:
       operationId: healthCheck
@@ -814,6 +964,11 @@ paths:
       operationId: finishWorkout
       tags: [workouts]
       summary: Complete a workout, calculate its volume, and advance the split
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinishStructureInput" }
       parameters:
         - name: sessionId
           in: path
@@ -829,6 +984,50 @@ paths:
                 $ref: "#/components/schemas/FinishWorkoutResult"
 components:
   schemas:
+    V22Document:
+      type: object
+      additionalProperties: true
+    LifecycleInput:
+      type: object
+      required: [profileId, action]
+      properties:
+        profileId: { type: integer }
+        action: { type: string, enum: [activate, pause, resume, end_early, restart] }
+        recalibrateAll: { type: boolean }
+        startDate: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+    AddWeekInput:
+      type: object
+      required: [profileId, targetRir]
+      properties:
+        profileId: { type: integer }
+        targetRir: { type: number, minimum: 0, maximum: 10 }
+    RecoveryChoiceInput:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [train_as_planned, reduce_load, reduce_sets, reduce_both, skip_today] }
+        persistentChoice: { type: string, enum: [reduce_working_sets, keep_current_volume, no_change] }
+    PostFeedbackInput:
+      type: object
+      required: [pump, fatigue, discomfort]
+      properties:
+        pump: { type: string, enum: [none, low, good, great] }
+        fatigue: { type: string, enum: [low, moderate, high, too_much] }
+        discomfort: { type: string, enum: [none, mild, moderate, significant] }
+    ReorderInput:
+      type: object
+      required: [direction]
+      properties:
+        direction: { type: string, enum: [up, down] }
+    RemoveExerciseInput:
+      type: object
+      required: [scope]
+      properties:
+        scope: { type: string, enum: [today_only, mesocycle] }
+    FinishStructureInput:
+      type: object
+      properties:
+        structureDecision: { type: string, enum: [today_only, keep] }
     HealthStatus:
       type: object
       properties:
@@ -956,6 +1155,12 @@ components:
       type: object
       required: [id, profileId, name, nextDayIndex, startDate, cycleLengthWeeks, currentWeek, days]
       properties:
+        hasWorkoutHistory: { type: boolean }
+        lifecycleStatus: { type: string }
+        programmingVersion: { type: string }
+        pausedAt: { type: ["string", "null"] }
+        endedAt: { type: ["string", "null"] }
+        restartFromId: { type: ["integer", "null"] }
         id: { type: integer }
         profileId: { type: integer }
         name: { type: string }
@@ -1017,6 +1222,9 @@ components:
       type: object
       required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, completed, removed, adaptiveTargetWeight, adaptiveTargetReps, adaptiveTargetRir, adaptiveWarning, targetStatus, targetExplanation, algorithmVersion, completedAt, workflowState]
       properties:
+        referenceTargetWeight: { type: ["number", "null"] }
+        referenceTargetReps: { type: ["integer", "null"] }
+        referenceTargetRir: { type: ["number", "null"] }
         id: { type: integer }
         workoutExerciseId: { type: integer }
         setNumber: { type: integer }
@@ -1043,6 +1251,9 @@ components:
       type: object
       required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, orderIndex, superseded, skipped, painReported, painNote, category, isCompound, recommendedWeight, recommendedReps, recommendationOutcome, recommendationRationale, substitutedFromExerciseId, calibrationMode, calibrationRir, baselineStatus, sets]
       properties:
+        loadIncrement: { type: number }
+        recoveryAdjustment: { type: ["string", "null"] }
+        normalSetCount: { type: ["integer", "null"] }
         id: { type: integer }
         sessionId: { type: integer }
         exerciseId: { type: integer }
@@ -1068,7 +1279,7 @@ components:
         recommendationRationale: { type: ["string", "null"] }
         substitutedFromExerciseId: { type: ["integer", "null"] }
         calibrationMode: { type: boolean }
-        calibrationRir: { type: ["number", "null"], enum: [3, null], description: Calibration always prescribes approximately 3 RIR independent of week target. }
+        calibrationRir: { type: ["number", "null"], minimum: 0, maximum: 10, description: Calibration uses the configured week RIR. }
         baselineStatus: { type: ["string", "null"], enum: [no_baseline, active, expired, null] }
         sets:
           type: array
@@ -1380,6 +1591,12 @@ components:
       type: object
       required: [id, profileId, name, startDate, cycleLengthWeeks, days, weeks, sourceDescription]
       properties:
+        currentWeek: { type: integer }
+        lifecycleStatus: { type: string }
+        programmingVersion: { type: string }
+        pausedAt: { type: ["string", "null"] }
+        endedAt: { type: ["string", "null"] }
+        restartFromId: { type: ["integer", "null"] }
         id: { type: integer }
         profileId: { type: integer }
         name: { type: string }
@@ -1507,7 +1724,7 @@ components:
         targetRir: { type: number }
         baselineStatus: { type: string, enum: [no_baseline, active, expired] }
         calibrationMode: { type: boolean }
-        calibrationRir: { type: ["number", "null"], enum: [3, null] }
+        calibrationRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
         calibrationInstruction: { type: ["string", "null"] }
         recommendationExplanation: { type: ["string", "null"] }
     RescheduleWorkoutInput:

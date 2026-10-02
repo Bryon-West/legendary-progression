@@ -94,7 +94,7 @@ button { cursor: pointer; }
 @keyframes shimmer { to { background-position:-200% 0; } }
 .enter { animation: rise .35s both; }
 @keyframes rise { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-@media(min-width:768px) { .app-shell { padding-bottom:0; } .page-wrap { padding:34px 28px 56px; } .bottom-nav { position:fixed; top:74px; bottom:auto; left:calc(50% - 360px); right:auto; width:720px; border:0; background:transparent; backdrop-filter:none; display:flex; justify-content:flex-end; gap:18px; padding:0 28px; } .nav-item { flex-direction:row; font-size:11px; } }
+@media(min-width:768px) { .app-shell { padding-bottom:0; } .topbar { min-height:112px; } .page-wrap { padding:34px 28px 56px; } .bottom-nav { position:fixed; top:74px; bottom:auto; left:calc(50% - 360px); right:auto; width:720px; border:0; background:transparent; backdrop-filter:none; display:flex; justify-content:flex-end; gap:18px; padding:0 28px; } .nav-item { flex-direction:row; font-size:11px; } }
 .btn:disabled { opacity:.45; cursor:not-allowed; }
 .btn:focus-visible, .set-input:focus-visible, a:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
 .btn-sm { min-height: 42px; font-size: 12px; padding: 0 10px; border-radius: 12px; }

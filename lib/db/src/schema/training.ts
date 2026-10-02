@@ -47,6 +47,7 @@ export const exercisesTable = pgTable(
       .default("strength"),
     instructions: text("instructions"),
     isCompound: boolean("is_compound").notNull().default(false),
+    progressionType: text("progression_type"),
     secondaryMuscles: text("secondary_muscles").array().notNull().default(sql`'{}'::text[]`),
     aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
     defaultRepMin: integer("default_rep_min").notNull().default(8),
@@ -69,6 +70,14 @@ export const trainingSplitsTable = pgTable("training_splits", {
     .notNull()
     .references(() => profilesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  lifecycleStatus: text("lifecycle_status").notNull().default("planned"),
+  pausedAt: timestamp("paused_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  restartFromId: integer("restart_from_id"),
+  recalibrateAll: boolean("recalibrate_all").notNull().default(false),
+  recalibrateSince: timestamp("recalibrate_since", { withTimezone: true }),
+  programAnchorWeek: integer("program_anchor_week").notNull().default(1),
+  programmingVersion: text("programming_version").notNull().default("legendary-v2.1"),
   nextDayIndex: integer("next_day_index").notNull().default(0),
   startDate: date("start_date", { mode: "string" })
     .notNull()
@@ -110,6 +119,7 @@ export const splitDayExercisesTable = pgTable(
       .references(() => exercisesTable.id, { onDelete: "restrict" }),
     orderIndex: integer("order_index").notNull().default(0),
     targetSets: integer("target_sets").notNull().default(3),
+    anchorWeek: integer("anchor_week").notNull().default(1),
     minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
     maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),
     targetRepsMin: integer("target_reps_min").notNull().default(8),
@@ -130,6 +140,7 @@ export const mesocycleWeeksTable = pgTable(
       .notNull()
       .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
     weekIndex: integer("week_index").notNull(),
+    scheduleStartDate: date("schedule_start_date", { mode: "string" }),
     kind: text("kind", { enum: ["loading", "deload", "week_off"] }).notNull(),
     targetRir: doublePrecision("target_rir").notNull(),
     status: text("status", { enum: ["future", "in_progress", "completed"] })
@@ -217,6 +228,8 @@ export const workoutSessionsTable = pgTable(
     }),
     targetRirSnapshot: doublePrecision("target_rir_snapshot"),
     recoveryMode: text("recovery_mode", { enum: ["deload", "week_off"] }),
+    structureSnapshot: jsonb("structure_snapshot").$type<Record<string, unknown>>(),
+    structureDecision: text("structure_decision"),
   },
   (table) => [
     index("workout_sessions_profile_started_idx").on(
@@ -250,6 +263,9 @@ export const workoutExercisesTable = pgTable(
     targetWeight: doublePrecision("target_weight"),
     orderIndex: integer("order_index").notNull().default(0),
     superseded: boolean("superseded").notNull().default(false),
+    recoveryAdjustment: text("recovery_adjustment"),
+    normalSetCount: integer("normal_set_count"),
+    recoveryPriorSkipped: boolean("recovery_prior_skipped"),
     skipped: boolean("skipped").notNull().default(false),
     painReported: boolean("pain_reported").notNull().default(false),
     painNote: text("pain_note"),

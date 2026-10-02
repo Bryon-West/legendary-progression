@@ -5,6 +5,133 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+export interface V22Document { [key: string]: unknown }
+
+export type LifecycleInputAction = typeof LifecycleInputAction[keyof typeof LifecycleInputAction];
+
+
+export const LifecycleInputAction = {
+  activate: 'activate',
+  pause: 'pause',
+  resume: 'resume',
+  end_early: 'end_early',
+  restart: 'restart',
+} as const;
+
+export interface LifecycleInput {
+  profileId: number;
+  action: LifecycleInputAction;
+  recalibrateAll?: boolean;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  startDate?: string;
+}
+
+export interface AddWeekInput {
+  profileId: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  targetRir: number;
+}
+
+export type RecoveryChoiceInputAction = typeof RecoveryChoiceInputAction[keyof typeof RecoveryChoiceInputAction];
+
+
+export const RecoveryChoiceInputAction = {
+  train_as_planned: 'train_as_planned',
+  reduce_load: 'reduce_load',
+  reduce_sets: 'reduce_sets',
+  reduce_both: 'reduce_both',
+  skip_today: 'skip_today',
+} as const;
+
+export type RecoveryChoiceInputPersistentChoice = typeof RecoveryChoiceInputPersistentChoice[keyof typeof RecoveryChoiceInputPersistentChoice];
+
+
+export const RecoveryChoiceInputPersistentChoice = {
+  reduce_working_sets: 'reduce_working_sets',
+  keep_current_volume: 'keep_current_volume',
+  no_change: 'no_change',
+} as const;
+
+export interface RecoveryChoiceInput {
+  action: RecoveryChoiceInputAction;
+  persistentChoice?: RecoveryChoiceInputPersistentChoice;
+}
+
+export type PostFeedbackInputPump = typeof PostFeedbackInputPump[keyof typeof PostFeedbackInputPump];
+
+
+export const PostFeedbackInputPump = {
+  none: 'none',
+  low: 'low',
+  good: 'good',
+  great: 'great',
+} as const;
+
+export type PostFeedbackInputFatigue = typeof PostFeedbackInputFatigue[keyof typeof PostFeedbackInputFatigue];
+
+
+export const PostFeedbackInputFatigue = {
+  low: 'low',
+  moderate: 'moderate',
+  high: 'high',
+  too_much: 'too_much',
+} as const;
+
+export type PostFeedbackInputDiscomfort = typeof PostFeedbackInputDiscomfort[keyof typeof PostFeedbackInputDiscomfort];
+
+
+export const PostFeedbackInputDiscomfort = {
+  none: 'none',
+  mild: 'mild',
+  moderate: 'moderate',
+  significant: 'significant',
+} as const;
+
+export interface PostFeedbackInput {
+  pump: PostFeedbackInputPump;
+  fatigue: PostFeedbackInputFatigue;
+  discomfort: PostFeedbackInputDiscomfort;
+}
+
+export type ReorderInputDirection = typeof ReorderInputDirection[keyof typeof ReorderInputDirection];
+
+
+export const ReorderInputDirection = {
+  up: 'up',
+  down: 'down',
+} as const;
+
+export interface ReorderInput {
+  direction: ReorderInputDirection;
+}
+
+export type RemoveExerciseInputScope = typeof RemoveExerciseInputScope[keyof typeof RemoveExerciseInputScope];
+
+
+export const RemoveExerciseInputScope = {
+  today_only: 'today_only',
+  mesocycle: 'mesocycle',
+} as const;
+
+export interface RemoveExerciseInput {
+  scope: RemoveExerciseInputScope;
+}
+
+export type FinishStructureInputStructureDecision = typeof FinishStructureInputStructureDecision[keyof typeof FinishStructureInputStructureDecision];
+
+
+export const FinishStructureInputStructureDecision = {
+  today_only: 'today_only',
+  keep: 'keep',
+} as const;
+
+export interface FinishStructureInput {
+  structureDecision?: FinishStructureInputStructureDecision;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -270,6 +397,15 @@ export interface SplitDayUpdate {
 }
 
 export interface TrainingSplit {
+  hasWorkoutHistory?: boolean;
+  lifecycleStatus?: string;
+  programmingVersion?: string;
+  /** @nullable */
+  pausedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  restartFromId?: number | null;
   id: number;
   profileId: number;
   name: string;
@@ -407,6 +543,12 @@ export const WorkoutSetWorkflowState = {
 } as const;
 
 export interface WorkoutSet {
+  /** @nullable */
+  referenceTargetWeight?: number | null;
+  /** @nullable */
+  referenceTargetReps?: number | null;
+  /** @nullable */
+  referenceTargetRir?: number | null;
   id: number;
   workoutExerciseId: number;
   setNumber: number;
@@ -472,17 +614,6 @@ export const WorkoutExerciseRecommendationOutcome = {
 } as const;
 
 /**
- * Calibration always prescribes approximately 3 RIR independent of week target.
- * @nullable
- */
-export type WorkoutExerciseCalibrationRir = typeof WorkoutExerciseCalibrationRir[keyof typeof WorkoutExerciseCalibrationRir] | null;
-
-
-export const WorkoutExerciseCalibrationRir = {
-  NUMBER_3: 3,
-} as const;
-
-/**
  * @nullable
  */
 export type WorkoutExerciseBaselineStatus = typeof WorkoutExerciseBaselineStatus[keyof typeof WorkoutExerciseBaselineStatus] | null;
@@ -495,6 +626,11 @@ export const WorkoutExerciseBaselineStatus = {
 } as const;
 
 export interface WorkoutExercise {
+  loadIncrement?: number;
+  /** @nullable */
+  recoveryAdjustment?: string | null;
+  /** @nullable */
+  normalSetCount?: number | null;
   id: number;
   sessionId: number;
   exerciseId: number;
@@ -530,10 +666,12 @@ export interface WorkoutExercise {
   substitutedFromExerciseId: number | null;
   calibrationMode: boolean;
   /**
-     * Calibration always prescribes approximately 3 RIR independent of week target.
+     * Calibration uses the configured week RIR.
+     * @minimum 0
+     * @maximum 10
      * @nullable
      */
-  calibrationRir: WorkoutExerciseCalibrationRir;
+  calibrationRir: number | null;
   /** @nullable */
   baselineStatus: WorkoutExerciseBaselineStatus;
   sets: WorkoutSet[];
@@ -1114,6 +1252,15 @@ export interface MesocycleWeek {
 }
 
 export interface Mesocycle {
+  currentWeek?: number;
+  lifecycleStatus?: string;
+  programmingVersion?: string;
+  /** @nullable */
+  pausedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  restartFromId?: number | null;
   id: number;
   profileId: number;
   name: string;
@@ -1238,16 +1385,6 @@ export const ProjectedExerciseBaselineStatus = {
   expired: 'expired',
 } as const;
 
-/**
- * @nullable
- */
-export type ProjectedExerciseCalibrationRir = typeof ProjectedExerciseCalibrationRir[keyof typeof ProjectedExerciseCalibrationRir] | null;
-
-
-export const ProjectedExerciseCalibrationRir = {
-  NUMBER_3: 3,
-} as const;
-
 export interface ProjectedExercise {
   exerciseId: number;
   exerciseName: string;
@@ -1264,8 +1401,12 @@ export interface ProjectedExercise {
   targetRir: number;
   baselineStatus: ProjectedExerciseBaselineStatus;
   calibrationMode: boolean;
-  /** @nullable */
-  calibrationRir: ProjectedExerciseCalibrationRir;
+  /**
+     * @minimum 0
+     * @maximum 10
+     * @nullable
+     */
+  calibrationRir: number | null;
   /** @nullable */
   calibrationInstruction: string | null;
   /** @nullable */

@@ -10,6 +10,15 @@ import type { MesocycleWeek } from './mesocycleWeek';
 import type { SplitDay } from './splitDay';
 
 export interface Mesocycle {
+  currentWeek?: number;
+  lifecycleStatus?: string;
+  programmingVersion?: string;
+  /** @nullable */
+  pausedAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  restartFromId?: number | null;
   id: number;
   profileId: number;
   name: string;

@@ -3,8 +3,16 @@ name: Progression scope
 description: User-requested boundary for recommendation features in the hypertrophy tracker.
 ---
 
-The V2.1 brief authorizes adaptive rep/load and working-set recommendations plus optional, user-configured Deload or Week Off recovery weeks. Maintaining is a successful result. Do not add aggressive automatic deload behavior or rewrite a program from one isolated readiness answer.
+The user explicitly requires “THIS IS AN UPDATE, NOT A REBUILD,” “Completed workout data is historical truth,” and “COMPLETED PERFORMANCE != FUTURE PRESCRIPTION.” Preserve existing users, exercise history, completed performance, mesocycles, and the Create Mesocycle layout.
 
-**Why:** the user's V2.1 request permits planned recovery weeks while retaining the V2 boundary against aggressive automatic deload algorithms.
+**Why:** the user's V2.2 specification explicitly overrides conflicting V2.1 behavior without authorizing replacement of the existing product or its data.
 
-**How to apply:** keep recovery weeks user-selected and configurable; preserve reproducible target snapshots and avoid treating one unusual performance or recovery answer as permission to rewrite the program.
+**How to apply:** keep historical performance independent of forecasts. Never apply future prescriptions or accepted structural changes to completed records. Calibration uses the configured week RIR, not a fixed 3 RIR.
+
+## Structural changes and recovery
+
+Let users modify today's structure without asking after each change whether it is permanent. Only the consolidated Finish Workout decision applies those changes to future uncompleted programming. This includes replacements made before any sets are completed.
+
+**Why:** V2.2 requires one decision for the whole session; “Today Only” must leave future structure unchanged even when a user removed or replaced an exercise.
+
+**How to apply:** stage edits in the active session. Temporary recovery adjustments must not overwrite normal strength baselines or masquerade as structural edits. A separately confirmed persistent recovery-volume choice must survive acceptance of other structural changes. Never infer permission for aggressive automatic deloads or permanent reductions from one readiness answer.

@@ -10,6 +10,12 @@ import type { WorkoutSetTargetStatus } from './workoutSetTargetStatus';
 import type { WorkoutSetWorkflowState } from './workoutSetWorkflowState';
 
 export interface WorkoutSet {
+  /** @nullable */
+  referenceTargetWeight?: number | null;
+  /** @nullable */
+  referenceTargetReps?: number | null;
+  /** @nullable */
+  referenceTargetRir?: number | null;
   id: number;
   workoutExerciseId: number;
   setNumber: number;

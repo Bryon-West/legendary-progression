@@ -9,7 +9,7 @@ import {
   workoutSetsTable,
 } from "@workspace/db";
 import {
-  adaptiveRepsForWeight,
+  adaptiveRepsForWeight as legacyAdaptiveReps,
   calculateProgression,
   snapToLoadIncrement,
   type Exposure,
@@ -17,9 +17,10 @@ import {
   type ProgressionRecommendation,
   type RecoveryObservation,
 } from "./progression-core";
+import { getExerciseBaseline } from "./baseline";
+import { equivalence, prescribe } from "./legendary-v22-core";
 
 export {
-  adaptiveRepsForWeight,
   calculateProgression,
   type Exposure,
   type ProgressionInput,
@@ -27,7 +28,13 @@ export {
   type RecoveryObservation,
 } from "./progression-core";
 
-export const PROGRESSION_ALGORITHM_VERSION = "legendary-v2.1";
+export const PROGRESSION_ALGORITHM_VERSION = "legendary-v2.2";
+export function adaptiveRepsForWeight(selectedWeight: number | null, baseWeight: number | null, baseReps: number, minReps: number, maxReps: number, targetRir = 2) {
+  if (minReps !== 6 || maxReps !== 30) return legacyAdaptiveReps(selectedWeight, baseWeight, baseReps, minReps, maxReps, targetRir);
+  if (selectedWeight === null || baseWeight === null) return { reps: null, warning: null };
+  const estimate = equivalence(selectedWeight, { weight: baseWeight, reps: baseReps, rir: targetRir }, targetRir);
+  return { reps: estimate.expected === null ? null : Math.max(6, Math.min(30, Math.round(estimate.expected))), warning: estimate.warning };
+}
 
 export async function getProfileLoadIncrement(profileId: number, exerciseId: number, weightUnit: "lb" | "kg") {
   const [[profile], [exercise]] = await Promise.all([
@@ -56,6 +63,7 @@ export async function getRecentExposures(profileId: number, exerciseId: number):
       isNull(workoutSessionsTable.recoveryMode),
       eq(workoutExercisesTable.exerciseId, exerciseId),
       eq(workoutExercisesTable.skipped, false),
+      sql`(${workoutExercisesTable.recoveryAdjustment} IS NULL OR ${workoutExercisesTable.recoveryAdjustment}='train_as_planned')`,
     ))
     .groupBy(workoutSessionsTable.id, workoutSessionsTable.startedAt)
     .orderBy(desc(workoutSessionsTable.startedAt), desc(workoutSessionsTable.id))
@@ -74,6 +82,7 @@ export async function getRecentExposures(profileId: number, exerciseId: number):
       .where(and(
         eq(workoutExercisesTable.sessionId, session.id),
         eq(workoutExercisesTable.exerciseId, exerciseId),
+        sql`(${workoutExercisesTable.recoveryAdjustment} IS NULL OR ${workoutExercisesTable.recoveryAdjustment}='train_as_planned')`,
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
         eq(workoutSetsTable.removed, false),
@@ -97,6 +106,18 @@ export async function recommendationForExercise(
   painReported = false,
   loadIncrement = 2.5,
 ): Promise<ProgressionRecommendation> {
+  if (exercise.targetRepsMin === 6 && exercise.targetRepsMax === 30) {
+    const baseline = await getExerciseBaseline(profileId, exerciseId);
+    const reference = baseline.status === "active" && baseline.lastWeight !== null && baseline.lastReps !== null && baseline.lastRir !== null
+      ? { weight: baseline.lastWeight, reps: baseline.lastReps, rir: baseline.lastRir, prescribedRir: baseline.lastRir } : null;
+    if (reference && baseline.sourceSessionId) {
+      const [source] = await db.select().from(workoutExercisesTable).where(and(eq(workoutExercisesTable.sessionId, baseline.sourceSessionId), eq(workoutExercisesTable.exerciseId, exerciseId))).limit(1);
+      reference.prescribedRir = source?.targetRir ?? reference.rir;
+    }
+    const result = prescribe(reference, exercise.targetRir, loadIncrement, !!exercise.isCompound);
+    return { recommendedWeight: result.weight, recommendedReps: result.reps,
+      targetSets: exercise.targetSets, outcome: "maintain", rationale: result.rationale };
+  }
   const exposures = await getRecentExposures(profileId, exerciseId);
   const recoveryHistoryRows = await db.select({
     sessionId: workoutSessionsTable.id,

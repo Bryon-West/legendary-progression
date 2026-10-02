@@ -8,6 +8,401 @@
 import * as zod from 'zod';
 
 
+export const DeleteUnstartedMesocycleParams = zod.object({
+  "splitId": zod.coerce.number().int()
+})
+
+export const DeleteUnstartedMesocycleResponse = zod.void()
+
+
+export const GetPlannedPrescriptionParams = zod.object({
+  "plannedId": zod.coerce.number().int()
+})
+
+export const GetPlannedPrescriptionResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const TransitionMesocycleParams = zod.object({
+  "splitId": zod.coerce.number().int()
+})
+
+export const transitionMesocycleBodyStartDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const TransitionMesocycleBody = zod.object({
+  "profileId": zod.number().int(),
+  "action": zod.enum(['activate', 'pause', 'resume', 'end_early', 'restart']),
+  "recalibrateAll": zod.boolean().optional(),
+  "startDate": zod.string().regex(transitionMesocycleBodyStartDateRegExp).optional()
+})
+
+export const TransitionMesocycleResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const AddLoadingWeekParams = zod.object({
+  "splitId": zod.coerce.number().int()
+})
+
+export const addLoadingWeekBodyTargetRirMin = 0;
+export const addLoadingWeekBodyTargetRirMax = 10;
+
+
+
+export const AddLoadingWeekBody = zod.object({
+  "profileId": zod.number().int(),
+  "targetRir": zod.number().min(addLoadingWeekBodyTargetRirMin).max(addLoadingWeekBodyTargetRirMax)
+})
+
+export const AddLoadingWeekResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const RemoveFinalLoadingWeekParams = zod.object({
+  "splitId": zod.coerce.number().int()
+})
+
+export const RemoveFinalLoadingWeekResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const GetWorkoutStructureChangesParams = zod.object({
+  "sessionId": zod.coerce.number().int()
+})
+
+export const GetWorkoutStructureChangesResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const AdjustExerciseRecoveryParams = zod.object({
+  "sessionId": zod.coerce.number().int(),
+  "workoutExerciseId": zod.coerce.number().int()
+})
+
+export const AdjustExerciseRecoveryBody = zod.object({
+  "action": zod.enum(['train_as_planned', 'reduce_load', 'reduce_sets', 'reduce_both', 'skip_today']),
+  "persistentChoice": zod.enum(['reduce_working_sets', 'keep_current_volume', 'no_change']).optional()
+})
+
+export const adjustExerciseRecoveryResponseMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const adjustExerciseRecoveryResponseMuscleRecoveryItemOneMuscleGroupMax = 60;
+
+export const adjustExerciseRecoveryResponseExercisesItemCalibrationRirMin = 0;
+export const adjustExerciseRecoveryResponseExercisesItemCalibrationRirMax = 10;
+
+
+
+export const AdjustExerciseRecoveryResponse = zod.object({
+  "id": zod.number().int(),
+  "profileId": zod.number().int(),
+  "splitId": zod.number().int().nullable(),
+  "splitDayId": zod.number().int().nullable(),
+  "splitName": zod.string().nullable(),
+  "dayName": zod.string().nullable(),
+  "status": zod.enum(['active', 'completed']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "totalVolume": zod.number(),
+  "readiness": zod.union([zod.literal('great'),zod.literal('normal'),zod.literal('below_normal'),zod.literal('poor'),zod.literal(null)]).nullable(),
+  "mesocycleStartDate": zod.string().regex(adjustExerciseRecoveryResponseMesocycleStartDateRegExp).nullable(),
+  "mesocycleWeek": zod.number().int().nullable(),
+  "weekId": zod.number().int().nullable(),
+  "plannedWorkoutId": zod.number().int().nullable(),
+  "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "targetRirSnapshot": zod.number().nullable(),
+  "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "muscleRecovery": zod.array(zod.object({
+  "muscleGroup": zod.string().min(1).max(adjustExerciseRecoveryResponseMuscleRecoveryItemOneMuscleGroupMax),
+  "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
+})),
+  "muscleTotals": zod.array(zod.object({
+  "muscleGroup": zod.string(),
+  "totalWeightLifted": zod.number()
+})),
+  "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
+  "id": zod.number().int(),
+  "sessionId": zod.number().int(),
+  "exerciseId": zod.number().int(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "targetRir": zod.number(),
+  "targetSets": zod.number().int(),
+  "minimumWorkingSets": zod.number().int(),
+  "maximumWorkingSets": zod.number().int(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "targetWeight": zod.number().nullish(),
+  "orderIndex": zod.number().int(),
+  "superseded": zod.boolean(),
+  "skipped": zod.boolean(),
+  "painReported": zod.boolean(),
+  "painNote": zod.string().nullable(),
+  "category": zod.enum(['strength', 'bodyweight', 'conditioning', 'mobility', 'other']),
+  "isCompound": zod.boolean(),
+  "recommendedWeight": zod.number().nullable(),
+  "recommendedReps": zod.number().int().nullable(),
+  "recommendationOutcome": zod.union([zod.literal('increase_load'),zod.literal('increase_reps'),zod.literal('increase_sets'),zod.literal('decrease_sets'),zod.literal('maintain'),zod.literal(null)]).nullable(),
+  "recommendationRationale": zod.string().nullable(),
+  "substitutedFromExerciseId": zod.number().int().nullable(),
+  "calibrationMode": zod.boolean(),
+  "calibrationRir": zod.number().min(adjustExerciseRecoveryResponseExercisesItemCalibrationRirMin).max(adjustExerciseRecoveryResponseExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
+  "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
+  "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
+  "id": zod.number().int(),
+  "workoutExerciseId": zod.number().int(),
+  "setNumber": zod.number().int(),
+  "setType": zod.enum(['work', 'warmup']),
+  "targetWeight": zod.number().nullable(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "actualWeight": zod.number().nullable(),
+  "actualReps": zod.number().int().nullable(),
+  "actualRir": zod.number().nullable(),
+  "removed": zod.boolean(),
+  "adaptiveTargetWeight": zod.number().nullable(),
+  "adaptiveTargetReps": zod.number().int().nullable(),
+  "adaptiveTargetRir": zod.number().nullable(),
+  "adaptiveWarning": zod.string().nullable(),
+  "targetStatus": zod.union([zod.literal('target_met'),zod.literal('above_target'),zod.literal('below_target'),zod.literal(null)]).nullable(),
+  "targetExplanation": zod.string().nullable(),
+  "algorithmVersion": zod.string().nullable(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullable(),
+  "notes": zod.string().nullish(),
+  "workflowState": zod.enum(['locked', 'active', 'unlocked'])
+}))
+}))
+})
+
+
+export const SaveExercisePostFeedbackParams = zod.object({
+  "sessionId": zod.coerce.number().int(),
+  "workoutExerciseId": zod.coerce.number().int()
+})
+
+export const SaveExercisePostFeedbackBody = zod.object({
+  "pump": zod.enum(['none', 'low', 'good', 'great']),
+  "fatigue": zod.enum(['low', 'moderate', 'high', 'too_much']),
+  "discomfort": zod.enum(['none', 'mild', 'moderate', 'significant'])
+})
+
+export const SaveExercisePostFeedbackResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const ReorderWorkoutExerciseParams = zod.object({
+  "sessionId": zod.coerce.number().int(),
+  "workoutExerciseId": zod.coerce.number().int()
+})
+
+export const ReorderWorkoutExerciseBody = zod.object({
+  "direction": zod.enum(['up', 'down'])
+})
+
+export const reorderWorkoutExerciseResponseMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const reorderWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax = 60;
+
+export const reorderWorkoutExerciseResponseExercisesItemCalibrationRirMin = 0;
+export const reorderWorkoutExerciseResponseExercisesItemCalibrationRirMax = 10;
+
+
+
+export const ReorderWorkoutExerciseResponse = zod.object({
+  "id": zod.number().int(),
+  "profileId": zod.number().int(),
+  "splitId": zod.number().int().nullable(),
+  "splitDayId": zod.number().int().nullable(),
+  "splitName": zod.string().nullable(),
+  "dayName": zod.string().nullable(),
+  "status": zod.enum(['active', 'completed']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "totalVolume": zod.number(),
+  "readiness": zod.union([zod.literal('great'),zod.literal('normal'),zod.literal('below_normal'),zod.literal('poor'),zod.literal(null)]).nullable(),
+  "mesocycleStartDate": zod.string().regex(reorderWorkoutExerciseResponseMesocycleStartDateRegExp).nullable(),
+  "mesocycleWeek": zod.number().int().nullable(),
+  "weekId": zod.number().int().nullable(),
+  "plannedWorkoutId": zod.number().int().nullable(),
+  "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "targetRirSnapshot": zod.number().nullable(),
+  "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "muscleRecovery": zod.array(zod.object({
+  "muscleGroup": zod.string().min(1).max(reorderWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax),
+  "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
+})),
+  "muscleTotals": zod.array(zod.object({
+  "muscleGroup": zod.string(),
+  "totalWeightLifted": zod.number()
+})),
+  "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
+  "id": zod.number().int(),
+  "sessionId": zod.number().int(),
+  "exerciseId": zod.number().int(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "targetRir": zod.number(),
+  "targetSets": zod.number().int(),
+  "minimumWorkingSets": zod.number().int(),
+  "maximumWorkingSets": zod.number().int(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "targetWeight": zod.number().nullish(),
+  "orderIndex": zod.number().int(),
+  "superseded": zod.boolean(),
+  "skipped": zod.boolean(),
+  "painReported": zod.boolean(),
+  "painNote": zod.string().nullable(),
+  "category": zod.enum(['strength', 'bodyweight', 'conditioning', 'mobility', 'other']),
+  "isCompound": zod.boolean(),
+  "recommendedWeight": zod.number().nullable(),
+  "recommendedReps": zod.number().int().nullable(),
+  "recommendationOutcome": zod.union([zod.literal('increase_load'),zod.literal('increase_reps'),zod.literal('increase_sets'),zod.literal('decrease_sets'),zod.literal('maintain'),zod.literal(null)]).nullable(),
+  "recommendationRationale": zod.string().nullable(),
+  "substitutedFromExerciseId": zod.number().int().nullable(),
+  "calibrationMode": zod.boolean(),
+  "calibrationRir": zod.number().min(reorderWorkoutExerciseResponseExercisesItemCalibrationRirMin).max(reorderWorkoutExerciseResponseExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
+  "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
+  "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
+  "id": zod.number().int(),
+  "workoutExerciseId": zod.number().int(),
+  "setNumber": zod.number().int(),
+  "setType": zod.enum(['work', 'warmup']),
+  "targetWeight": zod.number().nullable(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "actualWeight": zod.number().nullable(),
+  "actualReps": zod.number().int().nullable(),
+  "actualRir": zod.number().nullable(),
+  "removed": zod.boolean(),
+  "adaptiveTargetWeight": zod.number().nullable(),
+  "adaptiveTargetReps": zod.number().int().nullable(),
+  "adaptiveTargetRir": zod.number().nullable(),
+  "adaptiveWarning": zod.string().nullable(),
+  "targetStatus": zod.union([zod.literal('target_met'),zod.literal('above_target'),zod.literal('below_target'),zod.literal(null)]).nullable(),
+  "targetExplanation": zod.string().nullable(),
+  "algorithmVersion": zod.string().nullable(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullable(),
+  "notes": zod.string().nullish(),
+  "workflowState": zod.enum(['locked', 'active', 'unlocked'])
+}))
+}))
+})
+
+
+export const RemoveWorkoutExerciseParams = zod.object({
+  "sessionId": zod.coerce.number().int(),
+  "workoutExerciseId": zod.coerce.number().int()
+})
+
+export const RemoveWorkoutExerciseBody = zod.object({
+  "scope": zod.enum(['today_only', 'mesocycle'])
+})
+
+export const removeWorkoutExerciseResponseMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const removeWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax = 60;
+
+export const removeWorkoutExerciseResponseExercisesItemCalibrationRirMin = 0;
+export const removeWorkoutExerciseResponseExercisesItemCalibrationRirMax = 10;
+
+
+
+export const RemoveWorkoutExerciseResponse = zod.object({
+  "id": zod.number().int(),
+  "profileId": zod.number().int(),
+  "splitId": zod.number().int().nullable(),
+  "splitDayId": zod.number().int().nullable(),
+  "splitName": zod.string().nullable(),
+  "dayName": zod.string().nullable(),
+  "status": zod.enum(['active', 'completed']),
+  "startedAt": zod.coerce.date(),
+  "endedAt": zod.coerce.date().nullable(),
+  "totalVolume": zod.number(),
+  "readiness": zod.union([zod.literal('great'),zod.literal('normal'),zod.literal('below_normal'),zod.literal('poor'),zod.literal(null)]).nullable(),
+  "mesocycleStartDate": zod.string().regex(removeWorkoutExerciseResponseMesocycleStartDateRegExp).nullable(),
+  "mesocycleWeek": zod.number().int().nullable(),
+  "weekId": zod.number().int().nullable(),
+  "plannedWorkoutId": zod.number().int().nullable(),
+  "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "targetRirSnapshot": zod.number().nullable(),
+  "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "muscleRecovery": zod.array(zod.object({
+  "muscleGroup": zod.string().min(1).max(removeWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax),
+  "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
+})),
+  "muscleTotals": zod.array(zod.object({
+  "muscleGroup": zod.string(),
+  "totalWeightLifted": zod.number()
+})),
+  "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
+  "id": zod.number().int(),
+  "sessionId": zod.number().int(),
+  "exerciseId": zod.number().int(),
+  "exerciseName": zod.string(),
+  "muscleGroup": zod.string(),
+  "targetRir": zod.number(),
+  "targetSets": zod.number().int(),
+  "minimumWorkingSets": zod.number().int(),
+  "maximumWorkingSets": zod.number().int(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "targetWeight": zod.number().nullish(),
+  "orderIndex": zod.number().int(),
+  "superseded": zod.boolean(),
+  "skipped": zod.boolean(),
+  "painReported": zod.boolean(),
+  "painNote": zod.string().nullable(),
+  "category": zod.enum(['strength', 'bodyweight', 'conditioning', 'mobility', 'other']),
+  "isCompound": zod.boolean(),
+  "recommendedWeight": zod.number().nullable(),
+  "recommendedReps": zod.number().int().nullable(),
+  "recommendationOutcome": zod.union([zod.literal('increase_load'),zod.literal('increase_reps'),zod.literal('increase_sets'),zod.literal('decrease_sets'),zod.literal('maintain'),zod.literal(null)]).nullable(),
+  "recommendationRationale": zod.string().nullable(),
+  "substitutedFromExerciseId": zod.number().int().nullable(),
+  "calibrationMode": zod.boolean(),
+  "calibrationRir": zod.number().min(removeWorkoutExerciseResponseExercisesItemCalibrationRirMin).max(removeWorkoutExerciseResponseExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
+  "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
+  "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
+  "id": zod.number().int(),
+  "workoutExerciseId": zod.number().int(),
+  "setNumber": zod.number().int(),
+  "setType": zod.enum(['work', 'warmup']),
+  "targetWeight": zod.number().nullable(),
+  "targetRepsMin": zod.number().int().nullable(),
+  "targetRepsMax": zod.number().int().nullable(),
+  "actualWeight": zod.number().nullable(),
+  "actualReps": zod.number().int().nullable(),
+  "actualRir": zod.number().nullable(),
+  "removed": zod.boolean(),
+  "adaptiveTargetWeight": zod.number().nullable(),
+  "adaptiveTargetReps": zod.number().int().nullable(),
+  "adaptiveTargetRir": zod.number().nullable(),
+  "adaptiveWarning": zod.string().nullable(),
+  "targetStatus": zod.union([zod.literal('target_met'),zod.literal('above_target'),zod.literal('below_target'),zod.literal(null)]).nullable(),
+  "targetExplanation": zod.string().nullable(),
+  "algorithmVersion": zod.string().nullable(),
+  "completed": zod.boolean(),
+  "completedAt": zod.coerce.date().nullable(),
+  "notes": zod.string().nullish(),
+  "workflowState": zod.enum(['locked', 'active', 'unlocked'])
+}))
+}))
+})
+
+
 /**
  * Returns server health status
  * @summary Health check
@@ -82,6 +477,9 @@ export const GetOverviewQueryParams = zod.object({
 export const getOverviewResponseActiveWorkoutOneMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getOverviewResponseActiveWorkoutOneMuscleRecoveryItemOneMuscleGroupMax = 60;
 
+export const getOverviewResponseActiveWorkoutOneExercisesItemCalibrationRirMin = 0;
+export const getOverviewResponseActiveWorkoutOneExercisesItemCalibrationRirMax = 10;
+
 
 
 export const GetOverviewResponse = zod.object({
@@ -119,6 +517,9 @@ export const GetOverviewResponse = zod.object({
   "totalWeightLifted": zod.number()
 })),
   "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -144,9 +545,12 @@ export const GetOverviewResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(getOverviewResponseActiveWorkoutOneExercisesItemCalibrationRirMin).max(getOverviewResponseActiveWorkoutOneExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -345,6 +749,12 @@ export const listSplitsResponseDaysItemExercisesItemExerciseLoadIncrementKgExclu
 
 
 export const ListSplitsResponseItem = zod.object({
+  "hasWorkoutHistory": zod.boolean().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -412,6 +822,12 @@ export const createSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExcl
 
 
 export const CreateSplitResponse = zod.object({
+  "hasWorkoutHistory": zod.boolean().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -473,6 +889,12 @@ export const getSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExclusi
 
 
 export const GetSplitResponse = zod.object({
+  "hasWorkoutHistory": zod.boolean().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -550,6 +972,12 @@ export const updateSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExcl
 
 
 export const UpdateSplitResponse = zod.object({
+  "hasWorkoutHistory": zod.boolean().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -683,6 +1111,12 @@ export const saveMesocycleResponseDaysItemExercisesItemExerciseLoadIncrementKgEx
 
 
 export const SaveMesocycleResponse = zod.object({
+  "hasWorkoutHistory": zod.boolean().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -1047,6 +1481,12 @@ export const createMesocycleResponseWeeksItemScheduledWorkoutsItemOriginalSchedu
 
 
 export const CreateMesocycleResponse = zod.object({
+  "currentWeek": zod.number().int().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -1136,6 +1576,12 @@ export const getMesocycleResponseWeeksItemScheduledWorkoutsItemOriginalScheduled
 
 
 export const GetMesocycleResponse = zod.object({
+  "currentWeek": zod.number().int().optional(),
+  "lifecycleStatus": zod.string().optional(),
+  "programmingVersion": zod.string().optional(),
+  "pausedAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "restartFromId": zod.number().int().nullish(),
   "id": zod.number().int(),
   "profileId": zod.number().int(),
   "name": zod.string(),
@@ -1232,6 +1678,9 @@ export const getMesocycleCalendarResponseStartDateRegExp = new RegExp('^[0-9]{4}
 export const getMesocycleCalendarResponseEndDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getMesocycleCalendarResponseScheduledWorkoutsItemScheduledDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getMesocycleCalendarResponseScheduledWorkoutsItemOriginalScheduledDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+export const getMesocycleCalendarResponseScheduledWorkoutsItemProjectedExercisesItemCalibrationRirMin = 0;
+export const getMesocycleCalendarResponseScheduledWorkoutsItemProjectedExercisesItemCalibrationRirMax = 10;
+
 
 
 export const GetMesocycleCalendarResponseItem = zod.object({
@@ -1265,7 +1714,7 @@ export const GetMesocycleCalendarResponseItem = zod.object({
   "targetRir": zod.number(),
   "baselineStatus": zod.enum(['no_baseline', 'active', 'expired']),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable(),
+  "calibrationRir": zod.number().min(getMesocycleCalendarResponseScheduledWorkoutsItemProjectedExercisesItemCalibrationRirMin).max(getMesocycleCalendarResponseScheduledWorkoutsItemProjectedExercisesItemCalibrationRirMax).nullable(),
   "calibrationInstruction": zod.string().nullable(),
   "recommendationExplanation": zod.string().nullable()
 })),
@@ -1656,6 +2105,9 @@ export const GetActiveWorkoutQueryParams = zod.object({
 export const getActiveWorkoutResponseWorkoutOneMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getActiveWorkoutResponseWorkoutOneMuscleRecoveryItemOneMuscleGroupMax = 60;
 
+export const getActiveWorkoutResponseWorkoutOneExercisesItemCalibrationRirMin = 0;
+export const getActiveWorkoutResponseWorkoutOneExercisesItemCalibrationRirMax = 10;
+
 
 
 export const GetActiveWorkoutResponse = zod.object({
@@ -1687,6 +2139,9 @@ export const GetActiveWorkoutResponse = zod.object({
   "totalWeightLifted": zod.number()
 })),
   "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -1712,9 +2167,12 @@ export const GetActiveWorkoutResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(getActiveWorkoutResponseWorkoutOneExercisesItemCalibrationRirMin).max(getActiveWorkoutResponseWorkoutOneExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -1764,6 +2222,9 @@ export const StartWorkoutBody = zod.object({
 export const startWorkoutResponseMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const startWorkoutResponseMuscleRecoveryItemOneMuscleGroupMax = 60;
 
+export const startWorkoutResponseExercisesItemCalibrationRirMin = 0;
+export const startWorkoutResponseExercisesItemCalibrationRirMax = 10;
+
 
 
 export const StartWorkoutResponse = zod.object({
@@ -1794,6 +2255,9 @@ export const StartWorkoutResponse = zod.object({
   "totalWeightLifted": zod.number()
 })),
   "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -1819,9 +2283,12 @@ export const StartWorkoutResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(startWorkoutResponseExercisesItemCalibrationRirMin).max(startWorkoutResponseExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -1859,6 +2326,9 @@ export const GetWorkoutParams = zod.object({
 export const getWorkoutResponseMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getWorkoutResponseMuscleRecoveryItemOneMuscleGroupMax = 60;
 
+export const getWorkoutResponseExercisesItemCalibrationRirMin = 0;
+export const getWorkoutResponseExercisesItemCalibrationRirMax = 10;
+
 
 
 export const GetWorkoutResponse = zod.object({
@@ -1889,6 +2359,9 @@ export const GetWorkoutResponse = zod.object({
   "totalWeightLifted": zod.number()
 })),
   "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -1914,9 +2387,12 @@ export const GetWorkoutResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(getWorkoutResponseExercisesItemCalibrationRirMin).max(getWorkoutResponseExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -1980,7 +2456,15 @@ export const AddExerciseToWorkoutBody = zod.object({
   "orderIndex": zod.number().int().min(addExerciseToWorkoutBodyOrderIndexMin)
 })
 
+export const addExerciseToWorkoutResponseCalibrationRirMin = 0;
+export const addExerciseToWorkoutResponseCalibrationRirMax = 10;
+
+
+
 export const AddExerciseToWorkoutResponse = zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -2006,9 +2490,12 @@ export const AddExerciseToWorkoutResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(addExerciseToWorkoutResponseCalibrationRirMin).max(addExerciseToWorkoutResponseCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2050,7 +2537,15 @@ export const SubstituteWorkoutExerciseBody = zod.object({
   "updateMesocycle": zod.boolean().default(substituteWorkoutExerciseBodyUpdateMesocycleDefault)
 })
 
+export const substituteWorkoutExerciseResponseCalibrationRirMin = 0;
+export const substituteWorkoutExerciseResponseCalibrationRirMax = 10;
+
+
+
 export const SubstituteWorkoutExerciseResponse = zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -2076,9 +2571,12 @@ export const SubstituteWorkoutExerciseResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(substituteWorkoutExerciseResponseCalibrationRirMin).max(substituteWorkoutExerciseResponseCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2119,7 +2617,15 @@ export const UpdateWorkoutExerciseBody = zod.object({
   "painNote": zod.string().nullish()
 })
 
+export const updateWorkoutExerciseResponseCalibrationRirMin = 0;
+export const updateWorkoutExerciseResponseCalibrationRirMax = 10;
+
+
+
 export const UpdateWorkoutExerciseResponse = zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -2145,9 +2651,12 @@ export const UpdateWorkoutExerciseResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(updateWorkoutExerciseResponseCalibrationRirMin).max(updateWorkoutExerciseResponseCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2210,6 +2719,9 @@ export const CreateWorkoutSetBody = zod.object({
 })
 
 export const CreateWorkoutSetResponse = zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2272,6 +2784,9 @@ export const UpdateWorkoutSetBody = zod.object({
 })
 
 export const UpdateWorkoutSetResponse = zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2323,6 +2838,9 @@ export const CompleteWorkoutSetBody = zod.object({
 
 export const CompleteWorkoutSetResponse = zod.object({
   "set": zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2347,6 +2865,9 @@ export const CompleteWorkoutSetResponse = zod.object({
   "workflowState": zod.enum(['locked', 'active', 'unlocked'])
 }),
   "nextSet": zod.union([zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
@@ -2391,8 +2912,15 @@ export const FinishWorkoutParams = zod.object({
   "sessionId": zod.coerce.number().int()
 })
 
+export const FinishWorkoutBody = zod.object({
+  "structureDecision": zod.enum(['today_only', 'keep']).optional()
+})
+
 export const finishWorkoutResponseWorkoutMesocycleStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const finishWorkoutResponseWorkoutMuscleRecoveryItemOneMuscleGroupMax = 60;
+
+export const finishWorkoutResponseWorkoutExercisesItemCalibrationRirMin = 0;
+export const finishWorkoutResponseWorkoutExercisesItemCalibrationRirMax = 10;
 
 
 
@@ -2425,6 +2953,9 @@ export const FinishWorkoutResponse = zod.object({
   "totalWeightLifted": zod.number()
 })),
   "exercises": zod.array(zod.object({
+  "loadIncrement": zod.number().optional(),
+  "recoveryAdjustment": zod.string().nullish(),
+  "normalSetCount": zod.number().int().nullish(),
   "id": zod.number().int(),
   "sessionId": zod.number().int(),
   "exerciseId": zod.number().int(),
@@ -2450,9 +2981,12 @@ export const FinishWorkoutResponse = zod.object({
   "recommendationRationale": zod.string().nullable(),
   "substitutedFromExerciseId": zod.number().int().nullable(),
   "calibrationMode": zod.boolean(),
-  "calibrationRir": zod.union([zod.literal(3),zod.literal(null)]).nullable().describe('Calibration always prescribes approximately 3 RIR independent of week target.'),
+  "calibrationRir": zod.number().min(finishWorkoutResponseWorkoutExercisesItemCalibrationRirMin).max(finishWorkoutResponseWorkoutExercisesItemCalibrationRirMax).nullable().describe('Calibration uses the configured week RIR.'),
   "baselineStatus": zod.union([zod.literal('no_baseline'),zod.literal('active'),zod.literal('expired'),zod.literal(null)]).nullable(),
   "sets": zod.array(zod.object({
+  "referenceTargetWeight": zod.number().nullish(),
+  "referenceTargetReps": zod.number().int().nullish(),
+  "referenceTargetRir": zod.number().nullish(),
   "id": zod.number().int(),
   "workoutExerciseId": zod.number().int(),
   "setNumber": zod.number().int(),
