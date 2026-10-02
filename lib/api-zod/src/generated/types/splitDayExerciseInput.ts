@@ -17,6 +17,16 @@ export interface SplitDayExerciseInput {
   targetSets: number;
   /**
      * @minimum 1
+     * @maximum 20
+     */
+  minimumWorkingSets?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maximumWorkingSets?: number;
+  /**
+     * @minimum 1
      * @maximum 100
      */
   targetRepsMin: number;

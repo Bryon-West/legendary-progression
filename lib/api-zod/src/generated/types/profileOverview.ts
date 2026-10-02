@@ -7,6 +7,7 @@
  */
 import type { NextWorkoutDay } from './nextWorkoutDay';
 import type { Profile } from './profile';
+import type { WeeklyMuscleSets } from './weeklyMuscleSets';
 import type { WorkoutSession } from './workoutSession';
 import type { WorkoutSummary } from './workoutSummary';
 
@@ -17,4 +18,6 @@ export interface ProfileOverview {
   workoutsThisWeek: number;
   volumeThisWeek: number;
   recentWorkouts: WorkoutSummary[];
+  weeklyMuscleSets: WeeklyMuscleSets[];
+  previouslyTrainedMuscles: string[];
 }

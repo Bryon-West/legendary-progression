@@ -9,9 +9,18 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ProfileWeightUnit = typeof ProfileWeightUnit[keyof typeof ProfileWeightUnit];
+
+
+export const ProfileWeightUnit = {
+  kg: 'kg',
+  lb: 'lb',
+} as const;
+
 export interface Profile {
   id: number;
   name: string;
+  weightUnit: ProfileWeightUnit;
   createdAt: string;
 }
 
@@ -23,13 +32,33 @@ export interface ProfileInput {
   name: string;
 }
 
+export type ProfileUpdateWeightUnit = typeof ProfileUpdateWeightUnit[keyof typeof ProfileUpdateWeightUnit];
+
+
+export const ProfileUpdateWeightUnit = {
+  kg: 'kg',
+  lb: 'lb',
+} as const;
+
 export interface ProfileUpdate {
   /**
      * @minLength 1
      * @maxLength 80
      */
-  name: string;
+  name?: string;
+  weightUnit?: ProfileUpdateWeightUnit;
 }
+
+export type ExerciseCategory = typeof ExerciseCategory[keyof typeof ExerciseCategory];
+
+
+export const ExerciseCategory = {
+  strength: 'strength',
+  bodyweight: 'bodyweight',
+  conditioning: 'conditioning',
+  mobility: 'mobility',
+  other: 'other',
+} as const;
 
 export interface Exercise {
   id: number;
@@ -38,11 +67,23 @@ export interface Exercise {
   name: string;
   muscleGroup: string;
   equipment: string;
+  category: ExerciseCategory;
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
   createdAt: string;
 }
+
+export type ExerciseInputCategory = typeof ExerciseInputCategory[keyof typeof ExerciseInputCategory];
+
+
+export const ExerciseInputCategory = {
+  strength: 'strength',
+  bodyweight: 'bodyweight',
+  conditioning: 'conditioning',
+  mobility: 'mobility',
+  other: 'other',
+} as const;
 
 export interface ExerciseInput {
   profileId: number;
@@ -61,6 +102,7 @@ export interface ExerciseInput {
      * @maxLength 80
      */
   equipment: string;
+  category?: ExerciseInputCategory;
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
@@ -72,6 +114,8 @@ export interface SplitDayExercise {
   exerciseId: number;
   orderIndex: number;
   targetSets: number;
+  minimumWorkingSets: number;
+  maximumWorkingSets: number;
   targetRepsMin: number;
   targetRepsMax: number;
   targetRir: number;
@@ -89,6 +133,16 @@ export interface SplitDayExerciseInput {
      * @maximum 20
      */
   targetSets: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  minimumWorkingSets?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maximumWorkingSets?: number;
   /**
      * @minimum 1
      * @maximum 100
@@ -119,6 +173,16 @@ export interface SplitDayExerciseUpdate {
      * @maximum 20
      */
   targetSets?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  minimumWorkingSets?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maximumWorkingSets?: number;
   /**
      * @minimum 1
      * @maximum 100
@@ -174,6 +238,10 @@ export interface TrainingSplit {
   profileId: number;
   name: string;
   nextDayIndex: number;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  startDate: string;
+  cycleLengthWeeks: number;
+  currentWeek: number;
   days: SplitDay[];
 }
 
@@ -194,6 +262,83 @@ export interface SplitUpdate {
   name?: string;
   /** @minimum 0 */
   nextDayIndex?: number;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  startDate?: string;
+  /**
+     * @minimum 1
+     * @maximum 52
+     */
+  cycleLengthWeeks?: number;
+}
+
+export interface MesocycleExerciseInput {
+  id?: number;
+  exerciseId: number;
+  /** @minimum 0 */
+  orderIndex: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  targetSets: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  minimumWorkingSets: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maximumWorkingSets: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  targetRepsMin: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  targetRepsMax: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  targetRir: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  targetWeight?: number | null;
+}
+
+export interface MesocycleDayInput {
+  id?: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  name: string;
+  /** @minimum 0 */
+  dayIndex: number;
+  exercises: MesocycleExerciseInput[];
+}
+
+export interface MesocycleSaveInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  startDate: string;
+  /**
+     * @minimum 1
+     * @maximum 52
+     */
+  cycleLengthWeeks: number;
+  days: MesocycleDayInput[];
 }
 
 export type WorkoutSetSetType = typeof WorkoutSetSetType[keyof typeof WorkoutSetSetType];
@@ -202,6 +347,18 @@ export type WorkoutSetSetType = typeof WorkoutSetSetType[keyof typeof WorkoutSet
 export const WorkoutSetSetType = {
   work: 'work',
   warmup: 'warmup',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutSetTargetStatus = typeof WorkoutSetTargetStatus[keyof typeof WorkoutSetTargetStatus] | null;
+
+
+export const WorkoutSetTargetStatus = {
+  target_met: 'target_met',
+  above_target: 'above_target',
+  below_target: 'below_target',
 } as const;
 
 export interface WorkoutSet {
@@ -221,12 +378,52 @@ export interface WorkoutSet {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  removed: boolean;
+  /** @nullable */
+  adaptiveTargetWeight: number | null;
+  /** @nullable */
+  adaptiveTargetReps: number | null;
+  /** @nullable */
+  adaptiveTargetRir: number | null;
+  /** @nullable */
+  adaptiveWarning: string | null;
+  /** @nullable */
+  targetStatus: WorkoutSetTargetStatus;
+  /** @nullable */
+  targetExplanation: string | null;
+  /** @nullable */
+  algorithmVersion: string | null;
   completed: boolean;
   /** @nullable */
   completedAt: string | null;
   /** @nullable */
   notes?: string | null;
 }
+
+export type WorkoutExerciseCategory = typeof WorkoutExerciseCategory[keyof typeof WorkoutExerciseCategory];
+
+
+export const WorkoutExerciseCategory = {
+  strength: 'strength',
+  bodyweight: 'bodyweight',
+  conditioning: 'conditioning',
+  mobility: 'mobility',
+  other: 'other',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutExerciseRecommendationOutcome = typeof WorkoutExerciseRecommendationOutcome[keyof typeof WorkoutExerciseRecommendationOutcome] | null;
+
+
+export const WorkoutExerciseRecommendationOutcome = {
+  increase_load: 'increase_load',
+  increase_reps: 'increase_reps',
+  increase_sets: 'increase_sets',
+  decrease_sets: 'decrease_sets',
+  maintain: 'maintain',
+} as const;
 
 export interface WorkoutExercise {
   id: number;
@@ -236,11 +433,28 @@ export interface WorkoutExercise {
   muscleGroup: string;
   targetRir: number;
   targetSets: number;
+  minimumWorkingSets: number;
+  maximumWorkingSets: number;
   targetRepsMin: number;
   targetRepsMax: number;
   /** @nullable */
   targetWeight?: number | null;
   orderIndex: number;
+  superseded: boolean;
+  skipped: boolean;
+  painReported: boolean;
+  /** @nullable */
+  painNote: string | null;
+  category: WorkoutExerciseCategory;
+  isCompound: boolean;
+  /** @nullable */
+  recommendedWeight: number | null;
+  /** @nullable */
+  recommendedReps: number | null;
+  /** @nullable */
+  recommendationOutcome: WorkoutExerciseRecommendationOutcome;
+  /** @nullable */
+  recommendationRationale: string | null;
   /** @nullable */
   substitutedFromExerciseId: number | null;
   sets: WorkoutSet[];
@@ -258,6 +472,16 @@ export interface WorkoutExerciseInput {
      * @maximum 20
      */
   targetSets: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  minimumWorkingSets?: number;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maximumWorkingSets?: number;
   /** @minimum 1 */
   targetRepsMin: number;
   /** @minimum 1 */
@@ -273,6 +497,14 @@ export interface WorkoutExerciseInput {
 
 export interface WorkoutExerciseSubstitution {
   exerciseId: number;
+  updateMesocycle?: boolean;
+}
+
+export interface WorkoutExerciseFeedback {
+  skipped?: boolean;
+  painReported?: boolean;
+  /** @nullable */
+  painNote?: string | null;
 }
 
 export type WorkoutSetInputSetType = typeof WorkoutSetInputSetType[keyof typeof WorkoutSetInputSetType];
@@ -380,6 +612,45 @@ export const WorkoutSessionStatus = {
   completed: 'completed',
 } as const;
 
+/**
+ * @nullable
+ */
+export type WorkoutSessionReadiness = typeof WorkoutSessionReadiness[keyof typeof WorkoutSessionReadiness] | null;
+
+
+export const WorkoutSessionReadiness = {
+  great: 'great',
+  normal: 'normal',
+  below_normal: 'below_normal',
+  poor: 'poor',
+} as const;
+
+export type MuscleRecoveryInputStatus = typeof MuscleRecoveryInputStatus[keyof typeof MuscleRecoveryInputStatus];
+
+
+export const MuscleRecoveryInputStatus = {
+  fully_recovered: 'fully_recovered',
+  slightly_fatigued: 'slightly_fatigued',
+  still_sore: 'still_sore',
+  very_sore: 'very_sore',
+} as const;
+
+export interface MuscleRecoveryInput {
+  /**
+     * @minLength 1
+     * @maxLength 60
+     */
+  muscleGroup: string;
+  status: MuscleRecoveryInputStatus;
+}
+
+export type MuscleRecovery = MuscleRecoveryInput;
+
+export interface MuscleTotal {
+  muscleGroup: string;
+  totalWeightLifted: number;
+}
+
 export interface WorkoutSession {
   id: number;
   profileId: number;
@@ -396,6 +667,17 @@ export interface WorkoutSession {
   /** @nullable */
   endedAt: string | null;
   totalVolume: number;
+  /** @nullable */
+  readiness: WorkoutSessionReadiness;
+  /**
+     * @nullable
+     * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+     */
+  mesocycleStartDate: string | null;
+  /** @nullable */
+  mesocycleWeek: number | null;
+  muscleRecovery: MuscleRecovery[];
+  muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];
 }
 
@@ -403,10 +685,22 @@ export interface ActiveWorkoutState {
   workout: WorkoutSession | null;
 }
 
+export type StartWorkoutInputReadiness = typeof StartWorkoutInputReadiness[keyof typeof StartWorkoutInputReadiness];
+
+
+export const StartWorkoutInputReadiness = {
+  great: 'great',
+  normal: 'normal',
+  below_normal: 'below_normal',
+  poor: 'poor',
+} as const;
+
 export interface StartWorkoutInput {
   profileId: number;
   /** @nullable */
   splitDayId?: number | null;
+  readiness?: StartWorkoutInputReadiness;
+  muscleRecovery?: MuscleRecoveryInput[];
 }
 
 export type WorkoutSummaryStatus = typeof WorkoutSummaryStatus[keyof typeof WorkoutSummaryStatus];
@@ -414,6 +708,19 @@ export type WorkoutSummaryStatus = typeof WorkoutSummaryStatus[keyof typeof Work
 
 export const WorkoutSummaryStatus = {
   completed: 'completed',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutSummaryReadiness = typeof WorkoutSummaryReadiness[keyof typeof WorkoutSummaryReadiness] | null;
+
+
+export const WorkoutSummaryReadiness = {
+  great: 'great',
+  normal: 'normal',
+  below_normal: 'below_normal',
+  poor: 'poor',
 } as const;
 
 export interface WorkoutSummary {
@@ -430,6 +737,11 @@ export interface WorkoutSummary {
   totalVolume: number;
   exerciseCount: number;
   workingSetCount: number;
+  muscleTotals: MuscleTotal[];
+  /** @nullable */
+  mesocycleWeek: number | null;
+  /** @nullable */
+  readiness: WorkoutSummaryReadiness;
 }
 
 export type ExerciseHistoryEntrySetType = typeof ExerciseHistoryEntrySetType[keyof typeof ExerciseHistoryEntrySetType];
@@ -470,6 +782,11 @@ export interface NextWorkoutDay {
   exerciseCount: number;
 }
 
+export interface WeeklyMuscleSets {
+  muscleGroup: string;
+  workingSetCount: number;
+}
+
 export interface ProfileOverview {
   profile: Profile;
   activeWorkout: WorkoutSession | null;
@@ -477,6 +794,8 @@ export interface ProfileOverview {
   workoutsThisWeek: number;
   volumeThisWeek: number;
   recentWorkouts: WorkoutSummary[];
+  weeklyMuscleSets: WeeklyMuscleSets[];
+  previouslyTrainedMuscles: string[];
 }
 
 export interface FinishWorkoutResult {

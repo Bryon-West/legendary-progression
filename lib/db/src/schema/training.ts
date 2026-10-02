@@ -4,7 +4,6 @@ import {
   doublePrecision,
   index,
   integer,
-  jsonb,
   pgTable,
   serial,
   text,
@@ -243,10 +242,6 @@ export const workoutSetsTable = pgTable(
   ],
 );
 
-/**
- * Storage contract for a future progression engine.
- * This table is intentionally not written by the initial application.
- */
 export const progressionRecommendationsTable = pgTable(
   "progression_recommendations",
   {

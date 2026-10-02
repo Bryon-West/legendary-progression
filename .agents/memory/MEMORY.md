@@ -1,2 +1,3 @@
-- [Progression scope](progression-scope.md) — keep data ready for future recommendations, but do not add a complex algorithm before the user asks.
+- [Progression scope](progression-scope.md) — V2 includes adaptive, trend-based recommendations; aggressive automatic deload behavior remains out of scope.
 - [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
+- [Calendar-date contracts](calendar-date-contracts.md) — keep mesocycle calendar dates as strings; generated format-date coercion otherwise produces timestamps.

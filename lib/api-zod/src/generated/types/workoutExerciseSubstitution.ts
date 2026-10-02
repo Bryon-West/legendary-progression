@@ -8,4 +8,5 @@
 
 export interface WorkoutExerciseSubstitution {
   exerciseId: number;
+  updateMesocycle?: boolean;
 }

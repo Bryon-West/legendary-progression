@@ -1,0 +1,24 @@
+export type Readiness = 'great' | 'normal' | 'below_normal' | 'poor';
+export type RecoveryStatus = 'fully_recovered' | 'slightly_fatigued' | 'still_sore' | 'very_sore';
+export const READINESS: { value: Readiness; label: string }[] = [
+  { value: 'great', label: 'Great' }, { value: 'normal', label: 'Normal' },
+  { value: 'below_normal', label: 'Below normal' }, { value: 'poor', label: 'Poor' },
+];
+export const RECOVERY: { value: RecoveryStatus; label: string }[] = [
+  { value: 'fully_recovered', label: 'Fully recovered' }, { value: 'slightly_fatigued', label: 'Slightly fatigued' },
+  { value: 'still_sore', label: 'Still sore or fatigued' }, { value: 'very_sore', label: 'Very sore or limiting' },
+];
+export const labelOf = (list: { value: string; label: string }[], value: string | null | undefined) =>
+  list.find((x) => x.value === value)?.label ?? (value ? humanize(value) : '—');
+export function humanize(raw: string) {
+  const t = raw.replace(/[_-]+/g, ' ').trim().toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+export const CATEGORIES = ['strength', 'bodyweight', 'conditioning', 'mobility', 'other'] as const;
+export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Bodyweight', 'Other'];
+export const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core', 'Forearms'];
+export const STATUS_META = {
+  target_met: { label: 'Target met', cls: 'status-met' },
+  above_target: { label: 'Above target', cls: 'status-above' },
+  below_target: { label: 'Below target', cls: 'status-below' },
+} as const;

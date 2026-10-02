@@ -5,11 +5,13 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { ProfileUpdateWeightUnit } from './profileUpdateWeightUnit';
 
 export interface ProfileUpdate {
   /**
      * @minLength 1
      * @maxLength 80
      */
-  name: string;
+  name?: string;
+  weightUnit?: ProfileUpdateWeightUnit;
 }

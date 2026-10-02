@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import {
   AddExerciseToSplitDayBody,
   AddExerciseToSplitDayParams,
@@ -23,6 +23,9 @@ import {
   ListSplitsQueryParams,
   ListSplitsResponse,
   RemoveExerciseFromSplitDayParams,
+  SaveMesocycleBody,
+  SaveMesocycleParams,
+  SaveMesocycleResponse,
   AddExerciseToSplitDayResponse,
   UpdateProfileBody,
   UpdateProfileParams,
@@ -87,7 +90,10 @@ router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
   }
   const [profile] = await db
     .update(profilesTable)
-    .set({ name: body.data.name.trim() })
+    .set({
+      ...(body.data.name !== undefined ? { name: body.data.name.trim() } : {}),
+      ...(body.data.weightUnit !== undefined ? { weightUnit: body.data.weightUnit } : {}),
+    })
     .where(eq(profilesTable.id, params.data.profileId))
     .returning();
   if (!profile) {
@@ -228,7 +234,19 @@ router.patch("/splits/:splitId", async (req, res): Promise<void> => {
     });
     return;
   }
-  const updates = { ...body.data };
+  const updates: {
+    name?: string;
+    nextDayIndex?: number;
+    startDate?: string;
+    cycleLengthWeeks?: number;
+  } = {
+    ...(body.data.name !== undefined ? { name: body.data.name } : {}),
+    ...(body.data.nextDayIndex !== undefined ? { nextDayIndex: body.data.nextDayIndex } : {}),
+    ...(body.data.cycleLengthWeeks !== undefined ? { cycleLengthWeeks: body.data.cycleLengthWeeks } : {}),
+    ...(body.data.startDate !== undefined
+      ? { startDate: body.data.startDate }
+      : {}),
+  };
   if (updates.name !== undefined) updates.name = updates.name.trim();
   if (updates.nextDayIndex !== undefined) {
     const days = await db
@@ -249,6 +267,167 @@ router.patch("/splits/:splitId", async (req, res): Promise<void> => {
     return;
   }
   res.json(UpdateSplitResponse.parse(await getSplitTree(updated.id)));
+});
+
+router.put("/splits/:splitId", async (req, res): Promise<void> => {
+  const params = SaveMesocycleParams.safeParse(req.params);
+  const body = SaveMesocycleBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({
+      error: !params.success ? params.error.message : !body.success ? body.error.message : "Invalid request",
+    });
+    return;
+  }
+  const splitId = params.data.splitId;
+  const [current] = await db
+    .select()
+    .from(trainingSplitsTable)
+    .where(eq(trainingSplitsTable.id, splitId))
+    .limit(1);
+  if (!current) {
+    res.status(404).json({ error: "Mesocycle not found" });
+    return;
+  }
+  const suppliedDayIds = body.data.days.flatMap((day) => day.id === undefined ? [] : [day.id]);
+  const suppliedExerciseIds = body.data.days.flatMap((day) =>
+    day.exercises.flatMap((item) => item.id === undefined ? [] : [item.id]),
+  );
+  if (
+    new Set(suppliedDayIds).size !== suppliedDayIds.length ||
+    new Set(suppliedExerciseIds).size !== suppliedExerciseIds.length ||
+    new Set(body.data.days.map((day) => day.dayIndex)).size !== body.data.days.length ||
+    body.data.days.some((day) => day.exercises.some(
+      (item) => item.minimumWorkingSets > item.maximumWorkingSets ||
+        item.targetSets < item.minimumWorkingSets ||
+        item.targetSets > item.maximumWorkingSets ||
+        item.targetRepsMin > item.targetRepsMax,
+    ))
+  ) {
+    res.status(400).json({ error: "Mesocycle contains duplicate IDs or invalid exercise boundaries" });
+    return;
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const existingDays = await tx
+        .select()
+        .from(splitDaysTable)
+        .where(eq(splitDaysTable.splitId, splitId));
+      const knownDayIds = new Set(existingDays.map((day) => day.id));
+      if (suppliedDayIds.some((id) => !knownDayIds.has(id))) {
+        throw new Error("A supplied day ID does not belong to this mesocycle");
+      }
+      const existingPrescriptions = existingDays.length
+        ? await tx.select().from(splitDayExercisesTable)
+          .where(eq(splitDayExercisesTable.dayId, existingDays[0].id))
+        : [];
+      const allPrescriptions = existingDays.length
+        ? await Promise.all(existingDays.slice(1).map((day) =>
+            tx.select().from(splitDayExercisesTable)
+              .where(eq(splitDayExercisesTable.dayId, day.id)),
+          ))
+        : [];
+      const ownedExerciseIds = new Set([
+        ...existingPrescriptions.map((item) => item.id),
+        ...allPrescriptions.flat().map((item) => item.id),
+      ]);
+      if (suppliedExerciseIds.some((id) => !ownedExerciseIds.has(id))) {
+        throw new Error("A supplied prescription ID does not belong to this mesocycle");
+      }
+      const exerciseIds = body.data.days.flatMap((day) => day.exercises.map((item) => item.exerciseId));
+      if (exerciseIds.length) {
+        const availableExercises = await tx.select({
+          id: exercisesTable.id,
+          profileId: exercisesTable.profileId,
+        }).from(exercisesTable).where(inArray(exercisesTable.id, exerciseIds));
+        if (availableExercises.length !== new Set(exerciseIds).size ||
+          availableExercises.some((exercise) => exercise.profileId !== null && exercise.profileId !== current.profileId)) {
+          throw new Error("An exercise is unavailable to this profile");
+        }
+      }
+      const selectedOldDayId = existingDays.find((day) => day.dayIndex === current.nextDayIndex)?.id;
+      await tx.update(trainingSplitsTable).set({
+        name: body.data.name.trim(),
+        startDate: body.data.startDate,
+        cycleLengthWeeks: body.data.cycleLengthWeeks,
+      }).where(eq(trainingSplitsTable.id, splitId));
+      // Avoid transient collisions on the unique (split_id, day_index) index.
+      for (const day of existingDays) {
+        await tx.update(splitDaysTable).set({ dayIndex: -day.id - 1 }).where(eq(splitDaysTable.id, day.id));
+      }
+      const retainedDays: Array<{ id: number; dayIndex: number }> = [];
+      for (const draft of body.data.days) {
+        let dayId = draft.id;
+        if (dayId === undefined) {
+          const [created] = await tx.insert(splitDaysTable).values({
+            splitId,
+            name: draft.name.trim(),
+            dayIndex: -1_000_000 - draft.dayIndex,
+          }).returning({ id: splitDaysTable.id });
+          dayId = created.id;
+        } else {
+          await tx.update(splitDaysTable).set({
+            name: draft.name.trim(),
+            dayIndex: -1_000_000 - draft.dayIndex,
+          }).where(eq(splitDaysTable.id, dayId));
+        }
+        retainedDays.push({ id: dayId, dayIndex: draft.dayIndex });
+        const original = await tx.select().from(splitDayExercisesTable).where(eq(splitDayExercisesTable.dayId, dayId));
+        const originalPrescriptionIds = new Set(original.map((item) => item.id));
+        if (draft.exercises.some((item) => item.id !== undefined && !originalPrescriptionIds.has(item.id))) {
+          throw new Error("A supplied prescription ID must belong to its supplied day");
+        }
+        const keepPrescriptionIds: number[] = [];
+        for (const item of draft.exercises) {
+          const values = {
+            dayId,
+            exerciseId: item.exerciseId,
+            orderIndex: item.orderIndex,
+            targetSets: item.targetSets,
+            minimumWorkingSets: item.minimumWorkingSets,
+            maximumWorkingSets: item.maximumWorkingSets,
+            targetRepsMin: item.targetRepsMin,
+            targetRepsMax: item.targetRepsMax,
+            targetRir: item.targetRir,
+            targetWeight: item.targetWeight,
+          };
+          if (item.id === undefined) {
+            await tx.insert(splitDayExercisesTable).values(values);
+          } else {
+            await tx.update(splitDayExercisesTable).set(values)
+              .where(and(eq(splitDayExercisesTable.id, item.id), eq(splitDayExercisesTable.dayId, dayId)));
+            keepPrescriptionIds.push(item.id);
+          }
+        }
+        for (const old of original) {
+          if (!keepPrescriptionIds.includes(old.id) && !draft.exercises.some((item) => item.id === old.id)) {
+            await tx.delete(splitDayExercisesTable).where(eq(splitDayExercisesTable.id, old.id));
+          }
+        }
+      }
+      for (const day of existingDays) {
+        if (!retainedDays.some((retained) => retained.id === day.id)) {
+          await tx.delete(splitDaysTable).where(eq(splitDaysTable.id, day.id));
+        }
+      }
+      for (const { id: dayId, dayIndex } of retainedDays) {
+        await tx.update(splitDaysTable).set({ dayIndex })
+          .where(eq(splitDaysTable.id, dayId));
+      }
+      const firstDayIndex = retainedDays.length
+        ? Math.min(...retainedDays.map((day) => day.dayIndex))
+        : 0;
+      const nextDayIndex = selectedOldDayId === undefined
+        ? firstDayIndex
+        : retainedDays.find((day) => day.id === selectedOldDayId)?.dayIndex ??
+          firstDayIndex;
+      await tx.update(trainingSplitsTable).set({ nextDayIndex }).where(eq(trainingSplitsTable.id, splitId));
+    });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Unable to save mesocycle" });
+    return;
+  }
+  res.json(SaveMesocycleResponse.parse(await getSplitTree(splitId)));
 });
 
 router.post("/splits/:splitId/days", async (req, res): Promise<void> => {
@@ -350,6 +529,17 @@ router.post(
       });
       return;
     }
+    const minSets = body.data.minimumWorkingSets ?? 1;
+    const maxSets = body.data.maximumWorkingSets ?? 5;
+    if (
+      minSets > maxSets ||
+      body.data.targetSets < minSets ||
+      body.data.targetSets > maxSets ||
+      body.data.targetRepsMin > body.data.targetRepsMax
+    ) {
+      res.status(400).json({ error: "Prescription sets and rep ranges must be within their configured bounds" });
+      return;
+    }
     const [day] = await db
       .select()
       .from(splitDaysTable)
@@ -391,6 +581,27 @@ router.patch(
       return;
     }
     const updates = body.data;
+    const [current] = await db.select().from(splitDayExercisesTable)
+      .where(eq(splitDayExercisesTable.id, params.data.dayExerciseId))
+      .limit(1);
+    if (!current) {
+      res.status(404).json({ error: "Exercise prescription not found" });
+      return;
+    }
+    const minimumWorkingSets = updates.minimumWorkingSets ?? current.minimumWorkingSets;
+    const maximumWorkingSets = updates.maximumWorkingSets ?? current.maximumWorkingSets;
+    const targetSets = updates.targetSets ?? current.targetSets;
+    const targetRepsMin = updates.targetRepsMin ?? current.targetRepsMin;
+    const targetRepsMax = updates.targetRepsMax ?? current.targetRepsMax;
+    if (
+      minimumWorkingSets > maximumWorkingSets ||
+      targetSets < minimumWorkingSets ||
+      targetSets > maximumWorkingSets ||
+      targetRepsMin > targetRepsMax
+    ) {
+      res.status(400).json({ error: "Prescription sets and rep ranges must be within their configured bounds" });
+      return;
+    }
     const [updated] = await db
       .update(splitDayExercisesTable)
       .set(updates)

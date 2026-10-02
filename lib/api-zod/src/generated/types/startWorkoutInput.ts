@@ -5,9 +5,13 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { MuscleRecoveryInput } from './muscleRecoveryInput';
+import type { StartWorkoutInputReadiness } from './startWorkoutInputReadiness';
 
 export interface StartWorkoutInput {
   profileId: number;
   /** @nullable */
   splitDayId?: number | null;
+  readiness?: StartWorkoutInputReadiness;
+  muscleRecovery?: MuscleRecoveryInput[];
 }

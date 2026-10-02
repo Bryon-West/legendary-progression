@@ -5,6 +5,7 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { ExerciseInputCategory } from './exerciseInputCategory';
 
 export interface ExerciseInput {
   profileId: number;
@@ -23,6 +24,7 @@ export interface ExerciseInput {
      * @maxLength 80
      */
   equipment: string;
+  category?: ExerciseInputCategory;
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;

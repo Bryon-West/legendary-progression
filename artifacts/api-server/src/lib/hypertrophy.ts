@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import {
   db,
   exercisesTable,
+  muscleRecoveryTable,
   profilesTable,
-  progressionRecommendationsTable,
   splitDayExercisesTable,
   splitDaysTable,
   trainingSplitsTable,
@@ -11,6 +11,8 @@ import {
   workoutSessionsTable,
   workoutSetsTable,
 } from "@workspace/db";
+import { adaptiveRepsForWeight } from "./progression";
+import { primaryMuscleVolume } from "./volume";
 
 export async function getSplitTree(splitId: number) {
   const [split] = await db
@@ -44,7 +46,15 @@ export async function getSplitTree(splitId: number) {
     }
     resultDays.push({ ...day, exercises });
   }
-  return { ...split, days: resultDays };
+  const elapsed = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(`${split.startDate}T00:00:00Z`).getTime()) / 604800000),
+  );
+  return {
+    ...split,
+    currentWeek: Math.min(split.cycleLengthWeeks, elapsed + 1),
+    days: resultDays,
+  };
 }
 
 export async function getWorkoutTree(
@@ -74,9 +84,71 @@ export async function getWorkoutTree(
       .from(workoutSetsTable)
       .where(eq(workoutSetsTable.workoutExerciseId, row.id))
       .orderBy(asc(workoutSetsTable.setType), asc(workoutSetsTable.setNumber));
-    exercises.push({ ...row, sets });
+    exercises.push({
+      ...row,
+      sets: sets.map((set) => ({
+        ...set,
+        adaptiveWarning: !set.completed && set.actualWeight !== null
+          ? adaptiveRepsForWeight(
+              set.actualWeight,
+              row.recommendedWeight ?? row.targetWeight,
+              row.recommendedReps ?? row.targetRepsMin,
+              row.targetRepsMin,
+              row.targetRepsMax,
+              row.targetRir,
+            ).warning ?? set.targetExplanation
+          : null,
+      })),
+    });
   }
 
+  const muscleRecovery = await db
+    .select({
+      muscleGroup: muscleRecoveryTable.muscleGroup,
+      status: muscleRecoveryTable.status,
+    })
+    .from(muscleRecoveryTable)
+    .where(eq(muscleRecoveryTable.sessionId, sessionId));
+  const totalRows = await db
+    .select({
+      muscleGroup: workoutExercisesTable.muscleGroup,
+      actualWeight: workoutSetsTable.actualWeight,
+      actualReps: workoutSetsTable.actualReps,
+    })
+    .from(workoutSetsTable)
+    .innerJoin(
+      workoutExercisesTable,
+      eq(workoutSetsTable.workoutExerciseId, workoutExercisesTable.id),
+    )
+    .where(
+      and(
+        eq(workoutExercisesTable.sessionId, sessionId),
+        eq(workoutExercisesTable.skipped, false),
+        eq(workoutSetsTable.setType, "work"),
+        eq(workoutSetsTable.completed, true),
+        eq(workoutSetsTable.removed, false),
+      ),
+    )
+    .orderBy(asc(workoutExercisesTable.orderIndex), asc(workoutExercisesTable.id), asc(workoutSetsTable.setNumber));
+  const groupedVolume = primaryMuscleVolume(totalRows.flatMap((row) =>
+    row.actualWeight !== null && row.actualReps !== null
+      ? [{ muscleGroup: row.muscleGroup, weight: row.actualWeight, reps: row.actualReps }]
+      : [],
+  ));
+  const muscleTotals = groupedVolume.muscleTotals;
+  if (session.status === "completed" && muscleTotals.length) {
+    const prefix = muscleTotals.slice(0, -1).reduce((total, item) => total + item.totalWeightLifted, 0);
+    const last = muscleTotals[muscleTotals.length - 1];
+    last.totalWeightLifted = session.totalVolume - prefix;
+    let total = muscleTotals.reduce((sum, item) => sum + item.totalWeightLifted, 0);
+    for (let attempt = 0; total !== session.totalVolume && attempt < 3; attempt++) {
+      last.totalWeightLifted += session.totalVolume - total;
+      total = muscleTotals.reduce((sum, item) => sum + item.totalWeightLifted, 0);
+    }
+  }
+  const totalVolume = session.status === "completed"
+    ? session.totalVolume
+    : groupedVolume.totalVolume;
   return {
     id: session.id,
     profileId: session.profileId,
@@ -87,7 +159,12 @@ export async function getWorkoutTree(
     status: session.status,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
-    totalVolume: session.totalVolume,
+    totalVolume,
+    readiness: session.readiness,
+    mesocycleStartDate: session.mesocycleStartDate,
+    mesocycleWeek: session.mesocycleWeek,
+    muscleRecovery,
+    muscleTotals,
     exercises,
   };
 }
@@ -107,6 +184,8 @@ export async function calculateSessionVolume(sessionId: number) {
         eq(workoutExercisesTable.sessionId, sessionId),
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
+        eq(workoutSetsTable.removed, false),
+        eq(workoutExercisesTable.skipped, false),
       ),
     );
   return result?.volume ?? 0;
@@ -124,6 +203,7 @@ export async function getWorkoutSummary(sessionId: number) {
     .select({
       id: workoutExercisesTable.id,
       superseded: workoutExercisesTable.superseded,
+      skipped: workoutExercisesTable.skipped,
     })
     .from(workoutExercisesTable)
     .where(eq(workoutExercisesTable.sessionId, sessionId));
@@ -138,8 +218,10 @@ export async function getWorkoutSummary(sessionId: number) {
       and(
         eq(workoutExercisesTable.sessionId, sessionId),
         eq(workoutExercisesTable.superseded, true),
+        eq(workoutExercisesTable.skipped, false),
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
+        eq(workoutSetsTable.removed, false),
       ),
     )
     .groupBy(workoutExercisesTable.id);
@@ -155,8 +237,11 @@ export async function getWorkoutSummary(sessionId: number) {
         eq(workoutExercisesTable.sessionId, sessionId),
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
+        eq(workoutSetsTable.removed, false),
+        eq(workoutExercisesTable.skipped, false),
       ),
     );
+  const workoutTree = await getWorkoutTree(sessionId, true);
 
   return {
     id: session.id,
@@ -168,9 +253,12 @@ export async function getWorkoutSummary(sessionId: number) {
     endedAt: session.endedAt,
     totalVolume: session.totalVolume,
     exerciseCount:
-      exercises.filter((exercise) => !exercise.superseded).length +
+      exercises.filter((exercise) => !exercise.superseded && !exercise.skipped).length +
       performedSupersededExercises.length,
     workingSetCount: setCount?.count ?? 0,
+    muscleTotals: workoutTree?.muscleTotals ?? [],
+    mesocycleWeek: session.mesocycleWeek,
+    readiness: session.readiness,
   };
 }
 
@@ -256,6 +344,51 @@ export async function getProfileOverview(profileId: number) {
     const summary = await getWorkoutSummary(item.id);
     if (summary) recentWorkouts.push(summary);
   }
+  const weeklyMuscleSets = await db
+    .select({
+      muscleGroup: workoutExercisesTable.muscleGroup,
+      workingSetCount: sql<number>`count(*)::int`,
+    })
+    .from(workoutSetsTable)
+    .innerJoin(
+      workoutExercisesTable,
+      eq(workoutSetsTable.workoutExerciseId, workoutExercisesTable.id),
+    )
+    .innerJoin(
+      workoutSessionsTable,
+      eq(workoutExercisesTable.sessionId, workoutSessionsTable.id),
+    )
+    .where(and(
+      eq(workoutSessionsTable.profileId, profileId),
+      eq(workoutSetsTable.setType, "work"),
+      eq(workoutSetsTable.completed, true),
+      eq(workoutSetsTable.removed, false),
+      eq(workoutExercisesTable.skipped, false),
+      gte(workoutSessionsTable.startedAt, weekStart),
+    ))
+    .groupBy(workoutExercisesTable.muscleGroup)
+    .orderBy(asc(workoutExercisesTable.muscleGroup));
+  const previouslyTrainedMuscleRows = await db
+    .select({ muscleGroup: workoutExercisesTable.muscleGroup })
+    .from(workoutSetsTable)
+    .innerJoin(
+      workoutExercisesTable,
+      eq(workoutSetsTable.workoutExerciseId, workoutExercisesTable.id),
+    )
+    .innerJoin(
+      workoutSessionsTable,
+      eq(workoutExercisesTable.sessionId, workoutSessionsTable.id),
+    )
+    .where(and(
+      eq(workoutSessionsTable.profileId, profileId),
+      eq(workoutSessionsTable.status, "completed"),
+      eq(workoutSetsTable.setType, "work"),
+      eq(workoutSetsTable.completed, true),
+      eq(workoutSetsTable.removed, false),
+      eq(workoutExercisesTable.skipped, false),
+    ))
+    .groupBy(workoutExercisesTable.muscleGroup)
+    .orderBy(asc(workoutExercisesTable.muscleGroup));
 
   return {
     profile,
@@ -264,6 +397,8 @@ export async function getProfileOverview(profileId: number) {
     workoutsThisWeek: thisWeek.length,
     volumeThisWeek: thisWeek.reduce((total, item) => total + item.totalVolume, 0),
     recentWorkouts,
+    weeklyMuscleSets,
+    previouslyTrainedMuscles: previouslyTrainedMuscleRows.map((row) => row.muscleGroup),
   };
 }
 
@@ -316,7 +451,9 @@ export async function getExerciseHistory(profileId: number, exerciseId: number) 
         eq(workoutSessionsTable.profileId, profileId),
         eq(workoutSessionsTable.status, "completed"),
         eq(workoutExercisesTable.exerciseId, exerciseId),
+        eq(workoutExercisesTable.skipped, false),
         eq(workoutSetsTable.completed, true),
+        eq(workoutSetsTable.removed, false),
       ),
     )
     .orderBy(desc(workoutSessionsTable.startedAt), asc(workoutSetsTable.setNumber))

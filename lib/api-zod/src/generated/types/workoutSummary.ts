@@ -5,6 +5,8 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { MuscleTotal } from './muscleTotal';
+import type { WorkoutSummaryReadiness } from './workoutSummaryReadiness';
 import type { WorkoutSummaryStatus } from './workoutSummaryStatus';
 
 export interface WorkoutSummary {
@@ -21,4 +23,9 @@ export interface WorkoutSummary {
   totalVolume: number;
   exerciseCount: number;
   workingSetCount: number;
+  muscleTotals: MuscleTotal[];
+  /** @nullable */
+  mesocycleWeek: number | null;
+  /** @nullable */
+  readiness: WorkoutSummaryReadiness;
 }

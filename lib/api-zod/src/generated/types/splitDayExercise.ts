@@ -13,6 +13,8 @@ export interface SplitDayExercise {
   exerciseId: number;
   orderIndex: number;
   targetSets: number;
+  minimumWorkingSets: number;
+  maximumWorkingSets: number;
   targetRepsMin: number;
   targetRepsMax: number;
   targetRir: number;

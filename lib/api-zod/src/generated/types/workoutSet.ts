@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { WorkoutSetSetType } from './workoutSetSetType';
+import type { WorkoutSetTargetStatus } from './workoutSetTargetStatus';
 
 export interface WorkoutSet {
   id: number;
@@ -24,6 +25,21 @@ export interface WorkoutSet {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  removed: boolean;
+  /** @nullable */
+  adaptiveTargetWeight: number | null;
+  /** @nullable */
+  adaptiveTargetReps: number | null;
+  /** @nullable */
+  adaptiveTargetRir: number | null;
+  /** @nullable */
+  adaptiveWarning: string | null;
+  /** @nullable */
+  targetStatus: WorkoutSetTargetStatus;
+  /** @nullable */
+  targetExplanation: string | null;
+  /** @nullable */
+  algorithmVersion: string | null;
   completed: boolean;
   /** @nullable */
   completedAt: Date | null;

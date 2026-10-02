@@ -14,4 +14,11 @@ export interface SplitUpdate {
   name?: string;
   /** @minimum 0 */
   nextDayIndex?: number;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  startDate?: string;
+  /**
+     * @minimum 1
+     * @maximum 52
+     */
+  cycleLengthWeeks?: number;
 }

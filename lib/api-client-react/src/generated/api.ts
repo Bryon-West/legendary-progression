@@ -31,6 +31,7 @@ import type {
   ListExercisesParams,
   ListSplitsParams,
   ListWorkoutsParams,
+  MesocycleSaveInput,
   NotFoundResponse,
   Profile,
   ProfileInput,
@@ -47,6 +48,7 @@ import type {
   StartWorkoutInput,
   TrainingSplit,
   WorkoutExercise,
+  WorkoutExerciseFeedback,
   WorkoutExerciseInput,
   WorkoutExerciseSubstitution,
   WorkoutSession,
@@ -1091,6 +1093,95 @@ export const useUpdateSplit = <TError = ErrorType<NotFoundResponse>,
       return useMutation(getUpdateSplitMutationOptions(options));
     }
 
+export const getSaveMesocycleUrl = (splitId: number,) => {
+
+
+
+
+  return `/api/splits/${splitId}`
+}
+
+/**
+ * @summary Atomically replace a complete mesocycle draft
+ */
+export const saveMesocycle = async (splitId: number,
+    mesocycleSaveInput: MesocycleSaveInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingSplit> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingSplit>(getSaveMesocycleUrl(splitId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mesocycleSaveInput)
+  }
+);}
+
+
+
+
+
+export const getSaveMesocycleMutationKey = () => ['saveMesocycle'] as const;
+
+export const getSaveMesocycleMutationOptions = <TError = ErrorType<NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext> => {
+
+const mutationKey = getSaveMesocycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveMesocycle>>, SaveMesocycleMutationVariables> = (props) => {
+          const {splitId,data} = props ?? {};
+
+          return  saveMesocycle(splitId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveMesocycleMutationResult = NonNullable<Awaited<ReturnType<typeof saveMesocycle>>>
+    export type SaveMesocycleMutationBody = BodyType<MesocycleSaveInput>
+    export type SaveMesocycleMutationError = ErrorType<NotFoundResponse>
+    export type SaveMesocycleMutationVariables = {splitId: number;data: BodyType<MesocycleSaveInput>}
+
+    /**
+ * @summary Atomically replace a complete mesocycle draft
+ */
+export const useSaveMesocycle = <TError = ErrorType<NotFoundResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveMesocycle>>,
+        TError,
+        SaveMesocycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveMesocycleMutationOptions(options));
+    }
+
 export const getCreateSplitDayUrl = (splitId: number,) => {
 
 
@@ -2034,6 +2125,97 @@ export const useSubstituteWorkoutExercise = <TError = ErrorType<unknown>,
       return useMutation(getSubstituteWorkoutExerciseMutationOptions(options));
     }
 
+export const getUpdateWorkoutExerciseUrl = (sessionId: number,
+    workoutExerciseId: number,) => {
+
+
+
+
+  return `/api/workouts/${sessionId}/exercises/${workoutExerciseId}/feedback`
+}
+
+/**
+ * @summary Record skipped status and pain feedback
+ */
+export const updateWorkoutExercise = async (sessionId: number,
+    workoutExerciseId: number,
+    workoutExerciseFeedback: WorkoutExerciseFeedback, options?: Parameters<typeof customFetch>[1]): Promise<WorkoutExercise> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WorkoutExercise>(getUpdateWorkoutExerciseUrl(sessionId,workoutExerciseId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(workoutExerciseFeedback)
+  }
+);}
+
+
+
+
+
+export const getUpdateWorkoutExerciseMutationKey = () => ['updateWorkoutExercise'] as const;
+
+export const getUpdateWorkoutExerciseMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutExercise>>, TError,UpdateWorkoutExerciseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutExercise>>, TError,UpdateWorkoutExerciseMutationVariables, TContext> => {
+
+const mutationKey = getUpdateWorkoutExerciseMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWorkoutExercise>>, UpdateWorkoutExerciseMutationVariables> = (props) => {
+          const {sessionId,workoutExerciseId,data} = props ?? {};
+
+          return  updateWorkoutExercise(sessionId,workoutExerciseId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWorkoutExerciseMutationResult = NonNullable<Awaited<ReturnType<typeof updateWorkoutExercise>>>
+    export type UpdateWorkoutExerciseMutationBody = BodyType<WorkoutExerciseFeedback>
+    export type UpdateWorkoutExerciseMutationError = ErrorType<unknown>
+    export type UpdateWorkoutExerciseMutationVariables = {sessionId: number;workoutExerciseId: number;data: BodyType<WorkoutExerciseFeedback>}
+
+    /**
+ * @summary Record skipped status and pain feedback
+ */
+export const useUpdateWorkoutExercise = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWorkoutExercise>>, TError,UpdateWorkoutExerciseMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWorkoutExercise>>,
+        TError,
+        UpdateWorkoutExerciseMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateWorkoutExerciseMutationOptions(options));
+    }
+
 export const getCreateWorkoutSetUrl = (sessionId: number,) => {
 
 
@@ -2212,6 +2394,82 @@ export const useUpdateWorkoutSet = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateWorkoutSetMutationOptions(options));
+    }
+
+export const getRemoveWorkoutSetUrl = (sessionId: number,
+    setId: number,) => {
+
+
+
+
+  return `/api/workouts/${sessionId}/sets/${setId}`
+}
+
+/**
+ * @summary Soft-remove a working set
+ */
+export const removeWorkoutSet = async (sessionId: number,
+    setId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveWorkoutSetUrl(sessionId,setId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveWorkoutSetMutationKey = () => ['removeWorkoutSet'] as const;
+
+export const getRemoveWorkoutSetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeWorkoutSet>>, TError,RemoveWorkoutSetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeWorkoutSet>>, TError,RemoveWorkoutSetMutationVariables, TContext> => {
+
+const mutationKey = getRemoveWorkoutSetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeWorkoutSet>>, RemoveWorkoutSetMutationVariables> = (props) => {
+          const {sessionId,setId} = props ?? {};
+
+          return  removeWorkoutSet(sessionId,setId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveWorkoutSetMutationResult = NonNullable<Awaited<ReturnType<typeof removeWorkoutSet>>>
+
+    export type RemoveWorkoutSetMutationError = ErrorType<unknown>
+    export type RemoveWorkoutSetMutationVariables = {sessionId: number;setId: number}
+
+    /**
+ * @summary Soft-remove a working set
+ */
+export const useRemoveWorkoutSet = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeWorkoutSet>>, TError,RemoveWorkoutSetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeWorkoutSet>>,
+        TError,
+        RemoveWorkoutSetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveWorkoutSetMutationOptions(options));
     }
 
 export const getFinishWorkoutUrl = (sessionId: number,) => {

@@ -12,5 +12,9 @@ export interface TrainingSplit {
   profileId: number;
   name: string;
   nextDayIndex: number;
+  /** @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ */
+  startDate: string;
+  cycleLengthWeeks: number;
+  currentWeek: number;
   days: SplitDay[];
 }

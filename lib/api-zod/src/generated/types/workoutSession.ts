@@ -5,7 +5,10 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { MuscleRecovery } from './muscleRecovery';
+import type { MuscleTotal } from './muscleTotal';
 import type { WorkoutExercise } from './workoutExercise';
+import type { WorkoutSessionReadiness } from './workoutSessionReadiness';
 import type { WorkoutSessionStatus } from './workoutSessionStatus';
 
 export interface WorkoutSession {
@@ -24,5 +27,16 @@ export interface WorkoutSession {
   /** @nullable */
   endedAt: Date | null;
   totalVolume: number;
+  /** @nullable */
+  readiness: WorkoutSessionReadiness;
+  /**
+     * @nullable
+     * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+     */
+  mesocycleStartDate: string | null;
+  /** @nullable */
+  mesocycleWeek: number | null;
+  muscleRecovery: MuscleRecovery[];
+  muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];
 }
