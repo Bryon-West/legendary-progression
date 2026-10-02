@@ -18,7 +18,10 @@ import PlannedPage from '@/pages/planned';
 import ProfilesPage from '@/pages/profile';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1, staleTime: 12_000 } },
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: true, refetchOnMount: 'always', refetchOnReconnect: 'always', retry: 1, staleTime: 12_000 },
+    mutations: { networkMode: 'always' },
+  },
 });
 
 function NotFound() { return <main className="page-wrap"><div className="eyebrow">Not found</div><h1 className="display" style={{ fontSize: 48 }}>Wrong turn.</h1><Link href="/" className="btn btn-primary" style={{ textDecoration: 'none' }}>Back to today</Link></main>; }
@@ -41,7 +44,12 @@ function Router() {
 }
 function App() {
   useEffect(() => {
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => undefined);
+    const refreshed = () => { void queryClient.invalidateQueries(); };
+    const storageChanged = (event: StorageEvent) => { if (event.key === 'legendary-training-revision') refreshed(); };
+    window.addEventListener('storage', storageChanged);
+    window.addEventListener('pageshow', refreshed);
+    if ('serviceWorker' in navigator) void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: 'none' }).catch(() => undefined);
+    return () => { window.removeEventListener('storage', storageChanged); window.removeEventListener('pageshow', refreshed); };
   }, []);
   return <QueryClientProvider client={queryClient}><TooltipProvider><ProfileProvider><Router/></ProfileProvider><Toaster/></TooltipProvider></QueryClientProvider>;
 }

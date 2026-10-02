@@ -151,7 +151,7 @@ function snapshotDays(snapshot: unknown): DayPlan[] {
 async function getMesocycleTree(splitId: number) {
   const [split] = await db.select().from(trainingSplitsTable)
     .where(eq(trainingSplitsTable.id, splitId)).limit(1);
-  if (!split) return null;
+  if (!split || split.deletedAt) return null;
   const days = await db.select().from(splitDaysTable)
     .where(and(eq(splitDaysTable.splitId, splitId), eq(splitDaysTable.isArchived, false)))
     .orderBy(asc(splitDaysTable.dayIndex));
@@ -203,6 +203,7 @@ async function getMesocycleTree(splitId: number) {
   return {
     id: split.id,
     lifecycleStatus: split.lifecycleStatus,
+    completedWeeks: weeks.filter(week => week.status === "completed" && week.kind !== "week_off").length,
     programmingVersion: split.programmingVersion,
     pausedAt: split.pausedAt?.toISOString() ?? null,
     endedAt: split.endedAt?.toISOString() ?? null,
@@ -618,7 +619,7 @@ router.put("/splits/:splitId", async (req, res): Promise<void> => {
     validateDraft(draft.days as DayPlan[], draft.weeks as WeekPlan[], draft.startDate, false);
     const [split] = await db.select().from(trainingSplitsTable)
       .where(eq(trainingSplitsTable.id, splitId)).limit(1);
-    if (!split) {
+    if (!split || split.deletedAt) {
       res.status(404).json({ error: "Mesocycle not found" });
       return;
     }
@@ -972,6 +973,7 @@ router.get("/mesocycles/calendar", async (req, res): Promise<void> => {
     .where(and(
       eq(trainingSplitsTable.id, query.data.splitId),
       eq(trainingSplitsTable.profileId, query.data.profileId),
+      sql`${trainingSplitsTable.deletedAt} IS NULL`,
     )).limit(1);
   if (!split) {
     res.status(404).json({ error: "Mesocycle not found for this profile" });
@@ -988,6 +990,7 @@ router.get("/mesocycles/calendar", async (req, res): Promise<void> => {
     if (fixedRange.endDate < rangeStart || fixedRange.startDate > rangeEnd) continue;
     const workouts = [];
     for (const occurrence of week.scheduledWorkouts) {
+      if (occurrence.status === "cancelled") continue;
       const bundle = await getPrescription(occurrence.id);
       const projectedExercises = bundle.exercises.map(e => ({
         exerciseId: e.exerciseId, exerciseName: e.exerciseName, targetSets: e.targetSets,
@@ -1009,6 +1012,7 @@ router.get("/mesocycles/calendar", async (req, res): Promise<void> => {
         projectedExercises,
       });
     }
+    if (["ended_early", "restarted", "completed"].includes(split.lifecycleStatus) && !workouts.length) continue;
     result.push({
       weekId: week.id,
       weekIndex: week.weekIndex,

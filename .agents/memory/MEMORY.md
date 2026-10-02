@@ -1,4 +1,4 @@
-- [Progression scope](progression-scope.md) — V2.2 overrides V2.1; update, never rebuild; completed performance and future prescriptions stay separate.
+- [Progression scope](progression-scope.md) — V2.2/V2.3A update, never rebuild; completed truth stays separate from prescriptions and protected profile resets.
 - [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
 - [Calendar-date contracts](calendar-date-contracts.md) — keep date strings and stable planned occurrence IDs; dates must not determine week/RIR identity.
 - [Verification isolation](verification-isolation.md) — verify the selected QA profile, not just workout ownership; preservation checks must include profile preferences.

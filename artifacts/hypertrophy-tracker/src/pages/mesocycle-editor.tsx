@@ -10,6 +10,7 @@ import { useActiveProfile } from '@/lib/profile';
 import { inputValue, type WeightUnit } from '@/lib/units';
 import { MesocycleBuilder, nk, type Draft, type DraftDay, type DraftWeek } from '@/components/mesocycle-builder';
 import { Loading, QueryError } from '@/components/ui-bits';
+import { refreshTrainingData } from '@/lib/training-cache';
 
 function toDraft(m: Mesocycle, unit: WeightUnit): Draft {
   const days: DraftDay[] = [...m.days].sort((a, b) => a.dayIndex - b.dayIndex).map((d) => ({
@@ -42,7 +43,8 @@ export default function MesocycleEditorPage() {
     saving={save.isPending} saveError={save.isError}
     banner={query.data.sourceDescription ? <div className="badge" style={{ margin: '10px 0' }} data-testid="text-source-trace">{query.data.sourceDescription}</div> : undefined}
     onCancel={() => navigate('/splits')}
-    onSave={(input) => save.mutate({ splitId: id, data: input }, { onSuccess: () => {
+    onSave={(input) => save.mutate({ splitId: id, data: input }, { onSuccess: async () => {
+      await refreshTrainingData(qc);
       void qc.invalidateQueries({ queryKey: getGetMesocycleQueryKey(id) });
       void qc.invalidateQueries({ queryKey: getGetMesocycleCalendarQueryKey({ profileId: pid, splitId: id }) });
       void qc.invalidateQueries({ queryKey: getListSplitsQueryKey({ profileId: pid }) });

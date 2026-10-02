@@ -195,7 +195,7 @@ router.get("/splits", async (req, res): Promise<void> => {
   const splits = await db
     .select({ id: trainingSplitsTable.id })
     .from(trainingSplitsTable)
-    .where(eq(trainingSplitsTable.profileId, parsed.data.profileId))
+    .where(and(eq(trainingSplitsTable.profileId, parsed.data.profileId), isNull(trainingSplitsTable.deletedAt)))
     .orderBy(asc(trainingSplitsTable.createdAt), asc(trainingSplitsTable.id));
   const results = [];
   for (const split of splits) {

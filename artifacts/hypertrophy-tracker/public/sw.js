@@ -1,4 +1,4 @@
-const CACHE_NAME = 'legendary-progression-shell-v3';
+const CACHE_NAME = 'legendary-progression-shell-v23a';
 const SHELL = ['/', '/manifest.webmanifest', '/brand/dragon-192.png', '/brand/dragon-512.png', '/brand/dragon-mark.png', '/brand/legendary-logo.png'];
 
 self.addEventListener('install', (event) => {
@@ -14,7 +14,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    event.respondWith(fetch(request).then(response => {
+      if (response.ok) event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put('/', response.clone())));
+      return response;
+    }).catch(() => caches.match('/')));
     return;
   }
   if (url.pathname.startsWith('/assets/') || url.pathname === '/manifest.webmanifest' || url.pathname.startsWith('/brand/')) {

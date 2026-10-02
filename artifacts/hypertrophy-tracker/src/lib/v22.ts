@@ -31,6 +31,6 @@ export function lifecycleOf(s: { lifecycleStatus?: string | null; endedAt?: stri
   const v = s.lifecycleStatus;
   if (v === 'planned') return 'planned';
   if (v === 'paused' || (!v && s.pausedAt)) return 'paused';
-  if (v === 'ended' || v === 'completed' || v === 'past' || s.endedAt) return 'past';
+  if (v === 'ended_early' || v === 'restarted' || v === 'ended' || v === 'completed' || v === 'past' || s.endedAt) return 'past';
   return 'current';
 }

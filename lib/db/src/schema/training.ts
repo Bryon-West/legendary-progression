@@ -71,6 +71,7 @@ export const trainingSplitsTable = pgTable("training_splits", {
     .references(() => profilesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   lifecycleStatus: text("lifecycle_status").notNull().default("planned"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   pausedAt: timestamp("paused_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   restartFromId: integer("restart_from_id"),

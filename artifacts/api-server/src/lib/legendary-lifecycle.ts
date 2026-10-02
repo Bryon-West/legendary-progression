@@ -7,7 +7,7 @@ export function plusDays(date: string, count: number) {
 export async function activateMesocycle(splitId: number, connection: any = db) {
   const run = async (tx: any) => {
     const [split] = await tx.select().from(trainingSplitsTable).where(eq(trainingSplitsTable.id, splitId));
-    if (!split || !["planned", "active"].includes(split.lifecycleStatus)) throw new Error("Resume a paused mesocycle, or restart a closed mesocycle before training.");
+    if (!split || split.deletedAt || !["planned", "active"].includes(split.lifecycleStatus)) throw new Error("Resume a paused mesocycle, or restart a closed mesocycle before training.");
     await tx.execute(sql`SELECT id FROM training_profiles WHERE id=${split.profileId} FOR UPDATE`);
     await tx.update(trainingSplitsTable).set({ lifecycleStatus: "paused", pausedAt: new Date() })
       .where(and(eq(trainingSplitsTable.profileId, split.profileId), eq(trainingSplitsTable.lifecycleStatus, "active"), sql`${trainingSplitsTable.id}<>${splitId}`));
@@ -20,9 +20,15 @@ export async function transitionLifecycle(splitId: number, input: { profileId: n
   await db.transaction(async tx => {
     await tx.execute(sql`SELECT id FROM training_profiles WHERE id=${input.profileId} FOR UPDATE`);
     const [split] = await tx.select().from(trainingSplitsTable).where(and(eq(trainingSplitsTable.id, splitId), eq(trainingSplitsTable.profileId, input.profileId))).for("update");
-    if (!split) throw new Error("Mesocycle not found for this profile");
+    if (!split || split.deletedAt) throw new Error("Mesocycle not found for this profile");
+    if (input.action === "restart" && split.lifecycleStatus === "restarted") {
+      const [existing] = await tx.select().from(trainingSplitsTable).where(eq(trainingSplitsTable.restartFromId, splitId)).orderBy(asc(trainingSplitsTable.id)).limit(1);
+      if (!existing || existing.deletedAt) throw new Error("This instance was already restarted. Restart its latest visible instance.");
+      newId = existing.id;
+      return;
+    }
     const active = await tx.select().from(workoutSessionsTable).where(and(eq(workoutSessionsTable.profileId, input.profileId), eq(workoutSessionsTable.status, "active"))).limit(1);
-    if (active.length && input.action !== "resume") throw new Error("Finish the active workout before changing mesocycle lifecycle.");
+    if (active.length && ["activate", "restart"].includes(input.action)) throw new Error("Finish the active workout before activating or restarting a mesocycle.");
     if (input.action === "activate") { await activateMesocycle(splitId, tx); return; }
     if (input.action === "pause") {
       if (split.lifecycleStatus !== "active") throw new Error("Only an active mesocycle can be paused");
@@ -39,6 +45,8 @@ export async function transitionLifecycle(splitId: number, input: { profileId: n
         await tx.execute(sql`UPDATE mesocycle_weeks SET schedule_start_date=COALESCE(schedule_start_date,
           (SELECT start_date FROM training_splits WHERE id=${splitId})+(week_index-1)*7)+${shift}::integer
           WHERE split_id=${splitId} AND status<>'completed'`);
+        await tx.execute(sql`UPDATE planned_prescriptions pp SET payload=jsonb_set(pp.payload,'{scheduledDate}',to_jsonb(pw.scheduled_date::text))
+          FROM planned_workouts pw WHERE pp.planned_workout_id=pw.id AND pw.split_id=${splitId} AND pw.status='scheduled'`);
       }
       await tx.update(trainingSplitsTable).set({ lifecycleStatus: "paused" }).where(eq(trainingSplitsTable.id, splitId));
       // Resume uses the same serialized one-active invariant as activation.
@@ -50,8 +58,10 @@ export async function transitionLifecycle(splitId: number, input: { profileId: n
     if (!["end_early", "restart"].includes(input.action)) throw new Error("Invalid lifecycle action");
     if (input.action === "end_early" && ["ended_early", "restarted", "completed"].includes(split.lifecycleStatus)) throw new Error("This instance is already closed");
     await tx.update(plannedWorkoutsTable).set({ status: "cancelled" }).where(and(eq(plannedWorkoutsTable.splitId, splitId), eq(plannedWorkoutsTable.status, "scheduled")));
-    if (!["ended_early", "completed", "restarted"].includes(split.lifecycleStatus))
-      await tx.update(trainingSplitsTable).set({ lifecycleStatus: input.action === "restart" ? "restarted" : "ended_early", endedAt: new Date() }).where(eq(trainingSplitsTable.id, splitId));
+    await tx.update(trainingSplitsTable).set({
+      lifecycleStatus: input.action === "restart" ? "restarted" : "ended_early",
+      endedAt: split.endedAt ?? new Date(), pausedAt: null,
+    }).where(eq(trainingSplitsTable.id, splitId));
     if (input.action !== "restart") return;
     const startDate = input.startDate ?? new Date().toISOString().slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(`${startDate}T00:00:00Z`).getTime())) throw new Error("Invalid start date");
@@ -74,8 +84,9 @@ export async function transitionLifecycle(splitId: number, input: { profileId: n
       const [newWeek] = await tx.insert(mesocycleWeeksTable).values({ splitId: created.id, weekIndex: week.weekIndex, kind: week.kind, targetRir: week.targetRir }).returning();
       const occurrences = await tx.select().from(plannedWorkoutsTable).where(eq(plannedWorkoutsTable.weekId, week.id));
       for (const occurrence of occurrences) {
-        const oldWeekStart = week.scheduleStartDate ?? plusDays(split.startDate, (week.weekIndex - 1) * 7);
-        const offset = Math.max(0, Math.min(6, Math.round((Date.parse(occurrence.scheduledDate) - Date.parse(oldWeekStart)) / 86400000)));
+        // Original day offsets survive inserted weeks and pause/reschedule shifts.
+        const daysFromOriginalStart = Math.round((Date.parse(occurrence.originalScheduledDate) - Date.parse(split.startDate)) / 86400000);
+        const offset = ((daysFromOriginalStart % 7) + 7) % 7;
         const scheduledDate = plusDays(startDate, (week.weekIndex - 1) * 7 + offset);
         const dayId = dayMap.get(occurrence.splitDayId);
         if (dayId) await tx.insert(plannedWorkoutsTable).values({ splitId: created.id, weekId: newWeek.id, splitDayId: dayId, scheduledDate, originalScheduledDate: scheduledDate });
@@ -91,7 +102,7 @@ export async function transitionLifecycle(splitId: number, input: { profileId: n
 export async function changeLoadingWeek(splitId: number, addRir?: number, claimedProfileId?: number) {
   await db.transaction(async tx => {
     const [split] = await tx.select().from(trainingSplitsTable).where(eq(trainingSplitsTable.id, splitId)).for("update");
-    if (!split || (claimedProfileId !== undefined && split.profileId !== claimedProfileId)) throw new Error("Mesocycle not found for this profile");
+    if (!split || split.deletedAt || (claimedProfileId !== undefined && split.profileId !== claimedProfileId)) throw new Error("Mesocycle not found for this profile");
     if (!["active", "planned", "paused"].includes(split.lifecycleStatus)) throw new Error("Closed mesocycles cannot change loading weeks");
     const weeks = await tx.select().from(mesocycleWeeksTable).where(eq(mesocycleWeeksTable.splitId, splitId)).orderBy(asc(mesocycleWeeksTable.weekIndex));
     const loading = weeks.filter(w => w.kind === "loading");
@@ -107,8 +118,6 @@ export async function changeLoadingWeek(splitId: number, addRir?: number, claime
       if (recovery) {
         await tx.update(mesocycleWeeksTable).set({ weekIndex: recovery.weekIndex + 1, scheduleStartDate: recovery.scheduleStartDate ? plusDays(recovery.scheduleStartDate, 7) : null }).where(eq(mesocycleWeeksTable.id, recovery.id));
         await tx.execute(sql`UPDATE planned_workouts SET scheduled_date=scheduled_date+7 WHERE week_id=${recovery.id} AND status='scheduled'`);
-      } else {
-        [recovery] = await tx.insert(mesocycleWeeksTable).values({ splitId, weekIndex: nextIndex + 1, kind: "deload", targetRir: 4 }).returning();
       }
       const [week] = await tx.insert(mesocycleWeeksTable).values({ splitId, weekIndex: nextIndex, kind: "loading", targetRir: addRir }).returning();
       const sourceWeek = loading.at(-1);
@@ -116,10 +125,6 @@ export async function changeLoadingWeek(splitId: number, addRir?: number, claime
       for (const occurrence of source) {
         const date = plusDays(occurrence.scheduledDate, 7);
         await tx.insert(plannedWorkoutsTable).values({ splitId, weekId: week.id, splitDayId: occurrence.splitDayId, scheduledDate: date, originalScheduledDate: date });
-        if (!weeks.some(w => w.kind !== "loading")) {
-          const recoveryDate = plusDays(date, 7);
-          await tx.insert(plannedWorkoutsTable).values({ splitId, weekId: recovery!.id, splitDayId: occurrence.splitDayId, scheduledDate: recoveryDate, originalScheduledDate: recoveryDate });
-        }
       }
     } else {
       const last = loading.at(-1);

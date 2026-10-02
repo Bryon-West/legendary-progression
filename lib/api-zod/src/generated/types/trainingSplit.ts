@@ -6,10 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SplitDay } from './splitDay';
+import type { TrainingSplitLifecycleStatus } from './trainingSplitLifecycleStatus';
 
 export interface TrainingSplit {
   hasWorkoutHistory?: boolean;
-  lifecycleStatus?: string;
+  lifecycleStatus?: TrainingSplitLifecycleStatus;
+  /** @minimum 0 */
+  completedWeeks?: number;
   programmingVersion?: string;
   /** @nullable */
   pausedAt?: string | null;

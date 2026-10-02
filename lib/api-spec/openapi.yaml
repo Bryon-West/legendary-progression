@@ -19,6 +19,26 @@ tags:
   - name: mesocycles
     description: Mesocycle planning, templates, weeks, and calendar
 paths:
+  /profiles/{profileId}/reset-training:
+    post:
+      operationId: resetTrainingData
+      tags: [profiles]
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmation]
+              properties:
+                confirmation: { type: string, enum: [RESET] }
+              additionalProperties: false
+      responses:
+        "204": { description: "Selected profile training data cleared; profile, settings and library retained" }
+        "400": { description: Exact RESET confirmation is required }
+        "404": { description: Profile not found }
   /mesocycles/{splitId}/delete-unstarted:
     delete:
       operationId: deleteUnstartedMesocycle
@@ -517,6 +537,16 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
   /mesocycles/{splitId}:
+    delete:
+      operationId: deleteMesocyclePreservingHistory
+      tags: [mesocycles]
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+        - { name: profileId, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204": { description: Plan removed; completed history preserved }
+        "400": { description: Finish an active workout before deleting its plan }
+        "404": { description: Plan not found for this profile }
     get:
       operationId: getMesocycle
       tags: [mesocycles]
@@ -1156,7 +1186,8 @@ components:
       required: [id, profileId, name, nextDayIndex, startDate, cycleLengthWeeks, currentWeek, days]
       properties:
         hasWorkoutHistory: { type: boolean }
-        lifecycleStatus: { type: string }
+        lifecycleStatus: { type: string, enum: [planned, active, paused, completed, ended_early, restarted] }
+        completedWeeks: { type: integer, minimum: 0 }
         programmingVersion: { type: string }
         pausedAt: { type: ["string", "null"] }
         endedAt: { type: ["string", "null"] }
@@ -1592,7 +1623,8 @@ components:
       required: [id, profileId, name, startDate, cycleLengthWeeks, days, weeks, sourceDescription]
       properties:
         currentWeek: { type: integer }
-        lifecycleStatus: { type: string }
+        lifecycleStatus: { type: string, enum: [planned, active, paused, completed, ended_early, restarted] }
+        completedWeeks: { type: integer, minimum: 0 }
         programmingVersion: { type: string }
         pausedAt: { type: ["string", "null"] }
         endedAt: { type: ["string", "null"] }

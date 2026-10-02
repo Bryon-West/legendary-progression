@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 const { pool } = await import("../../lib/db/src/index.ts");
-const file = new URL("../../.local/legendary-v22-preservation.json", import.meta.url);
+const snapshotIndex = process.argv.indexOf("--snapshot");
+const file = new URL(snapshotIndex >= 0 ? `../../.local/${process.argv[snapshotIndex + 1]}` : "../../.local/legendary-v22-preservation.json", import.meta.url);
 try {
   if (process.argv.includes("--capture")) {
     const { rows } = await pool.query("SELECT table_name,json_agg(column_name ORDER BY ordinal_position) columns FROM information_schema.columns WHERE table_schema='public' GROUP BY table_name ORDER BY table_name");
@@ -20,6 +21,6 @@ try {
       const value = (await pool.query(`SELECT count(*) n,md5(coalesce(jsonb_agg(jsonb_build_array(${t.columns.map(c => `"${c}"`).join(",")}) ORDER BY id)::text,'[]')) hash FROM "${t.table}" WHERE id=ANY($1)`, [t.ids])).rows[0];
       if (JSON.stringify(value) !== JSON.stringify(data.hashes[i])) throw new Error(`Original records changed in ${t.table}`);
     }
-    console.log("All pre-V2.2 record fingerprints are unchanged.");
+    console.log("All original-record fingerprints in the selected preservation snapshot are unchanged.");
   }
 } finally { await pool.end(); }

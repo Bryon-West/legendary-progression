@@ -23,6 +23,7 @@ import type {
   ActiveWorkoutState,
   AddWeekInput,
   CalendarWeek,
+  DeleteMesocyclePreservingHistoryParams,
   Error,
   Exercise,
   ExerciseBaseline,
@@ -57,6 +58,7 @@ import type {
   ReorderInput,
   RescheduleWorkoutInput,
   RescheduleWorkoutResult,
+  ResetTrainingDataBody,
   SplitDay,
   SplitDayExercise,
   SplitDayExerciseInput,
@@ -107,6 +109,89 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getResetTrainingDataUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/reset-training`
+}
+
+export const resetTrainingData = async (profileId: number,
+    resetTrainingDataBody: ResetTrainingDataBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getResetTrainingDataUrl(profileId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(resetTrainingDataBody)
+  }
+);}
+
+
+
+
+
+export const getResetTrainingDataMutationKey = () => ['resetTrainingData'] as const;
+
+export const getResetTrainingDataMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTrainingData>>, TError,ResetTrainingDataMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetTrainingData>>, TError,ResetTrainingDataMutationVariables, TContext> => {
+
+const mutationKey = getResetTrainingDataMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetTrainingData>>, ResetTrainingDataMutationVariables> = (props) => {
+          const {profileId,data} = props ?? {};
+
+          return  resetTrainingData(profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetTrainingDataMutationResult = NonNullable<Awaited<ReturnType<typeof resetTrainingData>>>
+    export type ResetTrainingDataMutationBody = BodyType<ResetTrainingDataBody>
+    export type ResetTrainingDataMutationError = ErrorType<void>
+    export type ResetTrainingDataMutationVariables = {profileId: number;data: BodyType<ResetTrainingDataBody>}
+
+    export const useResetTrainingData = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTrainingData>>, TError,ResetTrainingDataMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetTrainingData>>,
+        TError,
+        ResetTrainingDataMutationVariables,
+        TContext
+      > => {
+      return useMutation(getResetTrainingDataMutationOptions(options));
+    }
 
 export const getDeleteUnstartedMesocycleUrl = (splitId: number,) => {
 
@@ -2402,6 +2487,83 @@ export const useCreateMesocycle = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCreateMesocycleMutationOptions(options));
+    }
+
+export const getDeleteMesocyclePreservingHistoryUrl = (splitId: number,
+    params: DeleteMesocyclePreservingHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/mesocycles/${splitId}?${stringifiedParams}` : `/api/mesocycles/${splitId}`
+}
+
+export const deleteMesocyclePreservingHistory = async (splitId: number,
+    params: DeleteMesocyclePreservingHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteMesocyclePreservingHistoryUrl(splitId,params),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMesocyclePreservingHistoryMutationKey = () => ['deleteMesocyclePreservingHistory'] as const;
+
+export const getDeleteMesocyclePreservingHistoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>, TError,DeleteMesocyclePreservingHistoryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>, TError,DeleteMesocyclePreservingHistoryMutationVariables, TContext> => {
+
+const mutationKey = getDeleteMesocyclePreservingHistoryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>, DeleteMesocyclePreservingHistoryMutationVariables> = (props) => {
+          const {splitId,params} = props ?? {};
+
+          return  deleteMesocyclePreservingHistory(splitId,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMesocyclePreservingHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>>
+
+    export type DeleteMesocyclePreservingHistoryMutationError = ErrorType<void>
+    export type DeleteMesocyclePreservingHistoryMutationVariables = {splitId: number;params: DeleteMesocyclePreservingHistoryParams}
+
+    export const useDeleteMesocyclePreservingHistory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>, TError,DeleteMesocyclePreservingHistoryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMesocyclePreservingHistory>>,
+        TError,
+        DeleteMesocyclePreservingHistoryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteMesocyclePreservingHistoryMutationOptions(options));
     }
 
 export const getGetMesocycleUrl = (splitId: number,) => {

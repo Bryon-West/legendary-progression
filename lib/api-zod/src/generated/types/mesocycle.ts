@@ -6,12 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DateOnly } from './dateOnly';
+import type { MesocycleLifecycleStatus } from './mesocycleLifecycleStatus';
 import type { MesocycleWeek } from './mesocycleWeek';
 import type { SplitDay } from './splitDay';
 
 export interface Mesocycle {
   currentWeek?: number;
-  lifecycleStatus?: string;
+  lifecycleStatus?: MesocycleLifecycleStatus;
+  /** @minimum 0 */
+  completedWeeks?: number;
   programmingVersion?: string;
   /** @nullable */
   pausedAt?: string | null;

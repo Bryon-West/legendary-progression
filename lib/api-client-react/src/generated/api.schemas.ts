@@ -396,9 +396,23 @@ export interface SplitDayUpdate {
   dayIndex?: number;
 }
 
+export type TrainingSplitLifecycleStatus = typeof TrainingSplitLifecycleStatus[keyof typeof TrainingSplitLifecycleStatus];
+
+
+export const TrainingSplitLifecycleStatus = {
+  planned: 'planned',
+  active: 'active',
+  paused: 'paused',
+  completed: 'completed',
+  ended_early: 'ended_early',
+  restarted: 'restarted',
+} as const;
+
 export interface TrainingSplit {
   hasWorkoutHistory?: boolean;
-  lifecycleStatus?: string;
+  lifecycleStatus?: TrainingSplitLifecycleStatus;
+  /** @minimum 0 */
+  completedWeeks?: number;
   programmingVersion?: string;
   /** @nullable */
   pausedAt?: string | null;
@@ -1251,9 +1265,23 @@ export interface MesocycleWeek {
   sourceDescription: string | null;
 }
 
+export type MesocycleLifecycleStatus = typeof MesocycleLifecycleStatus[keyof typeof MesocycleLifecycleStatus];
+
+
+export const MesocycleLifecycleStatus = {
+  planned: 'planned',
+  active: 'active',
+  paused: 'paused',
+  completed: 'completed',
+  ended_early: 'ended_early',
+  restarted: 'restarted',
+} as const;
+
 export interface Mesocycle {
   currentWeek?: number;
-  lifecycleStatus?: string;
+  lifecycleStatus?: MesocycleLifecycleStatus;
+  /** @minimum 0 */
+  completedWeeks?: number;
   programmingVersion?: string;
   /** @nullable */
   pausedAt?: string | null;
@@ -1508,6 +1536,17 @@ export interface Error {
  */
 export type NotFoundResponse = Error;
 
+export type ResetTrainingDataBodyConfirmation = typeof ResetTrainingDataBodyConfirmation[keyof typeof ResetTrainingDataBodyConfirmation];
+
+
+export const ResetTrainingDataBodyConfirmation = {
+  RESET: 'RESET',
+} as const;
+
+export type ResetTrainingDataBody = {
+  confirmation: ResetTrainingDataBodyConfirmation;
+};
+
 export type GetOverviewParams = {
 profileId: number;
 };
@@ -1523,6 +1562,13 @@ profileId: number;
 };
 
 export type GetMesocycleCopyOptionsParams = {
+profileId: number;
+};
+
+export type DeleteMesocyclePreservingHistoryParams = {
+/**
+ * @minimum 1
+ */
 profileId: number;
 };
 

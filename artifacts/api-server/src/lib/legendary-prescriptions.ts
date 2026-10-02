@@ -49,6 +49,7 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
     .where(eq(plannedWorkoutsTable.id, plannedId)).limit(1);
   if (!selected) throw new Error("Planned workout not found");
   const { occurrence, week, split, day } = selected;
+  if (split.deletedAt || occurrence.status === "cancelled") throw new Error("This scheduled workout is no longer available.");
   const [linked] = await db.select().from(workoutSessionsTable).where(eq(workoutSessionsTable.plannedWorkoutId, plannedId)).limit(1);
   const base = { plannedWorkoutId: plannedId, splitId: split.id, weekIndex: week.weekIndex, kind: week.kind, targetRir: week.targetRir, scheduledDate: occurrence.scheduledDate, dayName: day.name,
     ...(linked?.status === "active" ? { sessionId: linked.id } : {}) };
@@ -175,7 +176,7 @@ export async function generateNextOccurrence(sessionId: number) {
   if (next && source.weekKindSnapshot !== "deload") await getPrescription(next.occurrence.id, true);
   const remaining = await db.select().from(plannedWorkoutsTable).where(and(eq(plannedWorkoutsTable.splitId, source.splitId), eq(plannedWorkoutsTable.status, "scheduled"))).limit(1);
   if (!remaining.length) await db.update(trainingSplitsTable).set({ lifecycleStatus: "completed", endedAt: new Date() })
-    .where(and(eq(trainingSplitsTable.id, source.splitId), sql`${trainingSplitsTable.lifecycleStatus} IN ('active','planned')`));
+    .where(and(eq(trainingSplitsTable.id, source.splitId), sql`${trainingSplitsTable.lifecycleStatus} IN ('active','planned','paused')`));
 }
 
 export async function invalidateFuturePrescriptions(splitId: number, connection: any = db) {

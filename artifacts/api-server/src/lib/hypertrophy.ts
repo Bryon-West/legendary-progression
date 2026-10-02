@@ -22,7 +22,7 @@ export async function getSplitTree(splitId: number) {
   const [split] = await db
     .select()
     .from(trainingSplitsTable)
-    .where(eq(trainingSplitsTable.id, splitId))
+    .where(and(eq(trainingSplitsTable.id, splitId), sql`${trainingSplitsTable.deletedAt} IS NULL`))
     .limit(1);
   if (!split) return null;
 
@@ -58,6 +58,7 @@ export async function getSplitTree(splitId: number) {
     endedAt: split.endedAt?.toISOString() ?? null,
     currentWeek: weeks.find(w => w.status === "in_progress")?.weekIndex ?? weeks.find(w => w.status === "future")?.weekIndex ?? weeks.at(-1)?.weekIndex ?? 1,
     hasWorkoutHistory: history.length > 0,
+    completedWeeks: weeks.filter(w => w.status === "completed" && w.kind !== "week_off").length,
     days: resultDays,
   };
 }
@@ -286,6 +287,7 @@ export async function getNextWorkout(profileId: number) {
     .from(trainingSplitsTable)
     .where(and(
       eq(trainingSplitsTable.profileId, profileId),
+      sql`${trainingSplitsTable.deletedAt} IS NULL`,
       sql`${trainingSplitsTable.lifecycleStatus} IN ('active','planned')`,
       sql`(
         NOT EXISTS (SELECT 1 FROM mesocycle_weeks mw WHERE mw.split_id = ${trainingSplitsTable.id})

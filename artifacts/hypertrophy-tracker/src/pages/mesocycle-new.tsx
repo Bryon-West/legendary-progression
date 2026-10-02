@@ -11,6 +11,7 @@ import { useActiveProfile } from '@/lib/profile';
 import { localToday } from '@/lib/dates';
 import { MesocycleBuilder, defaultWeeks, newWeekOcc, exFromInput, nk, type Draft, type DraftDay } from '@/components/mesocycle-builder';
 import { Empty, ErrorNote, Loading, QueryError } from '@/components/ui-bits';
+import { refreshTrainingData } from '@/lib/training-cache';
 
 type Source = { createMode: MesocycleCreateInputCreateMode; templateId?: string; sourceWeekId?: number; description?: string };
 type Tab = 'template' | 'copy' | 'build';
@@ -56,11 +57,12 @@ export default function MesocycleNewPage() {
     saving={create.isPending} saveError={create.isError}
     banner={started.source.description ? <div className="badge" style={{ margin: '10px 0' }} data-testid="text-source-trace">{started.source.description}</div> : undefined}
     onCancel={() => navigate('/splits')}
-    onSave={(input) => create.mutate({ data: { ...input, profileId: pid, createMode: started.source.createMode, templateId: started.source.templateId ?? null, sourceWeekId: started.source.sourceWeekId ?? null, sourceDescription: started.source.description ?? null } }, { onSuccess: () => {
+    onSave={(input) => create.mutate({ data: { ...input, profileId: pid, createMode: started.source.createMode, templateId: started.source.templateId ?? null, sourceWeekId: started.source.sourceWeekId ?? null, sourceDescription: started.source.description ?? null } }, { onSuccess: async (created) => {
+      await refreshTrainingData(qc);
       void qc.invalidateQueries({ queryKey: getListSplitsQueryKey({ profileId: pid }) });
       void qc.invalidateQueries({ queryKey: getGetOverviewQueryKey({ profileId: pid }) });
       void qc.invalidateQueries({ queryKey: ['/api/mesocycles/copy-options', { profileId: pid }] });
-      navigate('/splits');
+      navigate(`/calendar?split=${created.id}`);
     } })}/>;
 
   const tabs: { id: Tab; label: string; icon: typeof Copy }[] = [{ id: 'template', label: 'Start from template', icon: LayoutTemplate }, { id: 'copy', label: 'Copy previous', icon: Copy }, { id: 'build', label: 'Build my own', icon: Hammer }];

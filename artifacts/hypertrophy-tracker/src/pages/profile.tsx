@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { EngineSettings } from '@/components/engine-settings';
+import { ResetTrainingData } from '@/components/reset-training-data';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, Edit3, Plus } from 'lucide-react';
 import { getListProfilesQueryKey, useCreateProfile, useUpdateProfile } from '@workspace/api-client-react';
@@ -37,6 +38,7 @@ export default function ProfilesPage() {
       {editing === p.id && <button className="btn btn-ghost" aria-label="Save profile name" style={{ minHeight: 40, padding: 8 }} onClick={() => saveName(p)}><Check size={16}/></button>}
     </article>)}</div>
     {profile && <EngineSettings profileId={profile.id}/>}
+    {profile && <ResetTrainingData key={profile.id} profileId={profile.id} profileName={profile.name}/>}
     <form className="panel" style={{ padding: 17, display: 'grid', gap: 10 }} onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; create.mutate({ data: { name: name.trim() } }, { onSuccess: (p) => { setName(''); setProfileId(p.id); window.localStorage.setItem('training-profile', String(p.id)); refresh(); } }); }}><strong>Create profile</strong><input className="field" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this profile"/><button className="btn btn-primary" disabled={create.isPending}><Plus size={17}/> Add profile</button>{create.isError && <ErrorNote message="Could not create profile."/>}</form>
   </main>;
 }

@@ -8,6 +8,20 @@
 import * as zod from 'zod';
 
 
+
+
+
+export const ResetTrainingDataParams = zod.object({
+  "profileId": zod.coerce.number().int().min(1)
+})
+
+export const ResetTrainingDataBody = zod.object({
+  "confirmation": zod.enum(['RESET'])
+})
+
+export const ResetTrainingDataResponse = zod.void()
+
+
 export const DeleteUnstartedMesocycleParams = zod.object({
   "splitId": zod.coerce.number().int()
 })
@@ -741,6 +755,8 @@ export const ListSplitsQueryParams = zod.object({
   "profileId": zod.coerce.number().int()
 })
 
+export const listSplitsResponseCompletedWeeksMin = 0;
+
 export const listSplitsResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const listSplitsResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
 
@@ -750,7 +766,8 @@ export const listSplitsResponseDaysItemExercisesItemExerciseLoadIncrementKgExclu
 
 export const ListSplitsResponseItem = zod.object({
   "hasWorkoutHistory": zod.boolean().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(listSplitsResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -814,6 +831,8 @@ export const CreateSplitBody = zod.object({
   "name": zod.string().min(1).max(createSplitBodyNameMax)
 })
 
+export const createSplitResponseCompletedWeeksMin = 0;
+
 export const createSplitResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const createSplitResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
 
@@ -823,7 +842,8 @@ export const createSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExcl
 
 export const CreateSplitResponse = zod.object({
   "hasWorkoutHistory": zod.boolean().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(createSplitResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -881,6 +901,8 @@ export const GetSplitParams = zod.object({
   "splitId": zod.coerce.number().int()
 })
 
+export const getSplitResponseCompletedWeeksMin = 0;
+
 export const getSplitResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const getSplitResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
 
@@ -890,7 +912,8 @@ export const getSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExclusi
 
 export const GetSplitResponse = zod.object({
   "hasWorkoutHistory": zod.boolean().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(getSplitResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -964,6 +987,8 @@ export const UpdateSplitBody = zod.object({
   "cycleLengthWeeks": zod.number().int().min(1).max(updateSplitBodyCycleLengthWeeksMax).optional()
 })
 
+export const updateSplitResponseCompletedWeeksMin = 0;
+
 export const updateSplitResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const updateSplitResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
 
@@ -973,7 +998,8 @@ export const updateSplitResponseDaysItemExercisesItemExerciseLoadIncrementKgExcl
 
 export const UpdateSplitResponse = zod.object({
   "hasWorkoutHistory": zod.boolean().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(updateSplitResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -1103,6 +1129,8 @@ export const SaveMesocycleBody = zod.object({
   "sourceDescription": zod.string().nullish()
 })
 
+export const saveMesocycleResponseCompletedWeeksMin = 0;
+
 export const saveMesocycleResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 export const saveMesocycleResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
 
@@ -1112,7 +1140,8 @@ export const saveMesocycleResponseDaysItemExercisesItemExerciseLoadIncrementKgEx
 
 export const SaveMesocycleResponse = zod.object({
   "hasWorkoutHistory": zod.boolean().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(saveMesocycleResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -1466,6 +1495,8 @@ export const CreateMesocycleBody = zod.object({
   "sourceWeekId": zod.number().int().nullish().describe('Only eligible fully completed loading weeks may be selected.')
 }))
 
+export const createMesocycleResponseCompletedWeeksMin = 0;
+
 export const createMesocycleResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 
 export const createMesocycleResponseDaysItemExercisesItemExerciseLoadIncrementLbExclusiveMin = 0;
@@ -1482,7 +1513,8 @@ export const createMesocycleResponseWeeksItemScheduledWorkoutsItemOriginalSchedu
 
 export const CreateMesocycleResponse = zod.object({
   "currentWeek": zod.number().int().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(createMesocycleResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),
@@ -1554,12 +1586,28 @@ export const CreateMesocycleResponse = zod.object({
 })
 
 
+export const DeleteMesocyclePreservingHistoryParams = zod.object({
+  "splitId": zod.coerce.number().int()
+})
+
+
+
+
+export const DeleteMesocyclePreservingHistoryQueryParams = zod.object({
+  "profileId": zod.coerce.number().int().min(1)
+})
+
+export const DeleteMesocyclePreservingHistoryResponse = zod.void()
+
+
 /**
  * @summary Get a mesocycle with normalized weeks and planned workout occurrences
  */
 export const GetMesocycleParams = zod.object({
   "splitId": zod.coerce.number().int()
 })
+
+export const getMesocycleResponseCompletedWeeksMin = 0;
 
 export const getMesocycleResponseStartDateRegExp = new RegExp('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
 
@@ -1577,7 +1625,8 @@ export const getMesocycleResponseWeeksItemScheduledWorkoutsItemOriginalScheduled
 
 export const GetMesocycleResponse = zod.object({
   "currentWeek": zod.number().int().optional(),
-  "lifecycleStatus": zod.string().optional(),
+  "lifecycleStatus": zod.enum(['planned', 'active', 'paused', 'completed', 'ended_early', 'restarted']).optional(),
+  "completedWeeks": zod.number().int().min(getMesocycleResponseCompletedWeeksMin).optional(),
   "programmingVersion": zod.string().optional(),
   "pausedAt": zod.string().nullish(),
   "endedAt": zod.string().nullish(),

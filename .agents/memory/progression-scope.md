@@ -16,3 +16,11 @@ Let users modify today's structure without asking after each change whether it i
 **Why:** V2.2 requires one decision for the whole session; “Today Only” must leave future structure unchanged even when a user removed or replaced an exercise.
 
 **How to apply:** stage edits in the active session. Temporary recovery adjustments must not overwrite normal strength baselines or masquerade as structural edits. A separately confirmed persistent recovery-volume choice must survive acceptance of other structural changes. Never infer permission for aggressive automatic deloads or permanent reductions from one readiness answer.
+
+## Lifecycle and destructive-action scope
+
+V2.3A updates the existing app; never reset or drop PostgreSQL as implementation or verification. Plan deletion must preserve completed workout evidence and valid historical baseline sources. RESET TRAINING DATA is a separate, intentionally destructive, selected-profile operation requiring the exact typed confirmation RESET.
+
+**Why:** the user explicitly prohibited database resets and completed-history deletion during implementation, while requesting a protected training-data reset for end users.
+
+**How to apply:** use isolated synthetic profiles for destructive verification. Never interpret a request to implement the reset button as permission to reset the creator's existing training data. Preserve profile settings and the exercise library, and never clear another profile's data.
