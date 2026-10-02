@@ -2,7 +2,9 @@ import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import {
   db,
   exercisesTable,
+  mesocycleWeeksTable,
   muscleRecoveryTable,
+  plannedWorkoutsTable,
   profilesTable,
   splitDayExercisesTable,
   splitDaysTable,
@@ -13,6 +15,7 @@ import {
 } from "@workspace/db";
 import { adaptiveRepsForWeight } from "./progression";
 import { primaryMuscleVolume } from "./volume";
+import { sequentialSetStates } from "./workout-core";
 
 export async function getSplitTree(splitId: number) {
   const [split] = await db
@@ -25,7 +28,7 @@ export async function getSplitTree(splitId: number) {
   const days = await db
     .select()
     .from(splitDaysTable)
-    .where(eq(splitDaysTable.splitId, splitId))
+    .where(and(eq(splitDaysTable.splitId, splitId), eq(splitDaysTable.isArchived, false)))
     .orderBy(asc(splitDaysTable.dayIndex));
 
   const resultDays = [];
@@ -84,18 +87,22 @@ export async function getWorkoutTree(
       .from(workoutSetsTable)
       .where(eq(workoutSetsTable.workoutExerciseId, row.id))
       .orderBy(asc(workoutSetsTable.setType), asc(workoutSetsTable.setNumber));
+    const workflow = sequentialSetStates(sets);
     exercises.push({
       ...row,
+      baselineStatus: row.baselineStatus ?? "no_baseline",
       sets: sets.map((set) => ({
         ...set,
-        adaptiveWarning: !set.completed && set.actualWeight !== null
+        workflowState: workflow.get(set.id) ?? "unlocked",
+        adaptiveWarning: set.setType === "work" && !set.completed && !row.calibrationMode &&
+          set.actualWeight !== null && set.referenceTargetRepsMin !== null && set.referenceTargetRepsMax !== null
           ? adaptiveRepsForWeight(
               set.actualWeight,
-              row.recommendedWeight ?? row.targetWeight,
-              row.recommendedReps ?? row.targetRepsMin,
-              row.targetRepsMin,
-              row.targetRepsMax,
-              row.targetRir,
+              set.referenceTargetWeight,
+              set.referenceTargetReps ?? set.referenceTargetRepsMin,
+              set.referenceTargetRepsMin,
+              set.referenceTargetRepsMax,
+              set.referenceTargetRir ?? row.targetRir,
             ).warning ?? set.targetExplanation
           : null,
       })),
@@ -163,6 +170,11 @@ export async function getWorkoutTree(
     readiness: session.readiness,
     mesocycleStartDate: session.mesocycleStartDate,
     mesocycleWeek: session.mesocycleWeek,
+    weekId: session.weekId,
+    plannedWorkoutId: session.plannedWorkoutId,
+    weekKindSnapshot: session.weekKindSnapshot,
+    targetRirSnapshot: session.targetRirSnapshot,
+    recoveryMode: session.recoveryMode,
     muscleRecovery,
     muscleTotals,
     exercises,
@@ -266,15 +278,77 @@ export async function getNextWorkout(profileId: number) {
   const [split] = await db
     .select()
     .from(trainingSplitsTable)
-    .where(eq(trainingSplitsTable.profileId, profileId))
+    .where(and(
+      eq(trainingSplitsTable.profileId, profileId),
+      sql`(
+        NOT EXISTS (SELECT 1 FROM mesocycle_weeks mw WHERE mw.split_id = ${trainingSplitsTable.id})
+        OR EXISTS (
+          SELECT 1 FROM planned_workouts pw
+          WHERE pw.split_id = ${trainingSplitsTable.id} AND pw.status = 'scheduled'
+          AND NOT EXISTS (
+            SELECT 1 FROM workout_sessions ws
+            WHERE ws.planned_workout_id = pw.id AND ws.status = 'completed'
+          )
+        )
+      )`,
+    ))
     .orderBy(asc(trainingSplitsTable.createdAt), asc(trainingSplitsTable.id))
     .limit(1);
   if (!split) return null;
 
+  const hasWeeks = await db.select({ id: mesocycleWeeksTable.id })
+    .from(mesocycleWeeksTable)
+    .where(eq(mesocycleWeeksTable.splitId, split.id))
+    .limit(1);
+  if (hasWeeks.length) {
+    const planned = await db.select({
+      occurrence: plannedWorkoutsTable,
+      day: splitDaysTable,
+      week: mesocycleWeeksTable,
+    }).from(plannedWorkoutsTable)
+      .innerJoin(splitDaysTable, eq(plannedWorkoutsTable.splitDayId, splitDaysTable.id))
+      .innerJoin(mesocycleWeeksTable, eq(plannedWorkoutsTable.weekId, mesocycleWeeksTable.id))
+      .where(and(
+        eq(plannedWorkoutsTable.splitId, split.id),
+        eq(plannedWorkoutsTable.status, "scheduled"),
+      ))
+      .orderBy(
+        asc(mesocycleWeeksTable.weekIndex),
+        asc(plannedWorkoutsTable.scheduledDate),
+        asc(plannedWorkoutsTable.id),
+      );
+    for (const candidate of planned) {
+      const [linked] = await db.select({ id: workoutSessionsTable.id })
+        .from(workoutSessionsTable)
+        .where(and(
+          eq(workoutSessionsTable.plannedWorkoutId, candidate.occurrence.id),
+          eq(workoutSessionsTable.status, "completed"),
+        )).limit(1);
+      if (linked) continue;
+      const [count] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(splitDayExercisesTable)
+        .where(eq(splitDayExercisesTable.dayId, candidate.day.id));
+      return {
+        splitId: split.id,
+        splitName: split.name,
+        dayId: candidate.day.id,
+        dayName: candidate.day.name,
+        dayIndex: candidate.day.dayIndex,
+        exerciseCount: count?.count ?? 0,
+        plannedWorkoutId: candidate.occurrence.id,
+        weekId: candidate.week.id,
+        weekIndex: candidate.week.weekIndex,
+        weekKind: candidate.week.kind,
+        targetRir: candidate.week.targetRir,
+      };
+    }
+    return null;
+  }
+
   const days = await db
     .select()
     .from(splitDaysTable)
-    .where(eq(splitDaysTable.splitId, split.id))
+    .where(and(eq(splitDaysTable.splitId, split.id), eq(splitDaysTable.isArchived, false)))
     .orderBy(asc(splitDaysTable.dayIndex));
   if (!days.length) return null;
 

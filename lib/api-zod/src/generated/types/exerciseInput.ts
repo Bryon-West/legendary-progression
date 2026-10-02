@@ -28,4 +28,26 @@ export interface ExerciseInput {
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
+  secondaryMuscles?: string[];
+  aliases?: string[];
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  defaultRepMin?: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  defaultRepMax?: number;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementLb?: number | null;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementKg?: number | null;
 }

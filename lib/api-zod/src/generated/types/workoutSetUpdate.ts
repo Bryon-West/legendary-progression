@@ -43,6 +43,8 @@ export interface WorkoutSetUpdate {
      */
   actualRir?: number | null;
   completed?: boolean;
+  /** Must be true to modify an already completed row; blank prefills are not completed performance. */
+  editIntent?: boolean;
   /** @nullable */
   notes?: string | null;
 }

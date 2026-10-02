@@ -16,6 +16,8 @@ tags:
     description: Exercise library and training splits
   - name: workouts
     description: Active workouts and workout history
+  - name: mesocycles
+    description: Mesocycle planning, templates, weeks, and calendar
 paths:
   /healthz:
     get:
@@ -273,7 +275,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MesocycleSaveInput"
+              $ref: "#/components/schemas/NewMesocycleInput"
       responses:
         "200":
           description: Saved mesocycle
@@ -282,6 +284,172 @@ paths:
               schema: { $ref: "#/components/schemas/TrainingSplit" }
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: A started or completed week prevents this draft change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /profiles/{profileId}/engine-settings:
+    get:
+      operationId: getProfileEngineSettings
+      tags: [profiles]
+      summary: Get progression and recovery engine settings for a profile
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Profile engine settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileEngineSettings" }
+    patch:
+      operationId: updateProfileEngineSettings
+      tags: [profiles]
+      summary: Update progression and recovery engine settings
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileEngineSettingsInput" }
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileEngineSettings" }
+  /mesocycles/templates:
+    get:
+      operationId: listMesocycleTemplates
+      tags: [mesocycles]
+      summary: List editable Legendary Progression mesocycle templates
+      responses:
+        "200":
+          description: Available templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MesocycleTemplate" }
+  /mesocycles/copy-options:
+    get:
+      operationId: getMesocycleCopyOptions
+      tags: [mesocycles]
+      summary: List eligible fully completed loading weeks for copying
+      parameters:
+        - { name: profileId, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Eligible source weeks, with recommended most recent week
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MesocycleCopyOptions" }
+  /mesocycles:
+    post:
+      operationId: createMesocycle
+      tags: [mesocycles]
+      summary: Atomically create a complete mesocycle from a template, prior week, or custom draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MesocycleCreateInput" }
+      responses:
+        "201":
+          description: Created mesocycle with weeks, days, and scheduled workout occurrences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mesocycle" }
+        "400":
+          description: Invalid or incomplete draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /mesocycles/{splitId}:
+    get:
+      operationId: getMesocycle
+      tags: [mesocycles]
+      summary: Get a mesocycle with normalized weeks and planned workout occurrences
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Mesocycle and ordered weeks
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mesocycle" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /mesocycles/{splitId}/weeks/{weekId}:
+    delete:
+      operationId: removeMesocycleWeek
+      tags: [mesocycles]
+      summary: Remove an unstarted future week; started/completed weeks are protected
+      parameters:
+        - { name: splitId, in: path, required: true, schema: { type: integer } }
+        - { name: weekId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Future week removed }
+        "409":
+          description: Started or completed weeks cannot be removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /mesocycles/calendar:
+    get:
+      operationId: getMesocycleCalendar
+      tags: [mesocycles]
+      summary: Get past, today, and future workout occurrences with projected targets
+      parameters:
+        - { name: profileId, in: query, required: true, schema: { type: integer } }
+        - { name: splitId, in: query, required: true, schema: { type: integer } }
+        - { name: from, in: query, required: false, schema: { $ref: "#/components/schemas/DateOnly" } }
+        - { name: to, in: query, required: false, schema: { $ref: "#/components/schemas/DateOnly" } }
+      responses:
+        "200":
+          description: Calendar occurrence list with stable week identity
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CalendarWeek" }
+  /planned-workouts/{plannedWorkoutId}/reschedule:
+    patch:
+      operationId: reschedulePlannedWorkout
+      tags: [mesocycles]
+      summary: Reschedule within the same week without changing week identity or RIR
+      parameters:
+        - { name: plannedWorkoutId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RescheduleWorkoutInput" }
+      responses:
+        "200":
+          description: Rescheduled occurrence; close-spacing warnings never block
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RescheduleWorkoutResult" }
+        "409":
+          description: Occurrence is completed or date is outside the fixed week
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /profiles/{profileId}/exercises/{exerciseId}/baseline:
+    get:
+      operationId: getExerciseBaseline
+      tags: [workouts]
+      summary: Get exercise-specific baseline state and provenance
+      parameters:
+        - { name: profileId, in: path, required: true, schema: { type: integer } }
+        - { name: exerciseId, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Baseline state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExerciseBaseline" }
   /splits/{splitId}/days:
     post:
       operationId: createSplitDay
@@ -598,6 +766,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WorkoutSet"
+    post:
+      operationId: completeWorkoutSet
+      tags: [workouts]
+      summary: Explicitly complete a validated set and unlock the next incomplete working set
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: integer } }
+        - { name: setId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkoutSetCompletionInput" }
+      responses:
+        "200":
+          description: Completed set and updated sequential workflow state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkoutSetWorkflowResult" }
+        "400":
+          description: Required performance values are missing
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Set is locked or completed without explicit edit intent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
     delete:
       operationId: removeWorkoutSet
       tags: [workouts]
@@ -660,7 +856,7 @@ components:
         weightUnit: { type: string, enum: [kg, lb] }
     Exercise:
       type: object
-      required: [id, profileId, name, muscleGroup, equipment, category, isCompound, createdAt]
+      required: [id, profileId, name, muscleGroup, equipment, category, isCompound, secondaryMuscles, aliases, defaultRepMin, defaultRepMax, loadIncrementLb, loadIncrementKg, createdAt]
       properties:
         id: { type: integer }
         profileId: { type: ["integer", "null"] }
@@ -670,6 +866,12 @@ components:
         category: { type: string, enum: [strength, bodyweight, conditioning, mobility, other] }
         instructions: { type: ["string", "null"] }
         isCompound: { type: boolean }
+        secondaryMuscles: { type: array, items: { type: string } }
+        aliases: { type: array, items: { type: string } }
+        defaultRepMin: { type: integer }
+        defaultRepMax: { type: integer }
+        loadIncrementLb: { type: ["number", "null"], exclusiveMinimum: 0 }
+        loadIncrementKg: { type: ["number", "null"], exclusiveMinimum: 0 }
         createdAt: { type: string, format: date-time }
     ExerciseInput:
       type: object
@@ -682,6 +884,12 @@ components:
         category: { type: string, enum: [strength, bodyweight, conditioning, mobility, other], default: strength }
         instructions: { type: ["string", "null"] }
         isCompound: { type: boolean }
+        secondaryMuscles: { type: array, items: { type: string } }
+        aliases: { type: array, items: { type: string } }
+        defaultRepMin: { type: integer, minimum: 1, maximum: 100, default: 8 }
+        defaultRepMax: { type: integer, minimum: 1, maximum: 100, default: 12 }
+        loadIncrementLb: { type: ["number", "null"], exclusiveMinimum: 0 }
+        loadIncrementKg: { type: ["number", "null"], exclusiveMinimum: 0 }
     SplitDayExercise:
       type: object
       required: [id, dayId, exerciseId, orderIndex, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, targetRir, exercise]
@@ -807,7 +1015,7 @@ components:
           items: { $ref: "#/components/schemas/MesocycleDayInput" }
     WorkoutSet:
       type: object
-      required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, completed, removed, adaptiveTargetWeight, adaptiveTargetReps, adaptiveTargetRir, adaptiveWarning, targetStatus, targetExplanation, algorithmVersion, completedAt]
+      required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, completed, removed, adaptiveTargetWeight, adaptiveTargetReps, adaptiveTargetRir, adaptiveWarning, targetStatus, targetExplanation, algorithmVersion, completedAt, workflowState]
       properties:
         id: { type: integer }
         workoutExerciseId: { type: integer }
@@ -830,9 +1038,10 @@ components:
         completed: { type: boolean }
         completedAt: { type: ["string", "null"], format: date-time }
         notes: { type: ["string", "null"] }
+        workflowState: { type: string, enum: [locked, active, unlocked] }
     WorkoutExercise:
       type: object
-      required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, orderIndex, superseded, skipped, painReported, painNote, category, isCompound, recommendedWeight, recommendedReps, recommendationOutcome, recommendationRationale, substitutedFromExerciseId, sets]
+      required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, orderIndex, superseded, skipped, painReported, painNote, category, isCompound, recommendedWeight, recommendedReps, recommendationOutcome, recommendationRationale, substitutedFromExerciseId, calibrationMode, calibrationRir, baselineStatus, sets]
       properties:
         id: { type: integer }
         sessionId: { type: integer }
@@ -843,8 +1052,8 @@ components:
         targetSets: { type: integer }
         minimumWorkingSets: { type: integer }
         maximumWorkingSets: { type: integer }
-        targetRepsMin: { type: integer }
-        targetRepsMax: { type: integer }
+        targetRepsMin: { type: ["integer", "null"] }
+        targetRepsMax: { type: ["integer", "null"] }
         targetWeight: { type: ["number", "null"] }
         orderIndex: { type: integer }
         superseded: { type: boolean }
@@ -858,20 +1067,23 @@ components:
         recommendationOutcome: { type: ["string", "null"], enum: [increase_load, increase_reps, increase_sets, decrease_sets, maintain, null] }
         recommendationRationale: { type: ["string", "null"] }
         substitutedFromExerciseId: { type: ["integer", "null"] }
+        calibrationMode: { type: boolean }
+        calibrationRir: { type: ["number", "null"], enum: [3, null], description: Calibration always prescribes approximately 3 RIR independent of week target. }
+        baselineStatus: { type: ["string", "null"], enum: [no_baseline, active, expired, null] }
         sets:
           type: array
           items: { $ref: "#/components/schemas/WorkoutSet" }
     WorkoutExerciseInput:
       type: object
-      required: [exerciseId, targetRir, targetSets, targetRepsMin, targetRepsMax, orderIndex]
+      required: [exerciseId, targetRir, targetSets, orderIndex]
       properties:
         exerciseId: { type: integer }
         targetRir: { type: number, minimum: 0, maximum: 10 }
         targetSets: { type: integer, minimum: 1, maximum: 20 }
         minimumWorkingSets: { type: integer, minimum: 1, maximum: 20 }
         maximumWorkingSets: { type: integer, minimum: 1, maximum: 20 }
-        targetRepsMin: { type: integer, minimum: 1 }
-        targetRepsMax: { type: integer, minimum: 1 }
+        targetRepsMin: { type: ["integer", "null"], minimum: 1 }
+        targetRepsMax: { type: ["integer", "null"], minimum: 1 }
         targetWeight: { type: ["number", "null"], minimum: 0 }
         orderIndex: { type: integer, minimum: 0 }
     WorkoutExerciseSubstitution:
@@ -913,10 +1125,30 @@ components:
         actualReps: { type: ["integer", "null"], minimum: 0 }
         actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
         completed: { type: boolean }
+        editIntent:
+          type: boolean
+          description: Must be true to modify an already completed row; blank prefills are not completed performance.
         notes: { type: ["string", "null"] }
+    WorkoutSetCompletionInput:
+      type: object
+      required: [actualWeight, actualReps, actualRir]
+      properties:
+        actualWeight: { type: number, minimum: 0 }
+        actualReps: { type: integer, minimum: 0 }
+        actualRir: { type: number, minimum: 0, maximum: 10 }
+        notes: { type: ["string", "null"] }
+    WorkoutSetWorkflowResult:
+      type: object
+      required: [set, nextSet]
+      properties:
+        set: { $ref: "#/components/schemas/WorkoutSet" }
+        nextSet:
+          oneOf:
+            - $ref: "#/components/schemas/WorkoutSet"
+            - type: "null"
     WorkoutSession:
       type: object
-      required: [id, profileId, splitId, splitDayId, splitName, dayName, status, startedAt, endedAt, totalVolume, readiness, mesocycleStartDate, mesocycleWeek, muscleRecovery, muscleTotals, exercises]
+      required: [id, profileId, splitId, splitDayId, splitName, dayName, status, startedAt, endedAt, totalVolume, readiness, mesocycleStartDate, mesocycleWeek, muscleRecovery, muscleTotals, exercises, weekId, plannedWorkoutId, weekKindSnapshot, targetRirSnapshot, recoveryMode]
       properties:
         id: { type: integer }
         profileId: { type: integer }
@@ -931,6 +1163,11 @@ components:
         readiness: { type: ["string", "null"], enum: [great, normal, below_normal, poor, null] }
         mesocycleStartDate: { type: ["string", "null"], pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
         mesocycleWeek: { type: ["integer", "null"] }
+        weekId: { type: ["integer", "null"] }
+        plannedWorkoutId: { type: ["integer", "null"] }
+        weekKindSnapshot: { type: ["string", "null"], enum: [loading, deload, week_off, null] }
+        targetRirSnapshot: { type: ["number", "null"] }
+        recoveryMode: { type: ["string", "null"], enum: [deload, week_off, null] }
         muscleRecovery:
           type: array
           items: { $ref: "#/components/schemas/MuscleRecovery" }
@@ -954,6 +1191,9 @@ components:
       properties:
         profileId: { type: integer }
         splitDayId: { type: ["integer", "null"] }
+        scheduledWorkoutId:
+          type: ["integer", "null"]
+          description: Optional occurrence linkage; omit for legacy or free-start workouts.
         readiness: { type: string, enum: [great, normal, below_normal, poor] }
         muscleRecovery:
           type: array
@@ -1056,6 +1296,244 @@ components:
           oneOf:
             - $ref: "#/components/schemas/NextWorkoutDay"
             - type: "null"
+    DateOnly:
+      type: string
+      description: Calendar date kept as a string; never parse through a timestamp.
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    ProfileEngineSettings:
+      type: object
+      required: [profileId, baselineExpiryWeeks, loadIncrementLb, loadIncrementKg, deloadSetFraction, deloadLoadFraction, deloadRir]
+      properties:
+        profileId: { type: integer }
+        baselineExpiryWeeks: { type: integer, minimum: 1, maximum: 104, default: 6 }
+        loadIncrementLb: { type: number, exclusiveMinimum: 0, default: 2.5 }
+        loadIncrementKg: { type: number, exclusiveMinimum: 0, default: 2.5 }
+        deloadSetFraction: { type: number, exclusiveMinimum: 0, maximum: 1, default: 0.5 }
+        deloadLoadFraction: { type: number, exclusiveMinimum: 0, maximum: 1, default: 0.9 }
+        deloadRir: { type: number, minimum: 0, maximum: 10, default: 4 }
+    ProfileEngineSettingsInput:
+      type: object
+      minProperties: 1
+      properties:
+        baselineExpiryWeeks: { type: integer, minimum: 1, maximum: 104 }
+        loadIncrementLb: { type: number, exclusiveMinimum: 0 }
+        loadIncrementKg: { type: number, exclusiveMinimum: 0 }
+        deloadSetFraction: { type: number, exclusiveMinimum: 0, maximum: 1 }
+        deloadLoadFraction: { type: number, exclusiveMinimum: 0, maximum: 1 }
+        deloadRir: { type: number, minimum: 0, maximum: 10 }
+    MesocycleWeekInput:
+      type: object
+      required: [weekIndex, kind, targetRir, scheduledWorkouts]
+      properties:
+        id: { type: integer, description: Existing week identifier when saving a draft; omit for a new week. }
+        weekIndex: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [loading, deload, week_off] }
+        targetRir:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: Explicit week identity prescription, independent of calendar dates.
+        scheduledWorkouts:
+          type: array
+          description: Ordered planned occurrences for this week; must be empty for week_off.
+          items: { $ref: "#/components/schemas/PlannedWorkoutInput" }
+    PlannedWorkoutInput:
+      type: object
+      required: [dayIndex, scheduledDate]
+      properties:
+        dayIndex: { type: integer, minimum: 0 }
+        scheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        id: { type: integer, description: Existing occurrence ID when saving a draft. }
+    MesocycleWeek:
+      type: object
+      required: [id, splitId, weekIndex, kind, targetRir, status, scheduledWorkouts, programSnapshot, sourceDescription]
+      properties:
+        id: { type: integer }
+        splitId: { type: integer }
+        weekIndex: { type: integer, minimum: 1 }
+        kind: { type: string, enum: [loading, deload, week_off] }
+        targetRir: { type: number, minimum: 0, maximum: 10 }
+        status: { type: string, enum: [future, in_progress, completed] }
+        scheduledWorkouts:
+          type: array
+          items: { $ref: "#/components/schemas/PlannedWorkout" }
+        programSnapshot:
+          type: ["object", "null"]
+          additionalProperties: true
+          description: Immutable structural snapshot used for reproducible copy/provenance.
+        sourceDescription: { type: ["string", "null"] }
+    PlannedWorkout:
+      type: object
+      required: [id, splitId, weekId, weekIndex, splitDayId, dayName, scheduledDate, originalScheduledDate, status, sessionId]
+      properties:
+        id: { type: integer }
+        splitId: { type: integer }
+        weekId: { type: integer }
+        weekIndex: { type: integer }
+        splitDayId: { type: integer }
+        dayName: { type: string }
+        scheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        originalScheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        status: { type: string, enum: [scheduled, completed, cancelled] }
+        sessionId: { type: ["integer", "null"], description: Stable link to exact workout history when started/completed. }
+    Mesocycle:
+      type: object
+      required: [id, profileId, name, startDate, cycleLengthWeeks, days, weeks, sourceDescription]
+      properties:
+        id: { type: integer }
+        profileId: { type: integer }
+        name: { type: string }
+        startDate: { $ref: "#/components/schemas/DateOnly" }
+        cycleLengthWeeks: { type: integer, minimum: 1 }
+        days:
+          type: array
+          description: Ordered reusable workout-day templates shared across weeks.
+          items: { $ref: "#/components/schemas/SplitDay" }
+        weeks:
+          type: array
+          items: { $ref: "#/components/schemas/MesocycleWeek" }
+        sourceDescription: { type: ["string", "null"] }
+    NewMesocycleInput:
+      type: object
+      required: [name, startDate, days, weeks]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        startDate: { $ref: "#/components/schemas/DateOnly" }
+        cycleLengthWeeks: { type: integer, minimum: 1, maximum: 104, description: Legacy-compatible derived cycle length; when omitted use weeks count. }
+        days:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/MesocycleDayInput" }
+        weeks:
+          type: array
+          description: >
+            Ordered, extensible week schedule. New-cycle defaults are loading RIR 3, 2, 1, 0;
+            do not impose a four-week limit or append a recovery week unless chosen.
+          minItems: 1
+          items: { $ref: "#/components/schemas/MesocycleWeekInput" }
+        sourceDescription: { type: ["string", "null"] }
+    MesocycleCreateInput:
+      allOf:
+        - $ref: "#/components/schemas/NewMesocycleInput"
+        - type: object
+          required: [profileId, createMode]
+          properties:
+            profileId: { type: integer }
+            createMode: { type: string, enum: [template, copy_completed_week, build_own] }
+            templateId: { type: ["string", "null"] }
+            sourceWeekId:
+              type: ["integer", "null"]
+              description: Only eligible fully completed loading weeks may be selected.
+    MesocycleTemplate:
+      type: object
+      required: [templateId, name, description, days, defaultLoadingRirs]
+      properties:
+        templateId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/MesocycleDayInput" }
+        defaultLoadingRirs:
+          type: array
+          items: { type: number, minimum: 0, maximum: 10 }
+    MesocycleCopyOptions:
+      type: object
+      required: [recommendedWeekId, eligibleWeeks]
+      properties:
+        recommendedWeekId: { type: ["integer", "null"] }
+        eligibleWeeks:
+          type: array
+          items: { $ref: "#/components/schemas/CopyEligibleWeek" }
+    CopyEligibleWeek:
+      type: object
+      required: [weekId, splitId, mesocycleName, weekIndex, completedAt, description, days]
+      properties:
+        weekId: { type: integer }
+        splitId: { type: integer }
+        mesocycleName: { type: string }
+        weekIndex: { type: integer }
+        completedAt: { type: string, format: date-time }
+        description: { type: string, description: Reproducible provenance label, e.g. source cycle and Week N. }
+        days:
+          type: array
+          description: Immutable workout structure from the completed week's frozen program snapshot; use these days rather than the source cycle's current draft.
+          items: { $ref: "#/components/schemas/MesocycleDayInput" }
+    CalendarWorkout:
+      type: object
+      required: [id, splitId, weekId, weekIndex, weekKind, targetRir, dayName, scheduledDate, originalScheduledDate, status, sessionId, isToday, projectedExercises]
+      properties:
+        id: { type: integer }
+        splitId: { type: integer }
+        weekId: { type: integer }
+        weekIndex: { type: integer }
+        weekKind: { type: string, enum: [loading, deload, week_off] }
+        targetRir: { type: number }
+        dayName: { type: string }
+        scheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        originalScheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        status: { type: string, enum: [scheduled, completed, cancelled] }
+        sessionId: { type: ["integer", "null"] }
+        isToday: { type: boolean }
+        projectedExercises:
+          type: array
+          items: { $ref: "#/components/schemas/ProjectedExercise" }
+        relativeState: { type: string, enum: [past, today, future] }
+    CalendarWeek:
+      type: object
+      required: [weekId, weekIndex, kind, targetRir, status, startDate, endDate, scheduledWorkouts]
+      properties:
+        weekId: { type: integer }
+        weekIndex: { type: integer }
+        kind: { type: string, enum: [loading, deload, week_off] }
+        targetRir: { type: number }
+        status: { type: string, enum: [future, in_progress, completed] }
+        startDate: { $ref: "#/components/schemas/DateOnly" }
+        endDate: { $ref: "#/components/schemas/DateOnly" }
+        scheduledWorkouts:
+          type: array
+          description: Empty for Week Off; each linked session remains addressable in history.
+          items: { $ref: "#/components/schemas/CalendarWorkout" }
+    ProjectedExercise:
+      type: object
+      required: [exerciseId, exerciseName, targetSets, targetRepsMin, targetRepsMax, targetWeight, targetRir, baselineStatus, calibrationMode, calibrationRir, calibrationInstruction, recommendationExplanation]
+      properties:
+        exerciseId: { type: integer }
+        exerciseName: { type: string }
+        targetSets: { type: integer }
+        targetRepsMin: { type: ["integer", "null"] }
+        targetRepsMax: { type: ["integer", "null"] }
+        targetWeight: { type: ["number", "null"], description: Canonical API weights are kilograms. }
+        targetRir: { type: number }
+        baselineStatus: { type: string, enum: [no_baseline, active, expired] }
+        calibrationMode: { type: boolean }
+        calibrationRir: { type: ["number", "null"], enum: [3, null] }
+        calibrationInstruction: { type: ["string", "null"] }
+        recommendationExplanation: { type: ["string", "null"] }
+    RescheduleWorkoutInput:
+      type: object
+      required: [scheduledDate]
+      properties:
+        scheduledDate: { $ref: "#/components/schemas/DateOnly" }
+        shiftFollowing: { type: boolean, default: false }
+    RescheduleWorkoutResult:
+      type: object
+      required: [workout, recoveryWarning, warningMessage]
+      properties:
+        workout: { $ref: "#/components/schemas/PlannedWorkout" }
+        recoveryWarning: { type: boolean }
+        warningMessage: { type: ["string", "null"], description: Informational only; close spacing does not block scheduling. }
+    ExerciseBaseline:
+      type: object
+      required: [exerciseId, status, sourceSessionId, sourceSetId, establishedAt, expiresAt, pausedWeekOffCount]
+      properties:
+        exerciseId: { type: integer }
+        status: { type: string, enum: [no_baseline, active, expired] }
+        sourceSessionId: { type: ["integer", "null"] }
+        sourceSetId: { type: ["integer", "null"] }
+        establishedAt: { type: ["string", "null"], format: date-time }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        pausedWeekOffCount: { type: integer }
     Error:
       type: object
       required: [error]

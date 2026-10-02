@@ -1,5 +1,5 @@
-const CACHE_NAME = 'form-log-shell-v2';
-const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE_NAME = 'legendary-progression-shell-v3';
+const SHELL = ['/', '/manifest.webmanifest', '/brand/dragon-192.png', '/brand/dragon-512.png', '/brand/dragon-mark.png', '/brand/legendary-logo.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -17,7 +17,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(request).catch(() => caches.match('/')));
     return;
   }
-  if (url.pathname.startsWith('/assets/') || url.pathname === '/manifest.webmanifest' || url.pathname.startsWith('/icons/')) {
+  if (url.pathname.startsWith('/assets/') || url.pathname === '/manifest.webmanifest' || url.pathname.startsWith('/brand/')) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok) void caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
       return response;

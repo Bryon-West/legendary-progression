@@ -1,7 +1,9 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import {
   db,
+  exercisesTable,
   muscleRecoveryTable,
+  profilesTable,
   workoutExercisesTable,
   workoutSessionsTable,
   workoutSetsTable,
@@ -9,6 +11,7 @@ import {
 import {
   adaptiveRepsForWeight,
   calculateProgression,
+  snapToLoadIncrement,
   type Exposure,
   type ProgressionInput,
   type ProgressionRecommendation,
@@ -24,7 +27,19 @@ export {
   type RecoveryObservation,
 } from "./progression-core";
 
-export const PROGRESSION_ALGORITHM_VERSION = "v2.1";
+export const PROGRESSION_ALGORITHM_VERSION = "legendary-v2.1";
+
+export async function getProfileLoadIncrement(profileId: number, exerciseId: number, weightUnit: "lb" | "kg") {
+  const [[profile], [exercise]] = await Promise.all([
+    db.select().from(profilesTable).where(eq(profilesTable.id, profileId)).limit(1),
+    db.select().from(exercisesTable).where(eq(exercisesTable.id, exerciseId)).limit(1),
+  ]);
+  if (!profile || !exercise) throw new Error("Profile or exercise not found");
+  const displayIncrement = (weightUnit === "lb" ? exercise.loadIncrementLb : exercise.loadIncrementKg) ??
+    (weightUnit === "lb" ? profile.loadIncrementLb : profile.loadIncrementKg);
+  // All engine loads are canonical kilograms, including the increment itself.
+  return weightUnit === "lb" ? displayIncrement / 2.20462262185 : displayIncrement;
+}
 
 export async function getRecentExposures(profileId: number, exerciseId: number): Promise<Exposure[][]> {
   const sessions = await db
@@ -34,6 +49,11 @@ export async function getRecentExposures(profileId: number, exerciseId: number):
     .where(and(
       eq(workoutSessionsTable.profileId, profileId),
       eq(workoutSessionsTable.status, "completed"),
+      or(
+        isNull(workoutSessionsTable.weekKindSnapshot),
+        eq(workoutSessionsTable.weekKindSnapshot, "loading"),
+      ),
+      isNull(workoutSessionsTable.recoveryMode),
       eq(workoutExercisesTable.exerciseId, exerciseId),
       eq(workoutExercisesTable.skipped, false),
     ))
@@ -57,6 +77,8 @@ export async function getRecentExposures(profileId: number, exerciseId: number):
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
         eq(workoutSetsTable.removed, false),
+          sql`${workoutSetsTable.actualReps} > 0`,
+          sql`${workoutSetsTable.actualRir} BETWEEN 0 AND 10`,
       ));
     exposures.push(rows.flatMap((row) =>
       row.weight !== null && row.reps !== null && row.rir !== null
@@ -73,6 +95,7 @@ export async function recommendationForExercise(
   exercise: ProgressionInput["exercise"],
   weeklyMuscleSets: number,
   painReported = false,
+  loadIncrement = 2.5,
 ): Promise<ProgressionRecommendation> {
   const exposures = await getRecentExposures(profileId, exerciseId);
   const recoveryHistoryRows = await db.select({
@@ -89,6 +112,11 @@ export async function recommendationForExercise(
     .where(and(
       eq(workoutSessionsTable.profileId, profileId),
       eq(workoutSessionsTable.status, "completed"),
+      or(
+        isNull(workoutSessionsTable.weekKindSnapshot),
+        eq(workoutSessionsTable.weekKindSnapshot, "loading"),
+      ),
+      isNull(workoutSessionsTable.recoveryMode),
       eq(muscleRecoveryTable.muscleGroup, exercise.muscleGroup),
     ))
     .groupBy(
@@ -112,16 +140,32 @@ export async function recommendationForExercise(
     .where(and(
       eq(workoutSessionsTable.profileId, profileId),
       eq(workoutSessionsTable.status, "completed"),
+      or(
+        isNull(workoutSessionsTable.weekKindSnapshot),
+        eq(workoutSessionsTable.weekKindSnapshot, "loading"),
+      ),
+      isNull(workoutSessionsTable.recoveryMode),
       eq(workoutExercisesTable.exerciseId, exerciseId),
       eq(workoutExercisesTable.skipped, false),
     ))
     .orderBy(desc(workoutSessionsTable.startedAt), desc(workoutSessionsTable.id))
     .limit(1);
-  return calculateProgression({
-    exercise,
+  const recommendation = calculateProgression({
+    exercise: { ...exercise, loadIncrement },
     exposures,
     recoveryHistory,
     weeklyMuscleSets,
     painReported: painReported || latest?.painReported,
   });
+  if (recommendation.recommendedWeight !== null) {
+    const previousWeight = recommendation.recommendedWeight;
+    recommendation.recommendedWeight = snapToLoadIncrement(previousWeight, loadIncrement);
+    if (recommendation.recommendedReps !== null && recommendation.recommendedWeight !== previousWeight) {
+      recommendation.recommendedReps = adaptiveRepsForWeight(
+        recommendation.recommendedWeight, previousWeight, recommendation.recommendedReps,
+        exercise.targetRepsMin, exercise.targetRepsMax, exercise.targetRir,
+      ).reps;
+    }
+  }
+  return recommendation;
 }

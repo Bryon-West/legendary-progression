@@ -3,13 +3,13 @@ import { Link } from 'wouter';
 import type { WorkoutSession } from '@workspace/api-client-react';
 import { MuscleTotals } from '@/components/muscle-totals';
 import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/components/status';
-import { READINESS, RECOVERY, labelOf } from '@/lib/labels';
+import { READINESS, RECOVERY, labelOf, weekLabel } from '@/lib/labels';
 import { fmtTotal, fmtWeight, type WeightUnit } from '@/lib/units';
 
-export function SessionContext({ workout }: { workout: Pick<WorkoutSession, 'readiness' | 'mesocycleWeek' | 'muscleRecovery'> }) {
+export function SessionContext({ workout }: { workout: Pick<WorkoutSession, 'readiness' | 'mesocycleWeek' | 'muscleRecovery'> & Partial<Pick<WorkoutSession, 'weekKindSnapshot' | 'targetRirSnapshot' | 'recoveryMode'>> }) {
   const rec = workout.muscleRecovery ?? [];
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }} data-testid="session-context">
-    {workout.mesocycleWeek != null && <span className="badge badge-red">Mesocycle week {workout.mesocycleWeek}</span>}
+    {workout.mesocycleWeek != null && <span className="badge badge-red">{workout.weekKindSnapshot && workout.weekKindSnapshot !== 'loading' ? weekLabel(workout.weekKindSnapshot) : `Week ${workout.mesocycleWeek}${workout.targetRirSnapshot != null ? ` — ${workout.targetRirSnapshot} RIR` : ''}`}</span>}
     {workout.readiness && <span className="badge">Readiness: {labelOf(READINESS, String(workout.readiness))}</span>}
     {rec.map((m) => <span key={m.muscleGroup} className="badge">{m.muscleGroup}: {labelOf(RECOVERY, String(m.status))}</span>)}
   </div>;

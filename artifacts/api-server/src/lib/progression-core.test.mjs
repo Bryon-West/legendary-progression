@@ -109,7 +109,7 @@ test("rep-first isolation movements can add load after repeated top-range exposu
     weeklyMuscleSets: 8,
   });
   assert.equal(recommendation.outcome, "increase_load");
-  assert.equal(recommendation.recommendedWeight, 21);
+  assert.equal(recommendation.recommendedWeight, 22.5);
   assert.equal(recommendation.recommendedReps, 6);
 });
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, asc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
   AddExerciseToSplitDayBody,
   AddExerciseToSplitDayParams,
@@ -130,7 +130,15 @@ router.get("/exercises", async (req, res): Promise<void> => {
     ),
   ];
   if (parsed.data.search?.trim()) {
-    filters.push(ilike(exercisesTable.name, `%${parsed.data.search.trim()}%`));
+    const search = `%${parsed.data.search.trim()}%`;
+    filters.push(or(
+      ilike(exercisesTable.name, search),
+      ilike(exercisesTable.muscleGroup, search),
+      sql<boolean>`EXISTS (
+        SELECT 1 FROM unnest(${exercisesTable.aliases}) AS lookup(alias)
+        WHERE lookup.alias ILIKE ${search}
+      )`,
+    ));
   }
   if (parsed.data.muscleGroup?.trim()) {
     filters.push(eq(exercisesTable.muscleGroup, parsed.data.muscleGroup.trim()));

@@ -1,0 +1,902 @@
+LEGENDARY PROGRESSION — V2.1 UPDATE
+
+IMPORTANT:
+This is an UPDATE to the existing working V2 application.
+
+DO NOT rebuild the application from scratch.
+DO NOT delete or reset the database.
+DO NOT remove existing working functionality.
+Use database migrations where schema changes are required.
+Preserve all existing users, mesocycles, workouts, exercise history, and workout records.
+
+Before making changes:
+1. Inspect the existing application and database schema.
+2. Understand the current progression engine and workout flow.
+3. Reuse/refactor existing components where practical.
+4. Make the changes below as one coordinated V2.1 update.
+5. Test existing functionality after implementation.
+
+==================================================
+1. BRANDING — LEGENDARY PROGRESSION
+==================================================
+
+Replace the current FORM / LOG branding with:
+
+LEGENDARY PROGRESSION
+
+Use the supplied Legendary Progression dragon artwork as the primary brand identity.
+
+Design direction:
+- black / charcoal backgrounds
+- metallic gold / yellow primary accent
+- white text
+- red reserved primarily for warnings, destructive actions, pain/discomfort, and negative status
+- clean, strong, modern fitness-app appearance
+
+Use:
+- full Legendary Progression logo where space permits
+- dragon-only symbol for compact areas such as app icon, navigation, header, loading state, and PWA icon
+
+Do not redraw or reinterpret the supplied logo unnecessarily.
+
+==================================================
+2. MESOCYCLE WEEK / RIR SYSTEM
+==================================================
+
+Mesocycles must have editable training weeks.
+
+Default loading progression:
+
+Week 1 = 3 RIR
+Week 2 = 2 RIR
+Week 3 = 1 RIR
+Week 4 = 0 RIR
+
+Then optionally:
+Recovery Week = Deload OR Week Off
+
+IMPORTANT:
+Do NOT hard-code the system to exactly four loading weeks.
+
+Each mesocycle week should store its own target RIR.
+
+Users must be able to:
+
++ Add Week
+- Remove future/unstarted Week
++ Add Recovery Week
+- Remove Recovery Week
+
+When adding a loading week, allow the user to select the target RIR.
+
+Suggest an appropriate value, but do not automatically create repeated 0-RIR weeks.
+
+Example valid mesocycle:
+
+Week 1 — 3 RIR
+Week 2 — 3 RIR
+Week 3 — 2 RIR
+Week 4 — 2 RIR
+Week 5 — 1 RIR
+Week 6 — 0 RIR
+Recovery — Deload
+
+Completed weeks become historical records and should not be deletable.
+
+Premade mesocycles are templates, NOT locked programs.
+Users may add/remove future weeks and modify their RIR schedule.
+
+==================================================
+3. WEEK 1 / EXERCISE CALIBRATION
+==================================================
+
+An exercise without valid recent personal history must enter CALIBRATION MODE.
+
+During calibration:
+
+DO NOT prescribe a target weight.
+DO NOT prescribe target reps.
+DO NOT display a target performance range.
+
+Tell the user to:
+
+"Choose a weight you believe you can perform at approximately 3 RIR."
+
+The user performs the exercise and records:
+
+- weight
+- reps
+- actual RIR
+
+This creates the exercise baseline.
+
+Calibration should normally occur at approximately 3 RIR regardless of the current mesocycle week.
+
+Calibration working sets should NOT receive:
+- Above Target
+- Target Met
+- Below Target
+
+because there was no valid performance target to compare against.
+
+==================================================
+4. EXERCISE BASELINE STATES
+==================================================
+
+Every exercise should independently have one of these states:
+
+NO BASELINE
+ACTIVE BASELINE
+EXPIRED BASELINE
+
+No Baseline:
+The user has never established valid history for that exact exercise.
+
+Active Baseline:
+Recent personal performance exists and can be used by the progression engine.
+
+Expired Baseline:
+Old performance remains visible in history but should not be used to generate current prescriptions.
+
+Make the baseline expiration period an engine/config setting.
+
+Initial default:
+6 weeks
+
+Do NOT permanently hard-code the value into progression logic.
+
+Exercise baselines are exercise-specific.
+
+Example:
+Dumbbell Bench Press history must NOT automatically create a Barbell Bench Press baseline.
+
+Starting a new mesocycle does NOT automatically erase active baselines.
+
+==================================================
+5. FIX WEEK 2+ PROGRESSION PREFILL
+==================================================
+
+CURRENT PROBLEM:
+When reaching Week 2, progression values are not automatically populating the workout fields.
+
+FIX THIS.
+
+Once an exercise has valid personal history, the progression engine should calculate the next recommendation.
+
+Recommended values must actually PREFILL the working-set input fields.
+
+Prefill:
+
+WEIGHT
+REPS
+TARGET RIR
+
+Example:
+
+Week 1 actual:
+225 lb x 6 @ 3 RIR
+
+Week 2 target:
+2 RIR
+
+The engine uses personal history to calculate the Week 2 recommendation.
+
+The resulting Weight and Reps should already appear in the Set 1 fields when the exercise becomes active.
+
+The user remains free to change either value.
+
+Do not merely display the recommendation elsewhere on the screen.
+
+==================================================
+6. VALID WEIGHT INCREMENTS
+==================================================
+
+Progression recommendations must snap to usable weight increments.
+
+Default:
+
+POUNDS:
+2.5 lb increments
+
+Examples:
+225
+227.5
+230
+232.5
+
+Do NOT generate values such as:
+228.37 lb
+231.16 lb
+
+KILOGRAMS:
+Default 2.5 kg increments.
+
+Architect this so exercise/equipment-specific increments can be supported later.
+
+Example future possibilities:
+- 5 lb dumbbells
+- 10 lb machine stack
+- 2.5 lb barbell
+- custom increment
+
+The progression engine may calculate a theoretical value internally but the displayed/prescribed weight must snap to a valid load.
+
+==================================================
+7. ADAPTIVE WEIGHT / REP TARGETING
+==================================================
+
+Weight and reps are linked.
+
+Example:
+
+Recommended:
+225 x 7
+
+If the user changes the weight to:
+230
+
+the app may determine the equivalent target is approximately:
+230 x 6
+
+Likewise, selecting a lower weight may increase the expected reps.
+
+Use the user's PERSONAL exercise history whenever possible.
+
+Do not rely primarily on generic strength percentages.
+
+The user is always allowed to override the recommendation.
+
+The system should coach, not block.
+
+==================================================
+8. COMPLETE SET WORKFLOW
+==================================================
+
+Implement sequential set completion similar to the previous Excel design.
+
+Example:
+
+WORKING SET 1
+Weight: [225]
+Reps: [7]
+RIR: [2]
+
+[ COMPLETE SET ]
+
+Set 2 remains locked until Set 1 is completed.
+
+When Complete Set is pressed:
+
+1. Validate required fields.
+2. Save the set.
+3. Determine Target Status if applicable.
+4. Lock the completed set.
+5. Calculate/update the next recommendation.
+6. Unlock and PREFILL Set 2.
+
+Repeat for subsequent sets.
+
+Completed sets should be read-only unless the user deliberately presses EDIT.
+
+Editing a completed set should trigger recalculation of any later uncompleted recommendations when necessary.
+
+Do not allow Complete Set until required values are entered.
+
+==================================================
+9. REMOVE BUTTON FOR EVERY SET
+==================================================
+
+Every individual set row must have a remove/trash control.
+
+This includes:
+
+- warmup sets
+- working sets
+
+CURRENT ISSUE:
+Warmup sets can be added but cannot easily be removed.
+
+Fix this.
+
+Rules:
+
+Blank newly added set:
+Remove immediately.
+
+Set containing entered/completed data:
+Ask for quick confirmation.
+
+After removal:
+Renumber remaining working sets.
+
+Removed sets must NOT count toward:
+
+- Total Weight Lifted
+- progression
+- Target Status
+- completed set count
+- workout history calculations
+
+==================================================
+10. WARMUP SETS
+==================================================
+
+Warmup sets are separate from working sets.
+
+Warmups:
+
+- may be added
+- may be completed
+- may be removed
+- do NOT receive Target Status
+- do NOT count toward hypertrophy progression
+- do NOT count toward Total Weight Lifted
+
+Keep warmup data available within the workout record where appropriate.
+
+==================================================
+11. TARGET STATUS
+==================================================
+
+For working sets with a VALID performance target, assign:
+
+↑ ABOVE TARGET
+✓ TARGET MET
+↓ BELOW TARGET
+
+Determine this using:
+
+- recommended weight
+- actual weight
+- recommended reps
+- actual reps
+- prescribed RIR
+- actual RIR
+- personal exercise history
+
+Do NOT judge status from reps alone.
+
+Allow the status icon/label to be tapped to explain why the set received that status.
+
+Warmups receive no status.
+
+Calibration sets receive no performance status because no valid target existed.
+
+==================================================
+12. PROGRESSION DECISION ENGINE
+==================================================
+
+Keep/refactor progression logic into a modular service layer.
+
+Possible progression outcomes:
+
+INCREASE LOAD
+INCREASE REPS
+INCREASE SETS
+DECREASE SETS
+MAINTAIN
+
+MAINTAIN is a successful and legitimate result.
+
+Progression decisions should consider:
+
+- recent exercise performance
+- actual vs prescribed RIR
+- load
+- reps
+- recent exposure trend
+- muscle recovery
+- readiness
+- current weekly muscle volume
+- current working-set count
+- exercise type/equipment
+
+Avoid changing program volume based on one isolated workout.
+
+==================================================
+13. SET / VOLUME PROGRESSION
+==================================================
+
+The application must be capable of intelligently changing working-set counts.
+
+Look at approximately 2–3 recent exposures.
+
+General logic:
+
+Progressing + recovered:
+MAINTAIN sets.
+
+Repeated stall + good recovery + appropriate effort:
+Candidate for +1 working set.
+
+Repeated performance decline + poor recovery:
+Candidate for -1 working set.
+
+Only change one appropriate exercise when increasing muscle volume.
+
+Do NOT automatically add a set to every exercise targeting the same muscle.
+
+Respect configured min/max working-set limits.
+
+==================================================
+14. RECOVERY / READINESS
+==================================================
+
+Keep the recovery system lightweight.
+
+At the beginning of a workout:
+
+How do you feel today?
+
+- Great
+- Normal
+- Below Normal
+- Poor
+
+When relevant, collect muscle recovery:
+
+- Fully recovered
+- Slightly fatigued
+- Still sore/fatigued
+- Very sore or limiting
+
+Combine subjective recovery with objective performance.
+
+One poor readiness answer must not automatically rewrite the entire program.
+
+==================================================
+15. PAIN / DISCOMFORT
+==================================================
+
+Keep joint/tendon pain or discomfort separate from normal muscular fatigue.
+
+When pain/discomfort is reported:
+
+- avoid automatic aggressive progression
+- make exercise substitution easy
+- preserve workout history
+- do not diagnose the user
+
+==================================================
+16. RECOVERY WEEK
+==================================================
+
+Allow an optional Recovery Week at the end of a mesocycle.
+
+Choices:
+
+DELOAD
+WEEK OFF
+
+Deload:
+Reduce training workload and effort using configurable deload settings.
+
+Use higher RIR and reduced working volume.
+
+Do NOT treat reduced deload performance as normal performance decline.
+
+Week Off:
+No scheduled lifting.
+
+Week Off should NOT:
+
+- count as missed workouts
+- hurt progression
+- create negative recovery scoring
+- immediately expire otherwise valid exercise baselines
+
+Clearly label:
+
+RECOVERY WEEK — DELOAD
+
+or
+
+RECOVERY WEEK — WEEK OFF
+
+==================================================
+17. MESOCYCLE CALENDAR / TIMELINE
+==================================================
+
+Create/improve a mesocycle planning calendar.
+
+The user should be able to see:
+
+PAST workouts
+TODAY
+FUTURE workouts
+
+Display:
+
+Week number
+Target RIR
+Workout name/day
+Scheduled date
+Completion status
+
+Example:
+
+WEEK 1 — 3 RIR
+WEEK 2 — 2 RIR
+WEEK 3 — 1 RIR
+WEEK 4 — 0 RIR
+RECOVERY WEEK
+
+Past workout:
+Tap to view exact history.
+
+Today:
+Start/resume workout.
+
+Future workout:
+View planned exercises, sets and projected targets where available.
+
+Calendar date and mesocycle week are separate concepts.
+
+Moving a workout date must NOT change its mesocycle week or target RIR.
+
+==================================================
+18. MOVE / RESCHEDULE WORKOUTS
+==================================================
+
+Allow future/uncompleted workouts to move earlier or later within the same mesocycle week.
+
+Example:
+
+Wednesday workout missed.
+
+Move it to Thursday.
+
+Preserve:
+
+- mesocycle week
+- target RIR
+- exercises
+- programming
+- progression state
+
+If the move creates closely spaced sessions, show a recovery warning but DO NOT block the move.
+
+Optionally offer:
+
+"Move following workout too"
+
+Do not count a moved workout twice.
+
+Preserve the original scheduled date for internal audit/history.
+
+Completed workouts cannot simply be moved/re-written.
+
+Until the week closes, an unperformed workout should remain:
+
+NOT COMPLETED / RESCHEDULE
+
+rather than immediately being treated as a progression failure.
+
+==================================================
+19. PREMADE LEGENDARY MESOCYCLES
+==================================================
+
+Add a premade mesocycle/template library.
+
+When creating a mesocycle show:
+
+START FROM TEMPLATE
+COPY PREVIOUS MESOCYCLE
+BUILD MY OWN
+
+Initial original Legendary Progression templates:
+
+Legendary Full Body — 3 Day
+Legendary Upper/Lower — 4 Day
+Legendary Push/Pull — 4 Day
+Legendary PPL — 3 Day
+Legendary PPL — 6 Day
+Legendary Hypertrophy — 5 Day
+Legendary Time Saver — 3 Day
+Legendary Time Saver — 4 Day
+
+These are original Legendary Progression templates.
+
+Do NOT copy proprietary/commercial workout programs verbatim.
+
+Build sensible hypertrophy-oriented templates using standard established training structures.
+
+All templates remain completely editable.
+
+Users can:
+
+- change exercises
+- change days
+- change sets
+- change rep ranges
+- add/remove weeks
+- change weekly RIR
+- add/remove recovery week
+
+Templates are STARTING POINTS, not locked programs.
+
+==================================================
+20. COPY PREVIOUS MESOCYCLE
+==================================================
+
+When copying a previous mesocycle:
+
+Automatically identify the most recent FULLY COMPLETED LOADING WEEK.
+
+Recommend:
+
+USE RECOMMENDED WEEK
+
+Also allow:
+
+CHOOSE ANOTHER WEEK
+
+Eligible source weeks:
+
+Fully completed loading weeks only.
+
+DO NOT allow:
+
+- incomplete week
+- deload week
+- week off
+
+Copy PROGRAM STRUCTURE, not completed workout records.
+
+Copy:
+
+- training days
+- exercise selection
+- exercise order
+- working-set counts
+- rep-range configuration
+- programming settings
+
+Do NOT copy:
+
+- completed set records
+- target-status results
+- recovery answers
+- readiness answers
+- old calendar dates
+- deload reductions
+- previous week's RIR as the new starting RIR
+
+The new mesocycle begins at its own Week 1 target RIR.
+
+Recent valid exercise performance may still be used by the progression engine to calculate appropriate Week-1 recommendations.
+
+Store traceability such as:
+
+"Based on Fall Growth — Week 4"
+
+==================================================
+21. LARGE EXERCISE LIBRARY
+==================================================
+
+Significantly expand the built-in exercise library.
+
+Target approximately:
+150–250 useful exercises initially.
+
+DO NOT manually hard-code hundreds of UI elements.
+
+Create/extend structured seed data and database records.
+
+Cover major categories:
+
+CHEST
+BACK
+LATS
+UPPER BACK
+QUADS
+HAMSTRINGS
+GLUTES
+CALVES
+FRONT DELTS
+SIDE DELTS
+REAR DELTS
+BICEPS
+TRICEPS
+FOREARMS
+ABS / CORE
+
+Include common:
+
+- barbell exercises
+- dumbbell exercises
+- cable exercises
+- selectorized machines
+- plate-loaded machines
+- bodyweight exercises
+- Smith machine variations
+
+Each exercise should support metadata such as:
+
+name
+primary muscle
+secondary muscles
+equipment
+compound/isolation
+default rep range
+default weight increment
+search aliases
+
+Examples of aliases:
+
+RDL -> Romanian Deadlift
+DB Bench -> Dumbbell Bench Press
+DB Incline -> Incline Dumbbell Press
+Rope Pushdown -> Cable Rope Triceps Pushdown
+
+Search should match aliases.
+
+Avoid duplicate exercises caused only by slightly different naming.
+
+Users must still be able to create Custom Exercises.
+
+==================================================
+22. TOTAL WEIGHT LIFTED
+==================================================
+
+Keep user-facing terminology:
+
+TOTAL WEIGHT LIFTED
+
+not "Volume" where the user sees the workout summary.
+
+Calculation:
+
+working-set weight x completed reps
+
+Exclude warmups.
+
+Show:
+
+Total Weight Lifted
+Primary-muscle breakdown
+
+Assign each working set's weight to its PRIMARY muscle only so the muscle totals reconcile exactly with the workout total.
+
+Do NOT use Total Weight Lifted by itself as the hypertrophy progression metric.
+
+Machine/cable numbers are not directly comparable between equipment.
+
+==================================================
+23. EXISTING FEATURES TO PRESERVE
+==================================================
+
+Preserve and test existing functionality including:
+
+- multiple users/profiles
+- mesocycles
+- workout history
+- exercise substitution
+- create custom exercise
+- custom exercise name prefilling from search
+- add working set
+- add warmup
+- remove set
+- skip exercise
+- Finish Workout
+- workout summary
+- Total Weight Lifted
+- primary-muscle breakdown
+- lb/kg preference
+- actual unit conversion
+- exercise metadata
+- fixed viewport modals
+- Save & Exit / Cancel
+- persistent PostgreSQL data
+
+Skipped exercises must not count as completed or negatively affect progression.
+
+==================================================
+24. DATABASE / ARCHITECTURE
+==================================================
+
+Make necessary schema changes through migrations.
+
+DO NOT:
+
+- wipe database
+- reset database
+- destroy existing history
+- recreate application from scratch
+
+Keep progression logic modular and testable.
+
+Separate:
+
+UI
+progression calculations
+exercise history
+mesocycle configuration
+recovery logic
+unit conversion
+load rounding
+database persistence
+
+Store enough information to explain WHY a recommendation was generated.
+
+==================================================
+25. TESTING REQUIREMENTS
+==================================================
+
+Before declaring V2.1 complete, test at minimum:
+
+1. Existing user data survives migration.
+
+2. New exercise with no history enters Calibration Mode.
+
+3. Calibration does not show a fake weight/rep target.
+
+4. Week 1 calibration records weight/reps/RIR.
+
+5. Advancing to Week 2 automatically PREFILLS recommended Weight/Reps/RIR.
+
+6. Pound recommendations snap to 2.5 lb increments.
+
+7. Kilogram recommendations snap to configured kg increments.
+
+8. Changing recommended weight updates/adapts expected reps appropriately.
+
+9. Complete Set locks completed set and unlocks/prefills next set.
+
+10. Individual warmup can be removed.
+
+11. Individual working set can be removed.
+
+12. Removed set does not affect Total Weight Lifted.
+
+13. Warmups do not affect Total Weight Lifted or progression.
+
+14. Target Status is assigned only when a valid target exists.
+
+15. Added mesocycle week retains selected RIR.
+
+16. Future week can be removed.
+
+17. Completed historical week cannot accidentally be deleted.
+
+18. Workout can move Wednesday -> Thursday without changing its mesocycle week/RIR.
+
+19. Deload performance does not cause false regression.
+
+20. Week Off does not create missed-workout penalties.
+
+21. Copy Previous excludes incomplete/deload/week-off weeks.
+
+22. Premade template can be fully edited.
+
+23. Exercise library search finds aliases such as RDL and DB Bench.
+
+24. Custom exercise creation still works.
+
+25. Finish Workout saves, summarizes, closes the active workout, and advances appropriately.
+
+26. Multiple user profiles remain isolated.
+
+27. Existing workout history remains readable.
+
+==================================================
+FINAL IMPLEMENTATION INSTRUCTION
+==================================================
+
+Treat this as Legendary Progression V2.1.
+
+First inspect the current implementation and make a short implementation plan.
+
+Then implement the update against the EXISTING project.
+
+Do not simplify or remove existing functionality just to make these requirements easier.
+
+Where existing V2 behavior conflicts with these requirements, V2.1 takes precedence.
+
+After implementation, provide:
+- summary of changes
+- migrations performed
+- progression logic changes
+- exercise/template seed additions
+- tests performed
+- any remaining issues or assumptions

@@ -1,3 +1,3 @@
-- [Progression scope](progression-scope.md) — V2 includes adaptive, trend-based recommendations; aggressive automatic deload behavior remains out of scope.
+- [Progression scope](progression-scope.md) — V2.1 permits adaptive recommendations and user-configured recovery weeks, not aggressive automatic deloads.
 - [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
-- [Calendar-date contracts](calendar-date-contracts.md) — keep mesocycle calendar dates as strings; generated format-date coercion otherwise produces timestamps.
+- [Calendar-date contracts](calendar-date-contracts.md) — keep date strings and stable planned occurrence IDs; dates must not determine week/RIR identity.

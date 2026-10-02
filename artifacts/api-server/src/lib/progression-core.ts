@@ -23,6 +23,7 @@ export type ProgressionInput = {
     targetRepsMax: number;
     targetRir: number;
     targetWeight: number | null;
+    loadIncrement?: number;
   };
   exposures: Exposure[][];
   recoveryHistory: RecoveryObservation[];
@@ -59,6 +60,13 @@ export function adaptiveRepsForWeight(
       ? `Selected load may put expected performance outside the ${minReps}-${maxReps} rep target at ${targetRir} RIR.`
       : null,
   };
+}
+
+export function snapToLoadIncrement(weight: number, increment: number): number {
+  if (!Number.isFinite(weight) || !Number.isFinite(increment) || increment <= 0) {
+    throw new Error("Weight and a positive load increment are required");
+  }
+  return Number((Math.round(weight / increment) * increment).toFixed(6));
 }
 
 function estimatedCapacity(set: Exposure) {
@@ -199,8 +207,8 @@ export function calculateProgression(input: ProgressionInput): ProgressionRecomm
           ),
         )))
   ) {
-    const step = /barbell/i.test(exercise.equipment) ? 2.5 : 1;
-    recommendedWeight = Math.round((existingWeight + step) / step) * step;
+    const step = exercise.loadIncrement ?? 2.5;
+    recommendedWeight = snapToLoadIncrement(existingWeight + step, step);
     recommendedReps = exercise.targetRepsMin;
     outcome = "increase_load";
     rationale = repFirst

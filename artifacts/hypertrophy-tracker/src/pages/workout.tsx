@@ -92,12 +92,12 @@ export default function WorkoutPage() {
       void qc.invalidateQueries({ queryKey: getListWorkoutsQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ queryKey: getGetOverviewQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ queryKey: getListSplitsQueryKey({ profileId: workout.profileId }) });
-      void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).includes('/exercises/') });
+      void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('/api/') && q.queryKey[0] !== getGetWorkoutQueryKey(id)[0] });
       setModal(null);
     } });
   };
   const addWith = (exercise: Exercise) => {
-    addExercise.mutate({ sessionId: id, data: { exerciseId: exercise.id, targetRir: 2, targetSets: 3, targetRepsMin: 8, targetRepsMax: 12, orderIndex: workout.exercises.length } }, { onSuccess: () => { invalidate(); setModal(null); } });
+    addExercise.mutate({ sessionId: id, data: { exerciseId: exercise.id, targetRir: workout.targetRirSnapshot ?? 2, targetSets: 3, targetRepsMin: exercise.defaultRepMin, targetRepsMax: exercise.defaultRepMax, orderIndex: workout.exercises.length } }, { onSuccess: () => { invalidate(); setModal(null); } });
   };
   const swapTarget = workout.exercises.find((x) => x.id === swapTargetId);
   const doSwap = (updateMesocycle: boolean) => {
@@ -115,6 +115,10 @@ export default function WorkoutPage() {
       <button className="btn btn-secondary" data-testid="button-finish-top" style={{ minHeight: 40, padding: '0 12px', fontSize: 12 }} disabled={finish.isPending} onClick={() => setModal('finish')}>Finish</button>
     </div>
     <div className="eyebrow">{workout.splitName || 'Open session'}</div><h1 className="display" style={{ fontSize: 43, margin: '6px 0 14px' }}>{workout.dayName || 'Training session'}</h1>
+    {(workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
+      <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '.04em' }}>{workout.weekKindSnapshot === 'deload' ? 'RECOVERY WEEK — DELOAD' : 'RECOVERY WEEK — WEEK OFF'}</div>
+      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${workout.targetRirSnapshot})` : ''} with reduced sets and load. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
+    </div>}
     <SessionContext workout={workout}/>
     {!workout.exercises.length ? <Empty title="Your session is ready" detail="Add an exercise from your library to start logging sets." action={<button className="btn btn-primary" onClick={() => setModal('add')}><Plus size={17}/> Add exercise</button>}/> : null}
     <div style={{ display: 'grid', gap: 13 }}>

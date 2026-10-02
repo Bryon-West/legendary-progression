@@ -21,22 +21,35 @@ import type {
 
 import type {
   ActiveWorkoutState,
+  CalendarWeek,
+  Error,
   Exercise,
+  ExerciseBaseline,
   ExerciseHistoryEntry,
   ExerciseInput,
   FinishWorkoutResult,
   GetActiveWorkoutParams,
+  GetMesocycleCalendarParams,
+  GetMesocycleCopyOptionsParams,
   GetOverviewParams,
   HealthStatus,
   ListExercisesParams,
   ListSplitsParams,
   ListWorkoutsParams,
-  MesocycleSaveInput,
+  Mesocycle,
+  MesocycleCopyOptions,
+  MesocycleCreateInput,
+  MesocycleTemplate,
+  NewMesocycleInput,
   NotFoundResponse,
   Profile,
+  ProfileEngineSettings,
+  ProfileEngineSettingsInput,
   ProfileInput,
   ProfileOverview,
   ProfileUpdate,
+  RescheduleWorkoutInput,
+  RescheduleWorkoutResult,
   SplitDay,
   SplitDayExercise,
   SplitDayExerciseInput,
@@ -53,8 +66,10 @@ import type {
   WorkoutExerciseSubstitution,
   WorkoutSession,
   WorkoutSet,
+  WorkoutSetCompletionInput,
   WorkoutSetInput,
   WorkoutSetUpdate,
+  WorkoutSetWorkflowResult,
   WorkoutSummary
 } from './api.schemas';
 
@@ -1105,7 +1120,7 @@ export const getSaveMesocycleUrl = (splitId: number,) => {
  * @summary Atomically replace a complete mesocycle draft
  */
 export const saveMesocycle = async (splitId: number,
-    mesocycleSaveInput: MesocycleSaveInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingSplit> => {
+    newMesocycleInput: NewMesocycleInput, options?: Parameters<typeof customFetch>[1]): Promise<TrainingSplit> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1126,7 +1141,7 @@ return customFetch<TrainingSplit>(getSaveMesocycleUrl(splitId),
     ...options,
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
-    body: JSON.stringify(mesocycleSaveInput)
+    body: JSON.stringify(newMesocycleInput)
   }
 );}
 
@@ -1136,7 +1151,7 @@ return customFetch<TrainingSplit>(getSaveMesocycleUrl(splitId),
 
 export const getSaveMesocycleMutationKey = () => ['saveMesocycle'] as const;
 
-export const getSaveMesocycleMutationOptions = <TError = ErrorType<NotFoundResponse>,
+export const getSaveMesocycleMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext> => {
 
@@ -1164,14 +1179,14 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type SaveMesocycleMutationResult = NonNullable<Awaited<ReturnType<typeof saveMesocycle>>>
-    export type SaveMesocycleMutationBody = BodyType<MesocycleSaveInput>
-    export type SaveMesocycleMutationError = ErrorType<NotFoundResponse>
-    export type SaveMesocycleMutationVariables = {splitId: number;data: BodyType<MesocycleSaveInput>}
+    export type SaveMesocycleMutationBody = BodyType<NewMesocycleInput>
+    export type SaveMesocycleMutationError = ErrorType<NotFoundResponse | Error>
+    export type SaveMesocycleMutationVariables = {splitId: number;data: BodyType<NewMesocycleInput>}
 
     /**
  * @summary Atomically replace a complete mesocycle draft
  */
-export const useSaveMesocycle = <TError = ErrorType<NotFoundResponse>,
+export const useSaveMesocycle = <TError = ErrorType<NotFoundResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveMesocycle>>, TError,SaveMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof saveMesocycle>>,
@@ -1181,6 +1196,829 @@ export const useSaveMesocycle = <TError = ErrorType<NotFoundResponse>,
       > => {
       return useMutation(getSaveMesocycleMutationOptions(options));
     }
+
+export const getGetProfileEngineSettingsUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/engine-settings`
+}
+
+/**
+ * @summary Get progression and recovery engine settings for a profile
+ */
+export const getProfileEngineSettings = async (profileId: number, options?: Parameters<typeof customFetch>[1]): Promise<ProfileEngineSettings> => {
+
+  return customFetch<ProfileEngineSettings>(getGetProfileEngineSettingsUrl(profileId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProfileEngineSettingsQueryKey = (profileId: number,) => {
+    return [
+    `/api/profiles/${profileId}/engine-settings`
+    ] as const;
+    }
+
+
+export const getGetProfileEngineSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getProfileEngineSettings>>, TError = ErrorType<unknown>>(profileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfileEngineSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProfileEngineSettingsQueryKey(profileId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProfileEngineSettings>>> = ({ signal }) => getProfileEngineSettings(profileId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: profileId !== null && profileId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProfileEngineSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProfileEngineSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getProfileEngineSettings>>>
+export type GetProfileEngineSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get progression and recovery engine settings for a profile
+ */
+
+export function useGetProfileEngineSettings<TData = Awaited<ReturnType<typeof getProfileEngineSettings>>, TError = ErrorType<unknown>>(
+ profileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfileEngineSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProfileEngineSettingsQueryOptions(profileId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateProfileEngineSettingsUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/engine-settings`
+}
+
+/**
+ * @summary Update progression and recovery engine settings
+ */
+export const updateProfileEngineSettings = async (profileId: number,
+    profileEngineSettingsInput: ProfileEngineSettingsInput, options?: Parameters<typeof customFetch>[1]): Promise<ProfileEngineSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ProfileEngineSettings>(getUpdateProfileEngineSettingsUrl(profileId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(profileEngineSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateProfileEngineSettingsMutationKey = () => ['updateProfileEngineSettings'] as const;
+
+export const getUpdateProfileEngineSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfileEngineSettings>>, TError,UpdateProfileEngineSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProfileEngineSettings>>, TError,UpdateProfileEngineSettingsMutationVariables, TContext> => {
+
+const mutationKey = getUpdateProfileEngineSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProfileEngineSettings>>, UpdateProfileEngineSettingsMutationVariables> = (props) => {
+          const {profileId,data} = props ?? {};
+
+          return  updateProfileEngineSettings(profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProfileEngineSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateProfileEngineSettings>>>
+    export type UpdateProfileEngineSettingsMutationBody = BodyType<ProfileEngineSettingsInput>
+    export type UpdateProfileEngineSettingsMutationError = ErrorType<unknown>
+    export type UpdateProfileEngineSettingsMutationVariables = {profileId: number;data: BodyType<ProfileEngineSettingsInput>}
+
+    /**
+ * @summary Update progression and recovery engine settings
+ */
+export const useUpdateProfileEngineSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfileEngineSettings>>, TError,UpdateProfileEngineSettingsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProfileEngineSettings>>,
+        TError,
+        UpdateProfileEngineSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateProfileEngineSettingsMutationOptions(options));
+    }
+
+export const getListMesocycleTemplatesUrl = () => {
+
+
+
+
+  return `/api/mesocycles/templates`
+}
+
+/**
+ * @summary List editable Legendary Progression mesocycle templates
+ */
+export const listMesocycleTemplates = async ( options?: Parameters<typeof customFetch>[1]): Promise<MesocycleTemplate[]> => {
+
+  return customFetch<MesocycleTemplate[]>(getListMesocycleTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMesocycleTemplatesQueryKey = () => {
+    return [
+    `/api/mesocycles/templates`
+    ] as const;
+    }
+
+
+export const getListMesocycleTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listMesocycleTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMesocycleTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMesocycleTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMesocycleTemplates>>> = ({ signal }) => listMesocycleTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMesocycleTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMesocycleTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listMesocycleTemplates>>>
+export type ListMesocycleTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List editable Legendary Progression mesocycle templates
+ */
+
+export function useListMesocycleTemplates<TData = Awaited<ReturnType<typeof listMesocycleTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMesocycleTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMesocycleTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMesocycleCopyOptionsUrl = (params: GetMesocycleCopyOptionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/mesocycles/copy-options?${stringifiedParams}` : `/api/mesocycles/copy-options`
+}
+
+/**
+ * @summary List eligible fully completed loading weeks for copying
+ */
+export const getMesocycleCopyOptions = async (params: GetMesocycleCopyOptionsParams, options?: Parameters<typeof customFetch>[1]): Promise<MesocycleCopyOptions> => {
+
+  return customFetch<MesocycleCopyOptions>(getGetMesocycleCopyOptionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMesocycleCopyOptionsQueryKey = (params?: GetMesocycleCopyOptionsParams,) => {
+    return [
+    `/api/mesocycles/copy-options`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMesocycleCopyOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getMesocycleCopyOptions>>, TError = ErrorType<unknown>>(params: GetMesocycleCopyOptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCopyOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMesocycleCopyOptionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMesocycleCopyOptions>>> = ({ signal }) => getMesocycleCopyOptions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCopyOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMesocycleCopyOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getMesocycleCopyOptions>>>
+export type GetMesocycleCopyOptionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List eligible fully completed loading weeks for copying
+ */
+
+export function useGetMesocycleCopyOptions<TData = Awaited<ReturnType<typeof getMesocycleCopyOptions>>, TError = ErrorType<unknown>>(
+ params: GetMesocycleCopyOptionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCopyOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMesocycleCopyOptionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateMesocycleUrl = () => {
+
+
+
+
+  return `/api/mesocycles`
+}
+
+/**
+ * @summary Atomically create a complete mesocycle from a template, prior week, or custom draft
+ */
+export const createMesocycle = async (mesocycleCreateInput: MesocycleCreateInput, options?: Parameters<typeof customFetch>[1]): Promise<Mesocycle> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Mesocycle>(getCreateMesocycleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mesocycleCreateInput)
+  }
+);}
+
+
+
+
+
+export const getCreateMesocycleMutationKey = () => ['createMesocycle'] as const;
+
+export const getCreateMesocycleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMesocycle>>, TError,CreateMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createMesocycle>>, TError,CreateMesocycleMutationVariables, TContext> => {
+
+const mutationKey = getCreateMesocycleMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createMesocycle>>, CreateMesocycleMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createMesocycle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateMesocycleMutationResult = NonNullable<Awaited<ReturnType<typeof createMesocycle>>>
+    export type CreateMesocycleMutationBody = BodyType<MesocycleCreateInput>
+    export type CreateMesocycleMutationError = ErrorType<Error>
+    export type CreateMesocycleMutationVariables = {data: BodyType<MesocycleCreateInput>}
+
+    /**
+ * @summary Atomically create a complete mesocycle from a template, prior week, or custom draft
+ */
+export const useCreateMesocycle = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createMesocycle>>, TError,CreateMesocycleMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createMesocycle>>,
+        TError,
+        CreateMesocycleMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateMesocycleMutationOptions(options));
+    }
+
+export const getGetMesocycleUrl = (splitId: number,) => {
+
+
+
+
+  return `/api/mesocycles/${splitId}`
+}
+
+/**
+ * @summary Get a mesocycle with normalized weeks and planned workout occurrences
+ */
+export const getMesocycle = async (splitId: number, options?: Parameters<typeof customFetch>[1]): Promise<Mesocycle> => {
+
+  return customFetch<Mesocycle>(getGetMesocycleUrl(splitId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMesocycleQueryKey = (splitId: number,) => {
+    return [
+    `/api/mesocycles/${splitId}`
+    ] as const;
+    }
+
+
+export const getGetMesocycleQueryOptions = <TData = Awaited<ReturnType<typeof getMesocycle>>, TError = ErrorType<NotFoundResponse>>(splitId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMesocycleQueryKey(splitId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMesocycle>>> = ({ signal }) => getMesocycle(splitId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: splitId !== null && splitId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMesocycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMesocycleQueryResult = NonNullable<Awaited<ReturnType<typeof getMesocycle>>>
+export type GetMesocycleQueryError = ErrorType<NotFoundResponse>
+
+
+/**
+ * @summary Get a mesocycle with normalized weeks and planned workout occurrences
+ */
+
+export function useGetMesocycle<TData = Awaited<ReturnType<typeof getMesocycle>>, TError = ErrorType<NotFoundResponse>>(
+ splitId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMesocycleQueryOptions(splitId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRemoveMesocycleWeekUrl = (splitId: number,
+    weekId: number,) => {
+
+
+
+
+  return `/api/mesocycles/${splitId}/weeks/${weekId}`
+}
+
+/**
+ * @summary Remove an unstarted future week; started/completed weeks are protected
+ */
+export const removeMesocycleWeek = async (splitId: number,
+    weekId: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRemoveMesocycleWeekUrl(splitId,weekId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveMesocycleWeekMutationKey = () => ['removeMesocycleWeek'] as const;
+
+export const getRemoveMesocycleWeekMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeMesocycleWeek>>, TError,RemoveMesocycleWeekMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeMesocycleWeek>>, TError,RemoveMesocycleWeekMutationVariables, TContext> => {
+
+const mutationKey = getRemoveMesocycleWeekMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeMesocycleWeek>>, RemoveMesocycleWeekMutationVariables> = (props) => {
+          const {splitId,weekId} = props ?? {};
+
+          return  removeMesocycleWeek(splitId,weekId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveMesocycleWeekMutationResult = NonNullable<Awaited<ReturnType<typeof removeMesocycleWeek>>>
+
+    export type RemoveMesocycleWeekMutationError = ErrorType<Error>
+    export type RemoveMesocycleWeekMutationVariables = {splitId: number;weekId: number}
+
+    /**
+ * @summary Remove an unstarted future week; started/completed weeks are protected
+ */
+export const useRemoveMesocycleWeek = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeMesocycleWeek>>, TError,RemoveMesocycleWeekMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeMesocycleWeek>>,
+        TError,
+        RemoveMesocycleWeekMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveMesocycleWeekMutationOptions(options));
+    }
+
+export const getGetMesocycleCalendarUrl = (params: GetMesocycleCalendarParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/mesocycles/calendar?${stringifiedParams}` : `/api/mesocycles/calendar`
+}
+
+/**
+ * @summary Get past, today, and future workout occurrences with projected targets
+ */
+export const getMesocycleCalendar = async (params: GetMesocycleCalendarParams, options?: Parameters<typeof customFetch>[1]): Promise<CalendarWeek[]> => {
+
+  return customFetch<CalendarWeek[]>(getGetMesocycleCalendarUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMesocycleCalendarQueryKey = (params?: GetMesocycleCalendarParams,) => {
+    return [
+    `/api/mesocycles/calendar`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMesocycleCalendarQueryOptions = <TData = Awaited<ReturnType<typeof getMesocycleCalendar>>, TError = ErrorType<unknown>>(params: GetMesocycleCalendarParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCalendar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMesocycleCalendarQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMesocycleCalendar>>> = ({ signal }) => getMesocycleCalendar(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCalendar>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMesocycleCalendarQueryResult = NonNullable<Awaited<ReturnType<typeof getMesocycleCalendar>>>
+export type GetMesocycleCalendarQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get past, today, and future workout occurrences with projected targets
+ */
+
+export function useGetMesocycleCalendar<TData = Awaited<ReturnType<typeof getMesocycleCalendar>>, TError = ErrorType<unknown>>(
+ params: GetMesocycleCalendarParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMesocycleCalendar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMesocycleCalendarQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReschedulePlannedWorkoutUrl = (plannedWorkoutId: number,) => {
+
+
+
+
+  return `/api/planned-workouts/${plannedWorkoutId}/reschedule`
+}
+
+/**
+ * @summary Reschedule within the same week without changing week identity or RIR
+ */
+export const reschedulePlannedWorkout = async (plannedWorkoutId: number,
+    rescheduleWorkoutInput: RescheduleWorkoutInput, options?: Parameters<typeof customFetch>[1]): Promise<RescheduleWorkoutResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<RescheduleWorkoutResult>(getReschedulePlannedWorkoutUrl(plannedWorkoutId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(rescheduleWorkoutInput)
+  }
+);}
+
+
+
+
+
+export const getReschedulePlannedWorkoutMutationKey = () => ['reschedulePlannedWorkout'] as const;
+
+export const getReschedulePlannedWorkoutMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reschedulePlannedWorkout>>, TError,ReschedulePlannedWorkoutMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reschedulePlannedWorkout>>, TError,ReschedulePlannedWorkoutMutationVariables, TContext> => {
+
+const mutationKey = getReschedulePlannedWorkoutMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reschedulePlannedWorkout>>, ReschedulePlannedWorkoutMutationVariables> = (props) => {
+          const {plannedWorkoutId,data} = props ?? {};
+
+          return  reschedulePlannedWorkout(plannedWorkoutId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReschedulePlannedWorkoutMutationResult = NonNullable<Awaited<ReturnType<typeof reschedulePlannedWorkout>>>
+    export type ReschedulePlannedWorkoutMutationBody = BodyType<RescheduleWorkoutInput>
+    export type ReschedulePlannedWorkoutMutationError = ErrorType<Error>
+    export type ReschedulePlannedWorkoutMutationVariables = {plannedWorkoutId: number;data: BodyType<RescheduleWorkoutInput>}
+
+    /**
+ * @summary Reschedule within the same week without changing week identity or RIR
+ */
+export const useReschedulePlannedWorkout = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reschedulePlannedWorkout>>, TError,ReschedulePlannedWorkoutMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reschedulePlannedWorkout>>,
+        TError,
+        ReschedulePlannedWorkoutMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReschedulePlannedWorkoutMutationOptions(options));
+    }
+
+export const getGetExerciseBaselineUrl = (profileId: number,
+    exerciseId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/exercises/${exerciseId}/baseline`
+}
+
+/**
+ * @summary Get exercise-specific baseline state and provenance
+ */
+export const getExerciseBaseline = async (profileId: number,
+    exerciseId: number, options?: Parameters<typeof customFetch>[1]): Promise<ExerciseBaseline> => {
+
+  return customFetch<ExerciseBaseline>(getGetExerciseBaselineUrl(profileId,exerciseId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetExerciseBaselineQueryKey = (profileId: number,
+    exerciseId: number,) => {
+    return [
+    `/api/profiles/${profileId}/exercises/${exerciseId}/baseline`
+    ] as const;
+    }
+
+
+export const getGetExerciseBaselineQueryOptions = <TData = Awaited<ReturnType<typeof getExerciseBaseline>>, TError = ErrorType<unknown>>(profileId: number,
+    exerciseId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExerciseBaseline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetExerciseBaselineQueryKey(profileId,exerciseId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getExerciseBaseline>>> = ({ signal }) => getExerciseBaseline(profileId,exerciseId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: profileId !== null && profileId !== undefined && exerciseId !== null && exerciseId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getExerciseBaseline>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetExerciseBaselineQueryResult = NonNullable<Awaited<ReturnType<typeof getExerciseBaseline>>>
+export type GetExerciseBaselineQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get exercise-specific baseline state and provenance
+ */
+
+export function useGetExerciseBaseline<TData = Awaited<ReturnType<typeof getExerciseBaseline>>, TError = ErrorType<unknown>>(
+ profileId: number,
+    exerciseId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExerciseBaseline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetExerciseBaselineQueryOptions(profileId,exerciseId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateSplitDayUrl = (splitId: number,) => {
 
@@ -2394,6 +3232,97 @@ export const useUpdateWorkoutSet = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateWorkoutSetMutationOptions(options));
+    }
+
+export const getCompleteWorkoutSetUrl = (sessionId: number,
+    setId: number,) => {
+
+
+
+
+  return `/api/workouts/${sessionId}/sets/${setId}`
+}
+
+/**
+ * @summary Explicitly complete a validated set and unlock the next incomplete working set
+ */
+export const completeWorkoutSet = async (sessionId: number,
+    setId: number,
+    workoutSetCompletionInput: WorkoutSetCompletionInput, options?: Parameters<typeof customFetch>[1]): Promise<WorkoutSetWorkflowResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<WorkoutSetWorkflowResult>(getCompleteWorkoutSetUrl(sessionId,setId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(workoutSetCompletionInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteWorkoutSetMutationKey = () => ['completeWorkoutSet'] as const;
+
+export const getCompleteWorkoutSetMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeWorkoutSet>>, TError,CompleteWorkoutSetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeWorkoutSet>>, TError,CompleteWorkoutSetMutationVariables, TContext> => {
+
+const mutationKey = getCompleteWorkoutSetMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeWorkoutSet>>, CompleteWorkoutSetMutationVariables> = (props) => {
+          const {sessionId,setId,data} = props ?? {};
+
+          return  completeWorkoutSet(sessionId,setId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteWorkoutSetMutationResult = NonNullable<Awaited<ReturnType<typeof completeWorkoutSet>>>
+    export type CompleteWorkoutSetMutationBody = BodyType<WorkoutSetCompletionInput>
+    export type CompleteWorkoutSetMutationError = ErrorType<Error>
+    export type CompleteWorkoutSetMutationVariables = {sessionId: number;setId: number;data: BodyType<WorkoutSetCompletionInput>}
+
+    /**
+ * @summary Explicitly complete a validated set and unlock the next incomplete working set
+ */
+export const useCompleteWorkoutSet = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeWorkoutSet>>, TError,CompleteWorkoutSetMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeWorkoutSet>>,
+        TError,
+        CompleteWorkoutSetMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteWorkoutSetMutationOptions(options));
     }
 
 export const getRemoveWorkoutSetUrl = (sessionId: number,

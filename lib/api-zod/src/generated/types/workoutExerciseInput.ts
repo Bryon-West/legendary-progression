@@ -28,10 +28,16 @@ export interface WorkoutExerciseInput {
      * @maximum 20
      */
   maximumWorkingSets?: number;
-  /** @minimum 1 */
-  targetRepsMin: number;
-  /** @minimum 1 */
-  targetRepsMax: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  targetRepsMin?: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  targetRepsMax?: number | null;
   /**
      * @minimum 0
      * @nullable

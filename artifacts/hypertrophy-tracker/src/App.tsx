@@ -12,6 +12,8 @@ import { HistoryPage, HistoryDetailPage } from '@/pages/history';
 import ExercisesPage from '@/pages/library';
 import MesocyclesPage from '@/pages/mesocycles';
 import MesocycleEditorPage from '@/pages/mesocycle-editor';
+import CalendarPage from '@/pages/calendar';
+import MesocycleNewPage from '@/pages/mesocycle-new';
 import ProfilesPage from '@/pages/profile';
 
 const queryClient = new QueryClient({
@@ -28,6 +30,8 @@ function Router() {
     <Route path="/history/:sessionId" component={HistoryDetailPage}/>
     <Route path="/exercises" component={ExercisesPage}/>
     <Route path="/splits" component={MesocyclesPage}/>
+    <Route path="/splits/new" component={MesocycleNewPage}/>
+    <Route path="/calendar" component={CalendarPage}/>
     <Route path="/splits/:splitId" component={MesocycleEditorPage}/>
     <Route path="/profiles" component={ProfilesPage}/>
     <Route component={NotFound}/>

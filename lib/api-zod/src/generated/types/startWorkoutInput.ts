@@ -12,6 +12,11 @@ export interface StartWorkoutInput {
   profileId: number;
   /** @nullable */
   splitDayId?: number | null;
+  /**
+     * Optional occurrence linkage; omit for legacy or free-start workouts.
+     * @nullable
+     */
+  scheduledWorkoutId?: number | null;
   readiness?: StartWorkoutInputReadiness;
   muscleRecovery?: MuscleRecoveryInput[];
 }

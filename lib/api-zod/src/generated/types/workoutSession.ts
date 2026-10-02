@@ -9,7 +9,9 @@ import type { MuscleRecovery } from './muscleRecovery';
 import type { MuscleTotal } from './muscleTotal';
 import type { WorkoutExercise } from './workoutExercise';
 import type { WorkoutSessionReadiness } from './workoutSessionReadiness';
+import type { WorkoutSessionRecoveryMode } from './workoutSessionRecoveryMode';
 import type { WorkoutSessionStatus } from './workoutSessionStatus';
+import type { WorkoutSessionWeekKindSnapshot } from './workoutSessionWeekKindSnapshot';
 
 export interface WorkoutSession {
   id: number;
@@ -36,6 +38,16 @@ export interface WorkoutSession {
   mesocycleStartDate: string | null;
   /** @nullable */
   mesocycleWeek: number | null;
+  /** @nullable */
+  weekId: number | null;
+  /** @nullable */
+  plannedWorkoutId: number | null;
+  /** @nullable */
+  weekKindSnapshot: WorkoutSessionWeekKindSnapshot;
+  /** @nullable */
+  targetRirSnapshot: number | null;
+  /** @nullable */
+  recoveryMode: WorkoutSessionRecoveryMode;
   muscleRecovery: MuscleRecovery[];
   muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];

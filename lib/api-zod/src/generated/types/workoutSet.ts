@@ -7,6 +7,7 @@
  */
 import type { WorkoutSetSetType } from './workoutSetSetType';
 import type { WorkoutSetTargetStatus } from './workoutSetTargetStatus';
+import type { WorkoutSetWorkflowState } from './workoutSetWorkflowState';
 
 export interface WorkoutSet {
   id: number;
@@ -45,4 +46,5 @@ export interface WorkoutSet {
   completedAt: Date | null;
   /** @nullable */
   notes?: string | null;
+  workflowState: WorkoutSetWorkflowState;
 }

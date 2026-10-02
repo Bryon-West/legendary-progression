@@ -7,7 +7,7 @@ import { Modal } from '@/components/modal';
 import { ErrorNote } from '@/components/ui-bits';
 import { READINESS, RECOVERY, type Readiness, type RecoveryStatus } from '@/lib/labels';
 
-export function StartSessionModal({ profileId, splitDayId, muscles, onClose }: { profileId: number; splitDayId: number | null; muscles: string[]; onClose: () => void }) {
+export function StartSessionModal({ profileId, splitDayId, scheduledWorkoutId, muscles, onClose }: { profileId: number; splitDayId: number | null; scheduledWorkoutId?: number; muscles: string[]; onClose: () => void }) {
   const [readiness, setReadiness] = useState<Readiness>('normal');
   const [recovery, setRecovery] = useState<Record<string, RecoveryStatus>>({});
   const start = useStartWorkout();
@@ -15,7 +15,7 @@ export function StartSessionModal({ profileId, splitDayId, muscles, onClose }: {
   const [, navigate] = useLocation();
   const go = () => {
     const muscleRecovery = muscles.filter((m) => recovery[m]).map((m) => ({ muscleGroup: m, status: recovery[m] }));
-    start.mutate({ data: { profileId, splitDayId, readiness, ...(muscleRecovery.length ? { muscleRecovery } : {}) } }, {
+    start.mutate({ data: { profileId, splitDayId, ...(scheduledWorkoutId ? { scheduledWorkoutId } : {}), readiness, ...(muscleRecovery.length ? { muscleRecovery } : {}) } }, {
       onSuccess: (w) => {
         void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId }) });
         void qc.invalidateQueries({ queryKey: getGetOverviewQueryKey({ profileId }) });

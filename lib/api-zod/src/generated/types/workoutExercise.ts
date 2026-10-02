@@ -5,6 +5,8 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { WorkoutExerciseBaselineStatus } from './workoutExerciseBaselineStatus';
+import type { WorkoutExerciseCalibrationRir } from './workoutExerciseCalibrationRir';
 import type { WorkoutExerciseCategory } from './workoutExerciseCategory';
 import type { WorkoutExerciseRecommendationOutcome } from './workoutExerciseRecommendationOutcome';
 import type { WorkoutSet } from './workoutSet';
@@ -19,8 +21,10 @@ export interface WorkoutExercise {
   targetSets: number;
   minimumWorkingSets: number;
   maximumWorkingSets: number;
-  targetRepsMin: number;
-  targetRepsMax: number;
+  /** @nullable */
+  targetRepsMin: number | null;
+  /** @nullable */
+  targetRepsMax: number | null;
   /** @nullable */
   targetWeight?: number | null;
   orderIndex: number;
@@ -41,5 +45,13 @@ export interface WorkoutExercise {
   recommendationRationale: string | null;
   /** @nullable */
   substitutedFromExerciseId: number | null;
+  calibrationMode: boolean;
+  /**
+     * Calibration always prescribes approximately 3 RIR independent of week target.
+     * @nullable
+     */
+  calibrationRir: WorkoutExerciseCalibrationRir;
+  /** @nullable */
+  baselineStatus: WorkoutExerciseBaselineStatus;
   sets: WorkoutSet[];
 }

@@ -71,6 +71,20 @@ export interface Exercise {
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
+  secondaryMuscles: string[];
+  aliases: string[];
+  defaultRepMin: number;
+  defaultRepMax: number;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementLb: number | null;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementKg: number | null;
   createdAt: string;
 }
 
@@ -106,6 +120,28 @@ export interface ExerciseInput {
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
+  secondaryMuscles?: string[];
+  aliases?: string[];
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  defaultRepMin?: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  defaultRepMax?: number;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementLb?: number | null;
+  /**
+     * @exclusiveMinimum 0
+     * @nullable
+     */
+  loadIncrementKg?: number | null;
 }
 
 export interface SplitDayExercise {
@@ -361,6 +397,15 @@ export const WorkoutSetTargetStatus = {
   below_target: 'below_target',
 } as const;
 
+export type WorkoutSetWorkflowState = typeof WorkoutSetWorkflowState[keyof typeof WorkoutSetWorkflowState];
+
+
+export const WorkoutSetWorkflowState = {
+  locked: 'locked',
+  active: 'active',
+  unlocked: 'unlocked',
+} as const;
+
 export interface WorkoutSet {
   id: number;
   workoutExerciseId: number;
@@ -398,6 +443,7 @@ export interface WorkoutSet {
   completedAt: string | null;
   /** @nullable */
   notes?: string | null;
+  workflowState: WorkoutSetWorkflowState;
 }
 
 export type WorkoutExerciseCategory = typeof WorkoutExerciseCategory[keyof typeof WorkoutExerciseCategory];
@@ -425,6 +471,29 @@ export const WorkoutExerciseRecommendationOutcome = {
   maintain: 'maintain',
 } as const;
 
+/**
+ * Calibration always prescribes approximately 3 RIR independent of week target.
+ * @nullable
+ */
+export type WorkoutExerciseCalibrationRir = typeof WorkoutExerciseCalibrationRir[keyof typeof WorkoutExerciseCalibrationRir] | null;
+
+
+export const WorkoutExerciseCalibrationRir = {
+  NUMBER_3: 3,
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutExerciseBaselineStatus = typeof WorkoutExerciseBaselineStatus[keyof typeof WorkoutExerciseBaselineStatus] | null;
+
+
+export const WorkoutExerciseBaselineStatus = {
+  no_baseline: 'no_baseline',
+  active: 'active',
+  expired: 'expired',
+} as const;
+
 export interface WorkoutExercise {
   id: number;
   sessionId: number;
@@ -435,8 +504,10 @@ export interface WorkoutExercise {
   targetSets: number;
   minimumWorkingSets: number;
   maximumWorkingSets: number;
-  targetRepsMin: number;
-  targetRepsMax: number;
+  /** @nullable */
+  targetRepsMin: number | null;
+  /** @nullable */
+  targetRepsMax: number | null;
   /** @nullable */
   targetWeight?: number | null;
   orderIndex: number;
@@ -457,6 +528,14 @@ export interface WorkoutExercise {
   recommendationRationale: string | null;
   /** @nullable */
   substitutedFromExerciseId: number | null;
+  calibrationMode: boolean;
+  /**
+     * Calibration always prescribes approximately 3 RIR independent of week target.
+     * @nullable
+     */
+  calibrationRir: WorkoutExerciseCalibrationRir;
+  /** @nullable */
+  baselineStatus: WorkoutExerciseBaselineStatus;
   sets: WorkoutSet[];
 }
 
@@ -482,10 +561,16 @@ export interface WorkoutExerciseInput {
      * @maximum 20
      */
   maximumWorkingSets?: number;
-  /** @minimum 1 */
-  targetRepsMin: number;
-  /** @minimum 1 */
-  targetRepsMax: number;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  targetRepsMin?: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  targetRepsMax?: number | null;
   /**
      * @minimum 0
      * @nullable
@@ -600,8 +685,29 @@ export interface WorkoutSetUpdate {
      */
   actualRir?: number | null;
   completed?: boolean;
+  /** Must be true to modify an already completed row; blank prefills are not completed performance. */
+  editIntent?: boolean;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface WorkoutSetCompletionInput {
+  /** @minimum 0 */
+  actualWeight: number;
+  /** @minimum 0 */
+  actualReps: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  actualRir: number;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface WorkoutSetWorkflowResult {
+  set: WorkoutSet;
+  nextSet: WorkoutSet | null;
 }
 
 export type WorkoutSessionStatus = typeof WorkoutSessionStatus[keyof typeof WorkoutSessionStatus];
@@ -623,6 +729,29 @@ export const WorkoutSessionReadiness = {
   normal: 'normal',
   below_normal: 'below_normal',
   poor: 'poor',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutSessionWeekKindSnapshot = typeof WorkoutSessionWeekKindSnapshot[keyof typeof WorkoutSessionWeekKindSnapshot] | null;
+
+
+export const WorkoutSessionWeekKindSnapshot = {
+  loading: 'loading',
+  deload: 'deload',
+  week_off: 'week_off',
+} as const;
+
+/**
+ * @nullable
+ */
+export type WorkoutSessionRecoveryMode = typeof WorkoutSessionRecoveryMode[keyof typeof WorkoutSessionRecoveryMode] | null;
+
+
+export const WorkoutSessionRecoveryMode = {
+  deload: 'deload',
+  week_off: 'week_off',
 } as const;
 
 export type MuscleRecoveryInputStatus = typeof MuscleRecoveryInputStatus[keyof typeof MuscleRecoveryInputStatus];
@@ -676,6 +805,16 @@ export interface WorkoutSession {
   mesocycleStartDate: string | null;
   /** @nullable */
   mesocycleWeek: number | null;
+  /** @nullable */
+  weekId: number | null;
+  /** @nullable */
+  plannedWorkoutId: number | null;
+  /** @nullable */
+  weekKindSnapshot: WorkoutSessionWeekKindSnapshot;
+  /** @nullable */
+  targetRirSnapshot: number | null;
+  /** @nullable */
+  recoveryMode: WorkoutSessionRecoveryMode;
   muscleRecovery: MuscleRecovery[];
   muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];
@@ -699,6 +838,11 @@ export interface StartWorkoutInput {
   profileId: number;
   /** @nullable */
   splitDayId?: number | null;
+  /**
+     * Optional occurrence linkage; omit for legacy or free-start workouts.
+     * @nullable
+     */
+  scheduledWorkoutId?: number | null;
   readiness?: StartWorkoutInputReadiness;
   muscleRecovery?: MuscleRecoveryInput[];
 }
@@ -803,6 +947,417 @@ export interface FinishWorkoutResult {
   nextWorkout: NextWorkoutDay | null;
 }
 
+/**
+ * Calendar date kept as a string; never parse through a timestamp.
+ * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+ */
+export type DateOnly = string;
+
+export interface ProfileEngineSettings {
+  profileId: number;
+  /**
+     * @minimum 1
+     * @maximum 104
+     */
+  baselineExpiryWeeks: number;
+  /** @exclusiveMinimum 0 */
+  loadIncrementLb: number;
+  /** @exclusiveMinimum 0 */
+  loadIncrementKg: number;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  deloadSetFraction: number;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  deloadLoadFraction: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  deloadRir: number;
+}
+
+export interface ProfileEngineSettingsInput {
+  /**
+     * @minimum 1
+     * @maximum 104
+     */
+  baselineExpiryWeeks?: number;
+  /** @exclusiveMinimum 0 */
+  loadIncrementLb?: number;
+  /** @exclusiveMinimum 0 */
+  loadIncrementKg?: number;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  deloadSetFraction?: number;
+  /**
+     * @maximum 1
+     * @exclusiveMinimum 0
+     */
+  deloadLoadFraction?: number;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  deloadRir?: number;
+}
+
+export type MesocycleWeekInputKind = typeof MesocycleWeekInputKind[keyof typeof MesocycleWeekInputKind];
+
+
+export const MesocycleWeekInputKind = {
+  loading: 'loading',
+  deload: 'deload',
+  week_off: 'week_off',
+} as const;
+
+export interface PlannedWorkoutInput {
+  /** @minimum 0 */
+  dayIndex: number;
+  scheduledDate: DateOnly;
+  /** Existing occurrence ID when saving a draft. */
+  id?: number;
+}
+
+export interface MesocycleWeekInput {
+  /** Existing week identifier when saving a draft; omit for a new week. */
+  id?: number;
+  /** @minimum 1 */
+  weekIndex: number;
+  kind: MesocycleWeekInputKind;
+  /**
+     * Explicit week identity prescription, independent of calendar dates.
+     * @minimum 0
+     * @maximum 10
+     */
+  targetRir: number;
+  /** Ordered planned occurrences for this week; must be empty for week_off. */
+  scheduledWorkouts: PlannedWorkoutInput[];
+}
+
+export type MesocycleWeekKind = typeof MesocycleWeekKind[keyof typeof MesocycleWeekKind];
+
+
+export const MesocycleWeekKind = {
+  loading: 'loading',
+  deload: 'deload',
+  week_off: 'week_off',
+} as const;
+
+export type MesocycleWeekStatus = typeof MesocycleWeekStatus[keyof typeof MesocycleWeekStatus];
+
+
+export const MesocycleWeekStatus = {
+  future: 'future',
+  in_progress: 'in_progress',
+  completed: 'completed',
+} as const;
+
+/**
+ * Immutable structural snapshot used for reproducible copy/provenance.
+ * @nullable
+ */
+export type MesocycleWeekProgramSnapshot = { [key: string]: unknown } | null;
+
+export type PlannedWorkoutStatus = typeof PlannedWorkoutStatus[keyof typeof PlannedWorkoutStatus];
+
+
+export const PlannedWorkoutStatus = {
+  scheduled: 'scheduled',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface PlannedWorkout {
+  id: number;
+  splitId: number;
+  weekId: number;
+  weekIndex: number;
+  splitDayId: number;
+  dayName: string;
+  scheduledDate: DateOnly;
+  originalScheduledDate: DateOnly;
+  status: PlannedWorkoutStatus;
+  /**
+     * Stable link to exact workout history when started/completed.
+     * @nullable
+     */
+  sessionId: number | null;
+}
+
+export interface MesocycleWeek {
+  id: number;
+  splitId: number;
+  /** @minimum 1 */
+  weekIndex: number;
+  kind: MesocycleWeekKind;
+  /**
+     * @minimum 0
+     * @maximum 10
+     */
+  targetRir: number;
+  status: MesocycleWeekStatus;
+  scheduledWorkouts: PlannedWorkout[];
+  /**
+     * Immutable structural snapshot used for reproducible copy/provenance.
+     * @nullable
+     */
+  programSnapshot: MesocycleWeekProgramSnapshot;
+  /** @nullable */
+  sourceDescription: string | null;
+}
+
+export interface Mesocycle {
+  id: number;
+  profileId: number;
+  name: string;
+  startDate: DateOnly;
+  /** @minimum 1 */
+  cycleLengthWeeks: number;
+  /** Ordered reusable workout-day templates shared across weeks. */
+  days: SplitDay[];
+  weeks: MesocycleWeek[];
+  /** @nullable */
+  sourceDescription: string | null;
+}
+
+export interface NewMesocycleInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  startDate: DateOnly;
+  /**
+     * Legacy-compatible derived cycle length; when omitted use weeks count.
+     * @minimum 1
+     * @maximum 104
+     */
+  cycleLengthWeeks?: number;
+  /** @minItems 1 */
+  days: MesocycleDayInput[];
+  /**
+     * Ordered, extensible week schedule. New-cycle defaults are loading RIR 3, 2, 1, 0; do not impose a four-week limit or append a recovery week unless chosen.
+     * @minItems 1
+     */
+  weeks: MesocycleWeekInput[];
+  /** @nullable */
+  sourceDescription?: string | null;
+}
+
+export type MesocycleCreateInputCreateMode = typeof MesocycleCreateInputCreateMode[keyof typeof MesocycleCreateInputCreateMode];
+
+
+export const MesocycleCreateInputCreateMode = {
+  template: 'template',
+  copy_completed_week: 'copy_completed_week',
+  build_own: 'build_own',
+} as const;
+
+export type MesocycleCreateInput = NewMesocycleInput & ({
+  profileId: number;
+  createMode: MesocycleCreateInputCreateMode;
+  /** @nullable */
+  templateId?: string | null;
+  /**
+     * Only eligible fully completed loading weeks may be selected.
+     * @nullable
+     */
+  sourceWeekId?: number | null;
+});
+
+export interface MesocycleTemplate {
+  templateId: string;
+  name: string;
+  description: string;
+  days: MesocycleDayInput[];
+  /**
+     * @items.minimum 0
+     * @items.maximum 10
+     */
+  defaultLoadingRirs: number[];
+}
+
+export interface CopyEligibleWeek {
+  weekId: number;
+  splitId: number;
+  mesocycleName: string;
+  weekIndex: number;
+  completedAt: string;
+  /** Reproducible provenance label */
+  description: string;
+  /** Immutable workout structure from the completed week's frozen program snapshot; use these days rather than the source cycle's current draft. */
+  days: MesocycleDayInput[];
+}
+
+export interface MesocycleCopyOptions {
+  /** @nullable */
+  recommendedWeekId: number | null;
+  eligibleWeeks: CopyEligibleWeek[];
+}
+
+export type CalendarWorkoutWeekKind = typeof CalendarWorkoutWeekKind[keyof typeof CalendarWorkoutWeekKind];
+
+
+export const CalendarWorkoutWeekKind = {
+  loading: 'loading',
+  deload: 'deload',
+  week_off: 'week_off',
+} as const;
+
+export type CalendarWorkoutStatus = typeof CalendarWorkoutStatus[keyof typeof CalendarWorkoutStatus];
+
+
+export const CalendarWorkoutStatus = {
+  scheduled: 'scheduled',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export type CalendarWorkoutRelativeState = typeof CalendarWorkoutRelativeState[keyof typeof CalendarWorkoutRelativeState];
+
+
+export const CalendarWorkoutRelativeState = {
+  past: 'past',
+  today: 'today',
+  future: 'future',
+} as const;
+
+export type ProjectedExerciseBaselineStatus = typeof ProjectedExerciseBaselineStatus[keyof typeof ProjectedExerciseBaselineStatus];
+
+
+export const ProjectedExerciseBaselineStatus = {
+  no_baseline: 'no_baseline',
+  active: 'active',
+  expired: 'expired',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ProjectedExerciseCalibrationRir = typeof ProjectedExerciseCalibrationRir[keyof typeof ProjectedExerciseCalibrationRir] | null;
+
+
+export const ProjectedExerciseCalibrationRir = {
+  NUMBER_3: 3,
+} as const;
+
+export interface ProjectedExercise {
+  exerciseId: number;
+  exerciseName: string;
+  targetSets: number;
+  /** @nullable */
+  targetRepsMin: number | null;
+  /** @nullable */
+  targetRepsMax: number | null;
+  /**
+     * Canonical API weights are kilograms.
+     * @nullable
+     */
+  targetWeight: number | null;
+  targetRir: number;
+  baselineStatus: ProjectedExerciseBaselineStatus;
+  calibrationMode: boolean;
+  /** @nullable */
+  calibrationRir: ProjectedExerciseCalibrationRir;
+  /** @nullable */
+  calibrationInstruction: string | null;
+  /** @nullable */
+  recommendationExplanation: string | null;
+}
+
+export interface CalendarWorkout {
+  id: number;
+  splitId: number;
+  weekId: number;
+  weekIndex: number;
+  weekKind: CalendarWorkoutWeekKind;
+  targetRir: number;
+  dayName: string;
+  scheduledDate: DateOnly;
+  originalScheduledDate: DateOnly;
+  status: CalendarWorkoutStatus;
+  /** @nullable */
+  sessionId: number | null;
+  isToday: boolean;
+  projectedExercises: ProjectedExercise[];
+  relativeState?: CalendarWorkoutRelativeState;
+}
+
+export type CalendarWeekKind = typeof CalendarWeekKind[keyof typeof CalendarWeekKind];
+
+
+export const CalendarWeekKind = {
+  loading: 'loading',
+  deload: 'deload',
+  week_off: 'week_off',
+} as const;
+
+export type CalendarWeekStatus = typeof CalendarWeekStatus[keyof typeof CalendarWeekStatus];
+
+
+export const CalendarWeekStatus = {
+  future: 'future',
+  in_progress: 'in_progress',
+  completed: 'completed',
+} as const;
+
+export interface CalendarWeek {
+  weekId: number;
+  weekIndex: number;
+  kind: CalendarWeekKind;
+  targetRir: number;
+  status: CalendarWeekStatus;
+  startDate: DateOnly;
+  endDate: DateOnly;
+  /** Empty for Week Off; each linked session remains addressable in history. */
+  scheduledWorkouts: CalendarWorkout[];
+}
+
+export interface RescheduleWorkoutInput {
+  scheduledDate: DateOnly;
+  shiftFollowing?: boolean;
+}
+
+export interface RescheduleWorkoutResult {
+  workout: PlannedWorkout;
+  recoveryWarning: boolean;
+  /**
+     * Informational only; close spacing does not block scheduling.
+     * @nullable
+     */
+  warningMessage: string | null;
+}
+
+export type ExerciseBaselineStatus = typeof ExerciseBaselineStatus[keyof typeof ExerciseBaselineStatus];
+
+
+export const ExerciseBaselineStatus = {
+  no_baseline: 'no_baseline',
+  active: 'active',
+  expired: 'expired',
+} as const;
+
+export interface ExerciseBaseline {
+  exerciseId: number;
+  status: ExerciseBaselineStatus;
+  /** @nullable */
+  sourceSessionId: number | null;
+  /** @nullable */
+  sourceSetId: number | null;
+  /** @nullable */
+  establishedAt: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  pausedWeekOffCount: number;
+}
+
 export interface Error {
   error: string;
 }
@@ -824,6 +1379,17 @@ muscleGroup?: string;
 
 export type ListSplitsParams = {
 profileId: number;
+};
+
+export type GetMesocycleCopyOptionsParams = {
+profileId: number;
+};
+
+export type GetMesocycleCalendarParams = {
+profileId: number;
+splitId: number;
+from?: DateOnly;
+to?: DateOnly;
 };
 
 export type ListWorkoutsParams = {

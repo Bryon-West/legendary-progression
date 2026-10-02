@@ -4,6 +4,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -18,6 +19,12 @@ export const profilesTable = pgTable("training_profiles", {
   weightUnit: text("weight_unit", { enum: ["kg", "lb"] })
     .notNull()
     .default("kg"),
+  baselineExpiryWeeks: integer("baseline_expiry_weeks").notNull().default(6),
+  loadIncrementLb: doublePrecision("load_increment_lb").notNull().default(2.5),
+  loadIncrementKg: doublePrecision("load_increment_kg").notNull().default(2.5),
+  deloadSetFraction: doublePrecision("deload_set_fraction").notNull().default(0.5),
+  deloadLoadFraction: doublePrecision("deload_load_fraction").notNull().default(0.9),
+  deloadRir: doublePrecision("deload_rir").notNull().default(4),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -40,6 +47,12 @@ export const exercisesTable = pgTable(
       .default("strength"),
     instructions: text("instructions"),
     isCompound: boolean("is_compound").notNull().default(false),
+    secondaryMuscles: text("secondary_muscles").array().notNull().default(sql`'{}'::text[]`),
+    aliases: text("aliases").array().notNull().default(sql`'{}'::text[]`),
+    defaultRepMin: integer("default_rep_min").notNull().default(8),
+    defaultRepMax: integer("default_rep_max").notNull().default(12),
+    loadIncrementLb: doublePrecision("load_increment_lb"),
+    loadIncrementKg: doublePrecision("load_increment_kg"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -75,6 +88,7 @@ export const splitDaysTable = pgTable(
       .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     dayIndex: integer("day_index").notNull(),
+    isArchived: boolean("is_archived").notNull().default(false),
   },
   (table) => [
     uniqueIndex("split_days_split_index_unique").on(
@@ -108,6 +122,61 @@ export const splitDayExercisesTable = pgTable(
   ],
 );
 
+export const mesocycleWeeksTable = pgTable(
+  "mesocycle_weeks",
+  {
+    id: serial("id").primaryKey(),
+    splitId: integer("split_id")
+      .notNull()
+      .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
+    weekIndex: integer("week_index").notNull(),
+    kind: text("kind", { enum: ["loading", "deload", "week_off"] }).notNull(),
+    targetRir: doublePrecision("target_rir").notNull(),
+    status: text("status", { enum: ["future", "in_progress", "completed"] })
+      .notNull()
+      .default("future"),
+    // Frozen program structure and source IDs make copied historical weeks auditable.
+    programSnapshot: jsonb("program_snapshot").$type<Record<string, unknown>>(),
+    sourceSplitId: integer("source_split_id").references(
+      () => trainingSplitsTable.id,
+      { onDelete: "set null" },
+    ),
+    sourceWeekId: integer("source_week_id"),
+    sourceDescription: text("source_description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("mesocycle_weeks_split_index_unique").on(table.splitId, table.weekIndex),
+    index("mesocycle_weeks_split_status_idx").on(table.splitId, table.status),
+  ],
+);
+
+export const plannedWorkoutsTable = pgTable(
+  "planned_workouts",
+  {
+    id: serial("id").primaryKey(),
+    splitId: integer("split_id")
+      .notNull()
+      .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
+    weekId: integer("week_id")
+      .notNull()
+      .references(() => mesocycleWeeksTable.id, { onDelete: "restrict" }),
+    splitDayId: integer("split_day_id")
+      .notNull()
+      .references(() => splitDaysTable.id, { onDelete: "restrict" }),
+    scheduledDate: date("scheduled_date", { mode: "string" }).notNull(),
+    originalScheduledDate: date("original_scheduled_date", { mode: "string" }).notNull(),
+    status: text("status", { enum: ["scheduled", "completed", "cancelled"] })
+      .notNull()
+      .default("scheduled"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("planned_workouts_split_date_idx").on(table.splitId, table.scheduledDate),
+    index("planned_workouts_week_idx").on(table.weekId),
+  ],
+);
+
 export const workoutSessionsTable = pgTable(
   "workout_sessions",
   {
@@ -136,6 +205,18 @@ export const workoutSessionsTable = pgTable(
     }),
     mesocycleStartDate: date("mesocycle_start_date", { mode: "string" }),
     mesocycleWeek: integer("mesocycle_week"),
+    weekId: integer("week_id").references(() => mesocycleWeeksTable.id, {
+      onDelete: "set null",
+    }),
+    plannedWorkoutId: integer("planned_workout_id").references(
+      () => plannedWorkoutsTable.id,
+      { onDelete: "set null" },
+    ),
+    weekKindSnapshot: text("week_kind_snapshot", {
+      enum: ["loading", "deload", "week_off"],
+    }),
+    targetRirSnapshot: doublePrecision("target_rir_snapshot"),
+    recoveryMode: text("recovery_mode", { enum: ["deload", "week_off"] }),
   },
   (table) => [
     index("workout_sessions_profile_started_idx").on(
@@ -164,8 +245,8 @@ export const workoutExercisesTable = pgTable(
     targetSets: integer("target_sets").notNull().default(3),
     minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
     maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),
-    targetRepsMin: integer("target_reps_min").notNull().default(8),
-    targetRepsMax: integer("target_reps_max").notNull().default(12),
+    targetRepsMin: integer("target_reps_min").default(8),
+    targetRepsMax: integer("target_reps_max").default(12),
     targetWeight: doublePrecision("target_weight"),
     orderIndex: integer("order_index").notNull().default(0),
     superseded: boolean("superseded").notNull().default(false),
@@ -190,6 +271,11 @@ export const workoutExercisesTable = pgTable(
       ],
     }),
     recommendationRationale: text("recommendation_rationale"),
+    calibrationMode: boolean("calibration_mode").notNull().default(false),
+    calibrationRir: doublePrecision("calibration_rir"),
+    baselineStatus: text("baseline_status", {
+      enum: ["no_baseline", "active", "expired"],
+    }),
     substitutedFromExerciseId: integer("substituted_from_exercise_id").references(
       () => exercisesTable.id,
       { onDelete: "set null" },
@@ -217,6 +303,11 @@ export const workoutSetsTable = pgTable(
     targetWeight: doublePrecision("target_weight"),
     targetRepsMin: integer("target_reps_min"),
     targetRepsMax: integer("target_reps_max"),
+    referenceTargetWeight: doublePrecision("reference_target_weight"),
+    referenceTargetReps: integer("reference_target_reps"),
+    referenceTargetRir: doublePrecision("reference_target_rir"),
+    referenceTargetRepsMin: integer("reference_target_reps_min"),
+    referenceTargetRepsMax: integer("reference_target_reps_max"),
     actualWeight: doublePrecision("actual_weight"),
     actualReps: integer("actual_reps"),
     actualRir: doublePrecision("actual_rir"),
@@ -239,6 +330,38 @@ export const workoutSetsTable = pgTable(
       table.setType,
       table.setNumber,
     ),
+  ],
+);
+
+export const exerciseBaselinesTable = pgTable(
+  "exercise_baselines",
+  {
+    id: serial("id").primaryKey(),
+    profileId: integer("profile_id")
+      .notNull()
+      .references(() => profilesTable.id, { onDelete: "cascade" }),
+    exerciseId: integer("exercise_id")
+      .notNull()
+      .references(() => exercisesTable.id, { onDelete: "cascade" }),
+    sourceSessionId: integer("source_session_id").references(
+      () => workoutSessionsTable.id,
+      { onDelete: "set null" },
+    ),
+    sourceSetId: integer("source_set_id"),
+    establishedAt: timestamp("established_at", { withTimezone: true }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastWeight: doublePrecision("last_weight").notNull(),
+    lastReps: integer("last_reps").notNull(),
+    lastRir: doublePrecision("last_rir").notNull(),
+    pausedWeekOffCount: integer("paused_week_off_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("exercise_baselines_profile_exercise_unique").on(
+      table.profileId,
+      table.exerciseId,
+    ),
+    index("exercise_baselines_expiry_idx").on(table.profileId, table.expiresAt),
   ],
 );
 

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { CircleHelp, Dumbbell } from 'lucide-react';
 
 export function Loading({ label = 'Loading your training log' }: { label?: string }) {
-  return <div className="page-wrap" aria-label={label}><div className="skeleton" style={{ height: 12, width: 110, marginBottom: 18 }}/><div className="skeleton" style={{ height: 48, width: '74%', marginBottom: 24 }}/><div className="skeleton" style={{ height: 150, marginBottom: 14 }}/><div className="skeleton" style={{ height: 104 }}/></div>;
+  return <div className="page-wrap" aria-label={label}><img src="/brand/dragon-mark.png" alt="" width={44} height={44} style={{ objectFit: 'contain', marginBottom: 14, animation: 'rise .8s ease-in-out infinite alternate' }}/><div className="skeleton" style={{ height: 48, width: '74%', marginBottom: 24 }}/><div className="skeleton" style={{ height: 150, marginBottom: 14 }}/><div className="skeleton" style={{ height: 104 }}/></div>;
 }
 export function QueryError({ retry }: { retry: () => void }) {
   return <div className="panel" style={{ padding: 22, textAlign: 'center' }}><CircleHelp size={24} color="hsl(var(--accent))"/><h3 style={{ margin: '10px 0 4px' }}>Couldn’t load this view</h3><p style={{ color: 'hsl(var(--muted-foreground))', margin: '0 0 14px', fontSize: 14 }}>Your saved training data has not been changed.</p><button className="btn btn-secondary" onClick={retry}>Try again</button></div>;
