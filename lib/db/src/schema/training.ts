@@ -1,8 +1,10 @@
 import {
   boolean,
+  date,
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
@@ -14,6 +16,9 @@ import { sql } from "drizzle-orm";
 export const profilesTable = pgTable("training_profiles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  weightUnit: text("weight_unit", { enum: ["kg", "lb"] })
+    .notNull()
+    .default("kg"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -29,6 +34,11 @@ export const exercisesTable = pgTable(
     name: text("name").notNull(),
     muscleGroup: text("muscle_group").notNull(),
     equipment: text("equipment").notNull(),
+    category: text("category", {
+      enum: ["strength", "bodyweight", "conditioning", "mobility", "other"],
+    })
+      .notNull()
+      .default("strength"),
     instructions: text("instructions"),
     isCompound: boolean("is_compound").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -48,6 +58,10 @@ export const trainingSplitsTable = pgTable("training_splits", {
     .references(() => profilesTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   nextDayIndex: integer("next_day_index").notNull().default(0),
+  startDate: date("start_date", { mode: "string" })
+    .notNull()
+    .default(sql`CURRENT_DATE`),
+  cycleLengthWeeks: integer("cycle_length_weeks").notNull().default(8),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -83,6 +97,8 @@ export const splitDayExercisesTable = pgTable(
       .references(() => exercisesTable.id, { onDelete: "restrict" }),
     orderIndex: integer("order_index").notNull().default(0),
     targetSets: integer("target_sets").notNull().default(3),
+    minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
+    maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),
     targetRepsMin: integer("target_reps_min").notNull().default(8),
     targetRepsMax: integer("target_reps_max").notNull().default(12),
     targetRir: doublePrecision("target_rir").notNull().default(2),
@@ -116,6 +132,11 @@ export const workoutSessionsTable = pgTable(
       .defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     totalVolume: doublePrecision("total_volume").notNull().default(0),
+    readiness: text("readiness", {
+      enum: ["great", "normal", "below_normal", "poor"],
+    }),
+    mesocycleStartDate: date("mesocycle_start_date", { mode: "string" }),
+    mesocycleWeek: integer("mesocycle_week"),
   },
   (table) => [
     index("workout_sessions_profile_started_idx").on(
@@ -142,11 +163,34 @@ export const workoutExercisesTable = pgTable(
     muscleGroup: text("muscle_group").notNull(),
     targetRir: doublePrecision("target_rir").notNull().default(2),
     targetSets: integer("target_sets").notNull().default(3),
+    minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
+    maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),
     targetRepsMin: integer("target_reps_min").notNull().default(8),
     targetRepsMax: integer("target_reps_max").notNull().default(12),
     targetWeight: doublePrecision("target_weight"),
     orderIndex: integer("order_index").notNull().default(0),
     superseded: boolean("superseded").notNull().default(false),
+    skipped: boolean("skipped").notNull().default(false),
+    painReported: boolean("pain_reported").notNull().default(false),
+    painNote: text("pain_note"),
+    category: text("category", {
+      enum: ["strength", "bodyweight", "conditioning", "mobility", "other"],
+    })
+      .notNull()
+      .default("strength"),
+    isCompound: boolean("is_compound").notNull().default(false),
+    recommendedWeight: doublePrecision("recommended_weight"),
+    recommendedReps: integer("recommended_reps"),
+    recommendationOutcome: text("recommendation_outcome", {
+      enum: [
+        "increase_load",
+        "increase_reps",
+        "increase_sets",
+        "decrease_sets",
+        "maintain",
+      ],
+    }),
+    recommendationRationale: text("recommendation_rationale"),
     substitutedFromExerciseId: integer("substituted_from_exercise_id").references(
       () => exercisesTable.id,
       { onDelete: "set null" },
@@ -177,7 +221,16 @@ export const workoutSetsTable = pgTable(
     actualWeight: doublePrecision("actual_weight"),
     actualReps: integer("actual_reps"),
     actualRir: doublePrecision("actual_rir"),
+    adaptiveTargetWeight: doublePrecision("adaptive_target_weight"),
+    adaptiveTargetReps: integer("adaptive_target_reps"),
+    adaptiveTargetRir: doublePrecision("adaptive_target_rir"),
+    targetStatus: text("target_status", {
+      enum: ["target_met", "above_target", "below_target"],
+    }),
+    targetExplanation: text("target_explanation"),
+    algorithmVersion: text("algorithm_version"),
     completed: boolean("completed").notNull().default(false),
+    removed: boolean("removed").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     notes: text("notes"),
   },
@@ -211,6 +264,16 @@ export const progressionRecommendationsTable = pgTable(
     suggestedWeight: doublePrecision("suggested_weight"),
     suggestedRepsMin: integer("suggested_reps_min"),
     suggestedRepsMax: integer("suggested_reps_max"),
+    suggestedSets: integer("suggested_sets"),
+    recommendationType: text("recommendation_type", {
+      enum: [
+        "increase_load",
+        "increase_reps",
+        "increase_sets",
+        "decrease_sets",
+        "maintain",
+      ],
+    }),
     rationale: text("rationale"),
     algorithmVersion: text("algorithm_version"),
     status: text("status", {
@@ -228,5 +291,30 @@ export const progressionRecommendationsTable = pgTable(
       table.exerciseId,
       table.createdAt,
     ),
+  ],
+);
+
+export const muscleRecoveryTable = pgTable(
+  "workout_muscle_recovery",
+  {
+    id: serial("id").primaryKey(),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => workoutSessionsTable.id, { onDelete: "cascade" }),
+    muscleGroup: text("muscle_group").notNull(),
+    status: text("status", {
+      enum: [
+        "fully_recovered",
+        "slightly_fatigued",
+        "still_sore",
+        "very_sore",
+      ],
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("workout_muscle_recovery_session_idx").on(table.sessionId),
   ],
 );
