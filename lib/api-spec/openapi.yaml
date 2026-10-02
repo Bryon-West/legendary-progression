@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API for hypertrophy workout tracking
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: profiles
+    description: Local training profiles
+  - name: training
+    description: Exercise library and training splits
+  - name: workouts
+    description: Active workouts and workout history
 paths:
   /healthz:
     get:
@@ -24,6 +30,544 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /profiles:
+    get:
+      operationId: listProfiles
+      tags: [profiles]
+      summary: List training profiles
+      responses:
+        "200":
+          description: Profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+    post:
+      operationId: createProfile
+      tags: [profiles]
+      summary: Create a training profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "201":
+          description: Created profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+  /profiles/{profileId}:
+    patch:
+      operationId: updateProfile
+      tags: [profiles]
+      summary: Rename a training profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /overview:
+    get:
+      operationId: getOverview
+      tags: [workouts]
+      summary: Get the profile dashboard overview
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dashboard overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileOverview"
+  /exercises:
+    get:
+      operationId: listExercises
+      tags: [training]
+      summary: Search the exercise library
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: muscleGroup
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Exercises available to this profile
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Exercise"
+    post:
+      operationId: createExercise
+      tags: [training]
+      summary: Add a custom exercise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExerciseInput"
+      responses:
+        "201":
+          description: Created exercise
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+  /profiles/{profileId}/exercises/{exerciseId}/history:
+    get:
+      operationId: getExerciseHistory
+      tags: [workouts]
+      summary: Get previous completed sets for an exercise
+      parameters:
+        - name: exerciseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent completed sets, newest session first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExerciseHistoryEntry"
+  /splits:
+    get:
+      operationId: listSplits
+      tags: [training]
+      summary: List workout splits for a profile
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workout splits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrainingSplit"
+    post:
+      operationId: createSplit
+      tags: [training]
+      summary: Create a workout split
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitInput"
+      responses:
+        "201":
+          description: Created split
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSplit"
+  /splits/{splitId}:
+    get:
+      operationId: getSplit
+      tags: [training]
+      summary: Get a split and its workout days
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Split with days and exercises
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSplit"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateSplit
+      tags: [training]
+      summary: Update split name or workout order
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitUpdate"
+      responses:
+        "200":
+          description: Updated split
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingSplit"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /splits/{splitId}/days:
+    post:
+      operationId: createSplitDay
+      tags: [training]
+      summary: Add a workout day to a split
+      parameters:
+        - name: splitId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitDayInput"
+      responses:
+        "201":
+          description: Created workout day
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SplitDay"
+  /split-days/{dayId}:
+    patch:
+      operationId: updateSplitDay
+      tags: [training]
+      summary: Rename or reorder a workout day
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitDayUpdate"
+      responses:
+        "200":
+          description: Updated workout day
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SplitDay"
+  /split-days/{dayId}/exercises:
+    post:
+      operationId: addExerciseToSplitDay
+      tags: [training]
+      summary: Add an exercise prescription to a workout day
+      parameters:
+        - name: dayId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitDayExerciseInput"
+      responses:
+        "201":
+          description: Created prescription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SplitDayExercise"
+  /split-day-exercises/{dayExerciseId}:
+    patch:
+      operationId: updateSplitDayExercise
+      tags: [training]
+      summary: Change an exercise prescription
+      parameters:
+        - name: dayExerciseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SplitDayExerciseUpdate"
+      responses:
+        "200":
+          description: Updated prescription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SplitDayExercise"
+    delete:
+      operationId: removeExerciseFromSplitDay
+      tags: [training]
+      summary: Remove an exercise from a workout day
+      parameters:
+        - name: dayExerciseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+  /workouts:
+    get:
+      operationId: listWorkouts
+      tags: [workouts]
+      summary: List completed workouts
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent completed workouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutSummary"
+  /workouts/active:
+    get:
+      operationId: getActiveWorkout
+      tags: [workouts]
+      summary: Restore the active session for a profile, if present
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveWorkoutState"
+  /workouts/start:
+    post:
+      operationId: startWorkout
+      tags: [workouts]
+      summary: Start the next workout day or resume the profile's active session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartWorkoutInput"
+      responses:
+        "201":
+          description: Active workout session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSession"
+  /workouts/{sessionId}:
+    get:
+      operationId: getWorkout
+      tags: [workouts]
+      summary: Get a workout session and all logged sets
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workout details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSession"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /workouts/{sessionId}/exercises:
+    post:
+      operationId: addExerciseToWorkout
+      tags: [workouts]
+      summary: Add an exercise during an active workout
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutExerciseInput"
+      responses:
+        "201":
+          description: Added workout exercise
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+  /workouts/{sessionId}/exercises/{workoutExerciseId}:
+    patch:
+      operationId: substituteWorkoutExercise
+      tags: [workouts]
+      summary: Substitute an exercise during the active workout
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: workoutExerciseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutExerciseSubstitution"
+      responses:
+        "200":
+          description: Substituted workout exercise
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+  /workouts/{sessionId}/sets:
+    post:
+      operationId: createWorkoutSet
+      tags: [workouts]
+      summary: Add a warm-up or working set to an active workout
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutSetInput"
+      responses:
+        "201":
+          description: Created set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+  /workouts/{sessionId}/sets/{setId}:
+    patch:
+      operationId: updateWorkoutSet
+      tags: [workouts]
+      summary: Update logged set performance
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkoutSetUpdate"
+      responses:
+        "200":
+          description: Updated set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+  /workouts/{sessionId}/finish:
+    post:
+      operationId: finishWorkout
+      tags: [workouts]
+      summary: Complete a workout, calculate its volume, and advance the split
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Completed workout summary and next day
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinishWorkoutResult"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +577,310 @@ components:
           type: string
       required:
         - status
+    Profile:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+    ProfileInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    ProfileUpdate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+    Exercise:
+      type: object
+      required: [id, profileId, name, muscleGroup, equipment, isCompound, createdAt]
+      properties:
+        id: { type: integer }
+        profileId: { type: ["integer", "null"] }
+        name: { type: string }
+        muscleGroup: { type: string }
+        equipment: { type: string }
+        instructions: { type: ["string", "null"] }
+        isCompound: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    ExerciseInput:
+      type: object
+      required: [profileId, name, muscleGroup, equipment, isCompound]
+      properties:
+        profileId: { type: integer }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        muscleGroup: { type: string, minLength: 1, maxLength: 60 }
+        equipment: { type: string, minLength: 1, maxLength: 80 }
+        instructions: { type: ["string", "null"] }
+        isCompound: { type: boolean }
+    SplitDayExercise:
+      type: object
+      required: [id, dayId, exerciseId, orderIndex, targetSets, targetRepsMin, targetRepsMax, targetRir, exercise]
+      properties:
+        id: { type: integer }
+        dayId: { type: integer }
+        exerciseId: { type: integer }
+        orderIndex: { type: integer }
+        targetSets: { type: integer }
+        targetRepsMin: { type: integer }
+        targetRepsMax: { type: integer }
+        targetRir: { type: number }
+        targetWeight: { type: ["number", "null"] }
+        exercise: { $ref: "#/components/schemas/Exercise" }
+    SplitDayExerciseInput:
+      type: object
+      required: [exerciseId, orderIndex, targetSets, targetRepsMin, targetRepsMax, targetRir]
+      properties:
+        exerciseId: { type: integer }
+        orderIndex: { type: integer, minimum: 0 }
+        targetSets: { type: integer, minimum: 1, maximum: 20 }
+        targetRepsMin: { type: integer, minimum: 1, maximum: 100 }
+        targetRepsMax: { type: integer, minimum: 1, maximum: 100 }
+        targetRir: { type: number, minimum: 0, maximum: 10 }
+        targetWeight: { type: ["number", "null"], minimum: 0 }
+    SplitDayExerciseUpdate:
+      type: object
+      properties:
+        orderIndex: { type: integer, minimum: 0 }
+        targetSets: { type: integer, minimum: 1, maximum: 20 }
+        targetRepsMin: { type: integer, minimum: 1, maximum: 100 }
+        targetRepsMax: { type: integer, minimum: 1, maximum: 100 }
+        targetRir: { type: number, minimum: 0, maximum: 10 }
+        targetWeight: { type: ["number", "null"], minimum: 0 }
+    SplitDay:
+      type: object
+      required: [id, splitId, name, dayIndex, exercises]
+      properties:
+        id: { type: integer }
+        splitId: { type: integer }
+        name: { type: string }
+        dayIndex: { type: integer }
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/SplitDayExercise" }
+    SplitDayInput:
+      type: object
+      required: [name, dayIndex]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        dayIndex: { type: integer, minimum: 0 }
+    SplitDayUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        dayIndex: { type: integer, minimum: 0 }
+    TrainingSplit:
+      type: object
+      required: [id, profileId, name, nextDayIndex, days]
+      properties:
+        id: { type: integer }
+        profileId: { type: integer }
+        name: { type: string }
+        nextDayIndex: { type: integer }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/SplitDay" }
+    SplitInput:
+      type: object
+      required: [profileId, name]
+      properties:
+        profileId: { type: integer }
+        name: { type: string, minLength: 1, maxLength: 100 }
+    SplitUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        nextDayIndex: { type: integer, minimum: 0 }
+    WorkoutSet:
+      type: object
+      required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, completed, completedAt]
+      properties:
+        id: { type: integer }
+        workoutExerciseId: { type: integer }
+        setNumber: { type: integer }
+        setType: { type: string, enum: [work, warmup] }
+        targetWeight: { type: ["number", "null"] }
+        targetRepsMin: { type: ["integer", "null"] }
+        targetRepsMax: { type: ["integer", "null"] }
+        actualWeight: { type: ["number", "null"] }
+        actualReps: { type: ["integer", "null"] }
+        actualRir: { type: ["number", "null"] }
+        completed: { type: boolean }
+        completedAt: { type: ["string", "null"], format: date-time }
+        notes: { type: ["string", "null"] }
+    WorkoutExercise:
+      type: object
+      required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, targetRepsMin, targetRepsMax, orderIndex, substitutedFromExerciseId, sets]
+      properties:
+        id: { type: integer }
+        sessionId: { type: integer }
+        exerciseId: { type: integer }
+        exerciseName: { type: string }
+        muscleGroup: { type: string }
+        targetRir: { type: number }
+        targetSets: { type: integer }
+        targetRepsMin: { type: integer }
+        targetRepsMax: { type: integer }
+        targetWeight: { type: ["number", "null"] }
+        orderIndex: { type: integer }
+        substitutedFromExerciseId: { type: ["integer", "null"] }
+        sets:
+          type: array
+          items: { $ref: "#/components/schemas/WorkoutSet" }
+    WorkoutExerciseInput:
+      type: object
+      required: [exerciseId, targetRir, targetSets, targetRepsMin, targetRepsMax, orderIndex]
+      properties:
+        exerciseId: { type: integer }
+        targetRir: { type: number, minimum: 0, maximum: 10 }
+        targetSets: { type: integer, minimum: 1, maximum: 20 }
+        targetRepsMin: { type: integer, minimum: 1 }
+        targetRepsMax: { type: integer, minimum: 1 }
+        targetWeight: { type: ["number", "null"], minimum: 0 }
+        orderIndex: { type: integer, minimum: 0 }
+    WorkoutExerciseSubstitution:
+      type: object
+      required: [exerciseId]
+      properties:
+        exerciseId: { type: integer }
+    WorkoutSetInput:
+      type: object
+      required: [workoutExerciseId, setNumber, setType]
+      properties:
+        workoutExerciseId: { type: integer }
+        setNumber: { type: integer, minimum: 1 }
+        setType: { type: string, enum: [work, warmup] }
+        targetWeight: { type: ["number", "null"], minimum: 0 }
+        targetRepsMin: { type: ["integer", "null"], minimum: 1 }
+        targetRepsMax: { type: ["integer", "null"], minimum: 1 }
+        actualWeight: { type: ["number", "null"], minimum: 0 }
+        actualReps: { type: ["integer", "null"], minimum: 0 }
+        actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
+        completed: { type: boolean, default: false }
+        notes: { type: ["string", "null"] }
+    WorkoutSetUpdate:
+      type: object
+      properties:
+        setNumber: { type: integer, minimum: 1 }
+        setType: { type: string, enum: [work, warmup] }
+        targetWeight: { type: ["number", "null"], minimum: 0 }
+        targetRepsMin: { type: ["integer", "null"], minimum: 1 }
+        targetRepsMax: { type: ["integer", "null"], minimum: 1 }
+        actualWeight: { type: ["number", "null"], minimum: 0 }
+        actualReps: { type: ["integer", "null"], minimum: 0 }
+        actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
+        completed: { type: boolean }
+        notes: { type: ["string", "null"] }
+    WorkoutSession:
+      type: object
+      required: [id, profileId, splitId, splitDayId, splitName, dayName, status, startedAt, endedAt, totalVolume, exercises]
+      properties:
+        id: { type: integer }
+        profileId: { type: integer }
+        splitId: { type: ["integer", "null"] }
+        splitDayId: { type: ["integer", "null"] }
+        splitName: { type: ["string", "null"] }
+        dayName: { type: ["string", "null"] }
+        status: { type: string, enum: [active, completed] }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: ["string", "null"], format: date-time }
+        totalVolume: { type: number }
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/WorkoutExercise" }
+    ActiveWorkoutState:
+      type: object
+      required: [workout]
+      properties:
+        workout:
+          oneOf:
+            - $ref: "#/components/schemas/WorkoutSession"
+            - type: "null"
+    StartWorkoutInput:
+      type: object
+      required: [profileId]
+      properties:
+        profileId: { type: integer }
+        splitDayId: { type: ["integer", "null"] }
+    WorkoutSummary:
+      type: object
+      required: [id, profileId, splitName, dayName, status, startedAt, endedAt, totalVolume, exerciseCount, workingSetCount]
+      properties:
+        id: { type: integer }
+        profileId: { type: integer }
+        splitName: { type: ["string", "null"] }
+        dayName: { type: ["string", "null"] }
+        status: { type: string, enum: [completed] }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: ["string", "null"], format: date-time }
+        totalVolume: { type: number }
+        exerciseCount: { type: integer }
+        workingSetCount: { type: integer }
+    ExerciseHistoryEntry:
+      type: object
+      required: [sessionId, sessionDate, dayName, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir]
+      properties:
+        sessionId: { type: integer }
+        sessionDate: { type: string, format: date-time }
+        dayName: { type: ["string", "null"] }
+        setNumber: { type: integer }
+        setType: { type: string, enum: [work, warmup] }
+        targetWeight: { type: ["number", "null"] }
+        targetRepsMin: { type: ["integer", "null"] }
+        targetRepsMax: { type: ["integer", "null"] }
+        actualWeight: { type: ["number", "null"] }
+        actualReps: { type: ["integer", "null"] }
+        actualRir: { type: ["number", "null"] }
+    NextWorkoutDay:
+      type: object
+      required: [splitId, splitName, dayId, dayName, dayIndex, exerciseCount]
+      properties:
+        splitId: { type: integer }
+        splitName: { type: string }
+        dayId: { type: integer }
+        dayName: { type: string }
+        dayIndex: { type: integer }
+        exerciseCount: { type: integer }
+    ProfileOverview:
+      type: object
+      required: [profile, activeWorkout, nextWorkout, workoutsThisWeek, volumeThisWeek, recentWorkouts]
+      properties:
+        profile: { $ref: "#/components/schemas/Profile" }
+        activeWorkout:
+          oneOf:
+            - $ref: "#/components/schemas/WorkoutSession"
+            - type: "null"
+        nextWorkout:
+          oneOf:
+            - $ref: "#/components/schemas/NextWorkoutDay"
+            - type: "null"
+        workoutsThisWeek: { type: integer }
+        volumeThisWeek: { type: number }
+        recentWorkouts:
+          type: array
+          items: { $ref: "#/components/schemas/WorkoutSummary" }
+    FinishWorkoutResult:
+      type: object
+      required: [workout, nextWorkout]
+      properties:
+        workout: { $ref: "#/components/schemas/WorkoutSession" }
+        nextWorkout:
+          oneOf:
+            - $ref: "#/components/schemas/NextWorkoutDay"
+            - type: "null"
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 

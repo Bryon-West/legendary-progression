@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Hypertrophy Tracker"
+description = "A mobile-first hypertrophy workout tracker with multiple profiles, customizable splits, an exercise library, workout history, and guided active sessions with set-by-set performance history."
+version = "1.0.0"
+id = "artifacts/hypertrophy-tracker"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20565
+
+[services.development]
+run = "pnpm --filter @workspace/hypertrophy-tracker run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hypertrophy-tracker", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/hypertrophy-tracker/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20565"
+BASE_PATH = "/"

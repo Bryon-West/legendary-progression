@@ -1,0 +1,2 @@
+- [Progression scope](progression-scope.md) — keep data ready for future recommendations, but do not add a complex algorithm before the user asks.
+- [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
