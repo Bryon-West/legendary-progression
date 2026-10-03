@@ -1142,7 +1142,7 @@ export const getCreateProfileUrl = () => {
 }
 
 /**
- * @summary Create a training profile
+ * @summary Legacy profile creation is disabled; accounts receive one profile automatically
  */
 export const createProfile = async (profileInput: ProfileInput, options?: Parameters<typeof customFetch>[1]): Promise<Profile> => {
 
@@ -1175,7 +1175,7 @@ return customFetch<Profile>(getCreateProfileUrl(),
 
 export const getCreateProfileMutationKey = () => ['createProfile'] as const;
 
-export const getCreateProfileMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateProfileMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext> => {
 
@@ -1204,13 +1204,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof createProfile>>>
     export type CreateProfileMutationBody = BodyType<ProfileInput>
-    export type CreateProfileMutationError = ErrorType<unknown>
+    export type CreateProfileMutationError = ErrorType<void>
     export type CreateProfileMutationVariables = {data: BodyType<ProfileInput>}
 
     /**
- * @summary Create a training profile
+ * @summary Legacy profile creation is disabled; accounts receive one profile automatically
  */
-export const useCreateProfile = <TError = ErrorType<unknown>,
+export const useCreateProfile = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createProfile>>,

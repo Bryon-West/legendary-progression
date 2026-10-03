@@ -16,7 +16,7 @@ import {
   workoutSessionsTable,
   workoutSetsTable,
 } from "@workspace/db";
-import app from "../app.ts";
+import { createApp } from "../app.ts";
 import { calculateSessionVolume, getActiveSession, getWorkoutSummary, getWorkoutTree } from "./hypertrophy.ts";
 import { loadingSets } from "./legendary-v22-core.ts";
 import { getPrescription } from "./legendary-prescriptions.ts";
@@ -230,12 +230,14 @@ async function createSession({ profileId, split, day, exerciseIds, includeComple
 }
 
 test("V2.3C keeps removed work in history, isolates Today Only, and builds Keep Changes from the accepted set count", async () => {
+  const userId = `v23c-isolated-qa-${randomUUID()}`;
   let profileId;
   let server;
   try {
     const [profile] = await db.insert(profilesTable).values({
       name: `${QA_PROFILE_PREFIX}${randomUUID()}`,
       weightUnit: "lb",
+      ownerUserId: userId,
     }).returning();
     profileId = profile.id;
 
@@ -257,7 +259,12 @@ test("V2.3C keeps removed work in history, isolates Today Only, and builds Keep 
       },
     ]).returning();
     const exerciseIds = [benchExercise.id, flyExercise.id];
-    server = createServer(app);
+    server = createServer(createApp({
+      authMiddleware: (req, _res, next) => {
+        req.auth = { userId };
+        next();
+      },
+    }));
     await new Promise((resolve, reject) => {
       server.once("error", reject);
       server.listen(0, "127.0.0.1", resolve);

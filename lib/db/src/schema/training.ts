@@ -16,6 +16,11 @@ import { sql } from "drizzle-orm";
 export const profilesTable = pgTable("training_profiles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  ownerUserId: text("owner_user_id"),
+  trainingExperience: text("training_experience", {
+    enum: ["beginner", "intermediate", "advanced"],
+  }),
+  onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   weightUnit: text("weight_unit", { enum: ["kg", "lb"] })
     .notNull()
     .default("kg"),
@@ -28,7 +33,11 @@ export const profilesTable = pgTable("training_profiles", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("training_profiles_owner_user_unique")
+    .on(table.ownerUserId)
+    .where(sql`${table.ownerUserId} IS NOT NULL`),
+]);
 
 export const exercisesTable = pgTable(
   "exercises",

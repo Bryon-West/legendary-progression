@@ -136,6 +136,18 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * @nullable
+ */
+export type ProfileTrainingExperience = typeof ProfileTrainingExperience[keyof typeof ProfileTrainingExperience] | null;
+
+
+export const ProfileTrainingExperience = {
+  beginner: 'beginner',
+  intermediate: 'intermediate',
+  advanced: 'advanced',
+} as const;
+
 export type ProfileWeightUnit = typeof ProfileWeightUnit[keyof typeof ProfileWeightUnit];
 
 
@@ -147,6 +159,9 @@ export const ProfileWeightUnit = {
 export interface Profile {
   id: number;
   name: string;
+  /** @nullable */
+  trainingExperience: ProfileTrainingExperience;
+  onboardingComplete: boolean;
   weightUnit: ProfileWeightUnit;
   createdAt: string;
 }
@@ -167,6 +182,18 @@ export const ProfileUpdateWeightUnit = {
   lb: 'lb',
 } as const;
 
+/**
+ * @nullable
+ */
+export type ProfileUpdateTrainingExperience = typeof ProfileUpdateTrainingExperience[keyof typeof ProfileUpdateTrainingExperience] | null;
+
+
+export const ProfileUpdateTrainingExperience = {
+  beginner: 'beginner',
+  intermediate: 'intermediate',
+  advanced: 'advanced',
+} as const;
+
 export interface ProfileUpdate {
   /**
      * @minLength 1
@@ -174,6 +201,9 @@ export interface ProfileUpdate {
      */
   name?: string;
   weightUnit?: ProfileUpdateWeightUnit;
+  /** @nullable */
+  trainingExperience?: ProfileUpdateTrainingExperience;
+  onboardingComplete?: boolean;
 }
 
 export type ExerciseCategory = typeof ExerciseCategory[keyof typeof ExerciseCategory];

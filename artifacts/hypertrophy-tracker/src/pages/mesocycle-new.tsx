@@ -19,7 +19,7 @@ type Tab = 'template' | 'copy' | 'build';
 export default function MesocycleNewPage() {
   const { profile, unit } = useActiveProfile(); const pid = profile?.id ?? 0;
   const [, navigate] = useLocation(); const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>('template');
+  const [tab, setTab] = useState<Tab>(() => new URLSearchParams(window.location.search).get('start') === 'build' ? 'build' : 'template');
   const [started, setStarted] = useState<{ draft: Draft; source: Source } | null>(null);
   const [pickedTemplate, setPickedTemplate] = useState<string | null>(null);
   const [pickedWeek, setPickedWeek] = useState<CopyEligibleWeek | null>(null);

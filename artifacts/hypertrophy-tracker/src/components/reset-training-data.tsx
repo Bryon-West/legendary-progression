@@ -14,7 +14,7 @@ export function ResetTrainingData({ profileId, profileName }: { profileId: numbe
   const close = () => { if (!reset.isPending) { setOpen(false); setConfirmation(''); setError(''); } };
   return <section className="panel" style={{ padding: 17, marginTop: 20 }}>
     <strong>Training data</strong>
-    <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Reset workouts and progression for the selected profile only. Your exercise library and settings stay.</p>
+    <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Reset workouts and progression for your account only. Your exercise library and settings stay.</p>
     <button className="btn btn-danger" onClick={() => { setError(''); setConfirmation(''); setOpen(true); }} data-testid="button-reset-training">RESET TRAINING DATA</button>
     {open && <Modal title="RESET ALL TRAINING DATA?" close={close}>
       <p>This permanently deletes your workout history, mesocycles, records and progression data. Your profile and exercise library will remain.</p>

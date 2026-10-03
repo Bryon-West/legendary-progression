@@ -432,6 +432,8 @@ export const HealthCheckResponse = zod.object({
 export const ListProfilesResponseItem = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
+  "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
   "createdAt": zod.coerce.date()
 })
@@ -439,7 +441,7 @@ export const ListProfilesResponse = zod.array(ListProfilesResponseItem)
 
 
 /**
- * @summary Create a training profile
+ * @summary Legacy profile creation is disabled; accounts receive one profile automatically
  */
 export const createProfileBodyNameMax = 80;
 
@@ -452,6 +454,8 @@ export const CreateProfileBody = zod.object({
 export const CreateProfileResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
+  "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
   "createdAt": zod.coerce.date()
 })
@@ -470,12 +474,16 @@ export const updateProfileBodyNameMax = 80;
 
 export const UpdateProfileBody = zod.object({
   "name": zod.string().min(1).max(updateProfileBodyNameMax).optional(),
-  "weightUnit": zod.enum(['kg', 'lb']).optional()
+  "weightUnit": zod.enum(['kg', 'lb']).optional(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullish(),
+  "onboardingComplete": zod.boolean().optional()
 })
 
 export const UpdateProfileResponse = zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
+  "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
   "createdAt": zod.coerce.date()
 })
@@ -500,6 +508,8 @@ export const GetOverviewResponse = zod.object({
   "profile": zod.object({
   "id": zod.number().int(),
   "name": zod.string(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
+  "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
   "createdAt": zod.coerce.date()
 }),

@@ -1,9 +1,14 @@
+@layer clerk;
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
+
+html[data-auth-page-hidden="true"] body {
+  visibility: hidden;
+}
 
 @theme inline {
   --color-background: hsl(var(--background));

@@ -3,3 +3,4 @@
 - [Calendar-date contracts](calendar-date-contracts.md) — keep date strings and stable planned occurrence IDs; dates must not determine week/RIR identity.
 - [Verification isolation](verification-isolation.md) — verify the selected QA profile, not just workout ownership; preservation checks must include profile preferences.
 - [API test runner](api-test-runner.md) — Node workspace imports need a CommonJS bundle for route-level DB tests; development Pino transport resolution also needs care.
+- [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.

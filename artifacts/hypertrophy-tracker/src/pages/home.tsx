@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { Activity, ArrowRight } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import {
-  getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getListProfilesQueryKey, getListSplitsQueryKey,
-  useCreateProfile, useGetActiveWorkout, useGetMesocycleCalendar, getGetMesocycleCalendarQueryKey, useGetOverview, useListSplits,
+  getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getListSplitsQueryKey,
+  useGetActiveWorkout, useGetMesocycleCalendar, getGetMesocycleCalendarQueryKey, useGetOverview, useListSplits,
 } from '@workspace/api-client-react';
 import { localToday } from '@/lib/dates';
 import { weekLabel } from '@/lib/labels';
 import { useActiveProfile } from '@/lib/profile';
 import { fmtTotal, type WeightUnit } from '@/lib/units';
-import { Empty, ErrorNote, FieldLabel, Loading, QueryError } from '@/components/ui-bits';
+import { Empty, Loading, QueryError } from '@/components/ui-bits';
 import { StartSessionModal } from '@/components/start-session-modal';
 import { SessionContext } from '@/components/completed-workout';
 import { WorkoutSummaryCard } from '@/components/workout-summary-card';
@@ -27,21 +26,10 @@ export default function HomePage() {
   const calWeeks = cal.data ?? [];
   const todayWeek = calWeeks.find((w) => w.startDate <= todayStr && todayStr <= w.endDate);
   const pending = calWeeks.flatMap((w) => w.scheduledWorkouts.map((x) => ({ w, x }))).filter(({ x }) => x.status === 'scheduled').sort((a, b) => a.w.weekIndex - b.w.weekIndex || a.x.scheduledDate.localeCompare(b.x.scheduledDate))[0];
-  const qc = useQueryClient();
   const [startFor, setStartFor] = useState<{ dayId: number | null; plannedId?: number } | null>(null);
-  const [profileName, setProfileName] = useState('');
-  const createProfile = useCreateProfile();
   if (profilesQuery.isLoading) return <Loading/>;
   if (profilesQuery.isError) return <main className="page-wrap"><QueryError retry={() => void profilesQuery.refetch()}/></main>;
-  if (!profile) return <main className="page-wrap enter">
-    <div className="eyebrow">Start your record</div><h1 className="display" style={{ fontSize: 52, margin: '12px 0 8px' }}>Begin the<br/>climb.</h1>
-    <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.6, maxWidth: 390 }}>Keep your training history close. Create a profile to begin tracking sessions, progression and the details between sets.</p>
-    <form className="panel" style={{ padding: 18, marginTop: 22, display: 'grid', gap: 12 }} onSubmit={(e) => { e.preventDefault(); if (profileName.trim()) createProfile.mutate({ data: { name: profileName.trim() } }, { onSuccess: (p) => { window.localStorage.setItem('training-profile', String(p.id)); void qc.invalidateQueries({ queryKey: getListProfilesQueryKey() }); } }); }}>
-      <FieldLabel label="YOUR NAME"><input className="field" required maxLength={80} value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="e.g. Alex"/></FieldLabel>
-      <button className="btn btn-primary" disabled={createProfile.isPending}>{createProfile.isPending ? 'Creating…' : 'Create training profile'}<ArrowRight size={17}/></button>
-      {createProfile.isError && <ErrorNote message="Could not create your profile. Please try again."/>}
-    </form>
-  </main>;
+  if (!profile) return <main className="page-wrap"><div className="eyebrow">Account setup</div><p role="alert">Your training profile is not available yet.</p><button className="btn btn-secondary" onClick={() => void profilesQuery.refetch()}>Try again</button></main>;
   if (overview.isLoading || splits.isLoading) return <Loading/>;
   if (overview.isError) return <main className="page-wrap"><QueryError retry={() => void overview.refetch()}/></main>;
   const data = overview.data;

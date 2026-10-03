@@ -5,11 +5,15 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { ProfileTrainingExperience } from './profileTrainingExperience';
 import type { ProfileWeightUnit } from './profileWeightUnit';
 
 export interface Profile {
   id: number;
   name: string;
+  /** @nullable */
+  trainingExperience: ProfileTrainingExperience;
+  onboardingComplete: boolean;
   weightUnit: ProfileWeightUnit;
   createdAt: Date;
 }

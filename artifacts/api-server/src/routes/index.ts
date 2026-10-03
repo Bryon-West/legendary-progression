@@ -5,6 +5,10 @@ import trainingRouter from "./training";
 import workoutsRouter from "./workouts";
 import legendaryV22Router from "./legendary-v22";
 import trainingDataRouter from "./training-data";
+import {
+  authorizeAccountResources,
+  requireAccountProfile,
+} from "../middleware/account-access";
 
 const router: IRouter = Router();
 router.use((_req, res, next) => {
@@ -13,6 +17,7 @@ router.use((_req, res, next) => {
 });
 
 router.use(healthRouter);
+router.use(requireAccountProfile, authorizeAccountResources);
 router.use(trainingDataRouter);
 router.use(legendaryV22Router);
 router.use(mesocyclesRouter);

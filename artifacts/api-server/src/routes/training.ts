@@ -5,8 +5,6 @@ import {
   AddExerciseToSplitDayParams,
   CreateExerciseBody,
   CreateExerciseResponse,
-  CreateProfileBody,
-  CreateProfileResponse,
   CreateSplitBody,
   CreateSplitResponse,
   CreateSplitDayBody,
@@ -58,25 +56,22 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/profiles", async (_req, res): Promise<void> => {
+router.get("/profiles", async (req, res): Promise<void> => {
+  const accountUserId = (req as typeof req & { accountUserId?: string }).accountUserId;
+  if (!accountUserId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
   const rows = await db
     .select()
     .from(profilesTable)
+    .where(eq(profilesTable.ownerUserId, accountUserId))
     .orderBy(asc(profilesTable.createdAt), asc(profilesTable.id));
   res.json(ListProfilesResponse.parse(rows));
 });
 
-router.post("/profiles", async (req, res): Promise<void> => {
-  const parsed = CreateProfileBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [profile] = await db
-    .insert(profilesTable)
-    .values({ name: parsed.data.name.trim() })
-    .returning();
-  res.status(201).json(CreateProfileResponse.parse(profile));
+router.post("/profiles", async (_req, res): Promise<void> => {
+  res.status(409).json({ error: "Each account has one training profile. Edit your existing profile." });
 });
 
 router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
@@ -93,6 +88,8 @@ router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
     .set({
       ...(body.data.name !== undefined ? { name: body.data.name.trim() } : {}),
       ...(body.data.weightUnit !== undefined ? { weightUnit: body.data.weightUnit } : {}),
+      ...(body.data.trainingExperience !== undefined ? { trainingExperience: body.data.trainingExperience } : {}),
+      ...(body.data.onboardingComplete !== undefined ? { onboardingComplete: body.data.onboardingComplete } : {}),
     })
     .where(eq(profilesTable.id, params.data.profileId))
     .returning();

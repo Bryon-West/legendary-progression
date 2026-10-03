@@ -219,7 +219,7 @@ paths:
     post:
       operationId: createProfile
       tags: [profiles]
-      summary: Create a training profile
+      summary: Legacy profile creation is disabled; accounts receive one profile automatically
       requestBody:
         required: true
         content:
@@ -233,6 +233,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Profile"
+        "409":
+          description: Accounts can only have one training profile
   /profiles/{profileId}:
     patch:
       operationId: updateProfile
@@ -1085,10 +1087,14 @@ components:
         - status
     Profile:
       type: object
-      required: [id, name, weightUnit, createdAt]
+      required: [id, name, trainingExperience, onboardingComplete, weightUnit, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
+        trainingExperience:
+          type: ["string", "null"]
+          enum: [beginner, intermediate, advanced, null]
+        onboardingComplete: { type: boolean }
         weightUnit: { type: string, enum: [kg, lb] }
         createdAt: { type: string, format: date-time }
     ProfileInput:
@@ -1101,6 +1107,10 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
         weightUnit: { type: string, enum: [kg, lb] }
+        trainingExperience:
+          type: ["string", "null"]
+          enum: [beginner, intermediate, advanced, null]
+        onboardingComplete: { type: boolean }
     Exercise:
       type: object
       required: [id, profileId, name, muscleGroup, equipment, category, isCompound, secondaryMuscles, aliases, defaultRepMin, defaultRepMax, loadIncrementLb, loadIncrementKg, createdAt]
