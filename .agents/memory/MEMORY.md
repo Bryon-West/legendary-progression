@@ -5,3 +5,4 @@
 - [API test runner](api-test-runner.md) — Node workspace imports need a CommonJS bundle for route-level DB tests; development Pino transport resolution also needs care.
 - [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
+- [Legendary dragon artwork](legendary-dragon-branding.md) — use the current welcome-screen dragon for icons and loading art; preserve it with contain sizing and dark padding.

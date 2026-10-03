@@ -1,5 +1,15 @@
-const CACHE_NAME = 'legendary-progression-shell-v24';
-const SHELL = ['/', '/manifest.webmanifest', '/brand/dragon-192.png', '/brand/dragon-512.png', '/brand/dragon-mark.png', '/brand/legendary-logo.png'];
+const CACHE_NAME = 'legendary-progression-shell-v25';
+const SHELL = [
+  '/',
+  '/manifest.webmanifest',
+  '/favicon.svg',
+  '/brand/dragon-192.png',
+  '/brand/dragon-512.png',
+  '/brand/dragon-maskable-192.png',
+  '/brand/dragon-maskable-512.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -20,7 +30,13 @@ self.addEventListener('fetch', (event) => {
     }).catch(() => caches.match('/')));
     return;
   }
-  if (url.pathname.startsWith('/assets/') || url.pathname === '/manifest.webmanifest' || url.pathname.startsWith('/brand/')) {
+  if (
+    url.pathname.startsWith('/assets/')
+    || url.pathname === '/manifest.webmanifest'
+    || url.pathname === '/favicon.svg'
+    || url.pathname.startsWith('/brand/')
+    || url.pathname.startsWith('/icons/')
+  ) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (response.ok) void caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
       return response;

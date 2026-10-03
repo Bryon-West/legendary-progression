@@ -73,6 +73,21 @@ button { cursor: pointer; }
 .app-shell { min-height: 100dvh; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .topbar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px); background: hsl(var(--background) / .9); border-bottom: 1px solid hsl(var(--border)); }
 .page-wrap { width: min(100%, 720px); margin: 0 auto; padding: 22px 18px 34px; }
+.app-loading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 24px;
+  background: #0f0e0c;
+}
+.app-loading__dragon {
+  width: min(78vw, 360px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  animation: rise .8s ease-in-out infinite alternate;
+}
 .eyebrow { font: 700 11px var(--app-font-mono); text-transform: uppercase; letter-spacing: .12em; color: hsl(var(--muted-foreground)); }
 .display { font-family: var(--display-font); text-transform: uppercase; letter-spacing: -.02em; line-height: .92; }
 .panel { border: 1px solid hsl(var(--border)); background: hsl(var(--card)); border-radius: 20px; box-shadow: var(--shadow-card); }
