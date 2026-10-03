@@ -10,10 +10,6 @@ import { SignIn, useSignUp } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { basePath, stripBase } from "@/lib/clerk";
 import {
-  getSignupPasswordLengthError,
-  MIN_SIGNUP_PASSWORD_LENGTH,
-} from "@/lib/signup-password-policy";
-import {
   createPasswordSignup,
   finalizeSignupAndSaveName,
   saveSignupNameToProfile,
@@ -71,19 +67,66 @@ export function SignInPage() {
           forceRedirectUrl={`${basePath}/`}
           appearance={{
             elements: {
+              rootBox: { width: "100%" },
+              cardBox: { width: "100%", maxWidth: "440px" },
+              card: {
+                width: "100%",
+                maxWidth: "440px",
+                padding: "24px",
+                border: "1px solid rgba(231, 189, 75, .28)",
+                borderRadius: "12px",
+                backgroundColor: "#11110f",
+                boxShadow: "0 20px 48px rgba(0, 0, 0, .28)",
+              },
+              header: { display: "none" },
               logoBox: { display: "none" },
               logoImage: { display: "none" },
               headerTitle: { display: "none" },
               headerSubtitle: { display: "none" },
+              socialButtons: { display: "none" },
               socialButtonsBlockButton: { display: "none" },
               socialButtonsIconButton: { display: "none" },
               dividerRow: { display: "none" },
+              form: { gap: "18px" },
+              formFieldRow: { gap: "8px", marginBottom: "5px" },
+              formFieldLabel: {
+                color: "#e1ddd4",
+                fontSize: "12px",
+                fontWeight: "700",
+              },
+              formFieldInput: {
+                minHeight: "50px",
+                border: "1px solid #494437",
+                borderRadius: "8px",
+                color: "#f4f0e7",
+                backgroundColor: "#191815",
+                fontSize: "14px",
+                boxShadow: "none",
+              },
+              formFieldAction: {
+                color: "#f4d36e",
+                fontWeight: "700",
+              },
+              formButtonPrimary: {
+                minHeight: "50px",
+                border: "1px solid transparent",
+                borderRadius: "8px",
+                color: "#17140c",
+                background: "linear-gradient(180deg, #f0ce69, #d5a832)",
+                fontFamily: "var(--app-font-mono, monospace)",
+                fontSize: "11px",
+                fontWeight: "700",
+                letterSpacing: ".11em",
+                textTransform: "uppercase",
+                boxShadow: "none",
+              },
+              footerAction: { display: "none" },
             },
           }}
         />
       </div>
       <p className="lp-auth__switch">
-        New here? <Link href="/sign-up">Create an account</Link>
+        New here? <Link href="/sign-up">CREATE AN ACCOUNT</Link>
       </p>
     </AuthFrame>
   );
@@ -178,9 +221,12 @@ export function SignUpPage() {
       setError("Enter a valid email address.");
       return;
     }
-    const passwordLengthError = getSignupPasswordLengthError(password);
-    if (passwordLengthError) {
-      setError(passwordLengthError);
+    if (!password) {
+      setError("Enter a password.");
+      return;
+    }
+    if (!confirmation) {
+      setError("Confirm your password.");
       return;
     }
     if (password !== confirmation) {
@@ -326,12 +372,11 @@ export function SignUpPage() {
               />
             </label>
             <label className="lp-auth__field">
-              <span>Password <small>{MIN_SIGNUP_PASSWORD_LENGTH} characters minimum</small></span>
+              <span>Password</span>
               <input
                 type={showPasswords ? "text" : "password"}
                 autoComplete="new-password"
                 required
-                minLength={MIN_SIGNUP_PASSWORD_LENGTH}
                 maxLength={256}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -346,7 +391,6 @@ export function SignUpPage() {
                   type={showPasswords ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  minLength={MIN_SIGNUP_PASSWORD_LENGTH}
                   maxLength={256}
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}

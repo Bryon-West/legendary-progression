@@ -1,0 +1,140 @@
+V2.4 AUTH UI FINAL CLEANUP
+
+Authentication is working. Make the following focused UI/UX corrections only.
+
+Do not change account ownership, database structure, workout logic, progression, or the supplied dragon artwork.
+
+1. MAIN WELCOME / LANDING PAGE
+
+Keep the current main welcome page design and supplied full-size dragon artwork.
+
+Keep the large headline exactly:
+
+TRAIN.
+PROGRESS.
+BECOME LEGENDARY.
+
+The smaller text directly underneath currently repeats:
+
+"Train. Progress. Become Legendary."
+
+Remove that duplicate.
+
+Replace it with:
+
+"Your training. Your progression."
+
+Keep this visually secondary to the large headline.
+
+Keep:
+"YOUR WORK. YOUR RECORD."
+
+Keep the existing descriptive paragraph and Create Account / Log In actions.
+
+Do not redesign the landing page.
+
+2. SECONDARY LOG IN SCREEN
+
+Do NOT add another large dragon image here.
+
+Keep:
+- compact Legendary Progression branding
+- Welcome Back
+- working Clerk authentication
+
+Clean up the form so it feels like part of Legendary rather than an embedded third-party widget.
+
+Remove duplicate signup paths.
+
+There should be only ONE user-facing:
+
+CREATE AN ACCOUNT
+
+action on the login screen.
+
+Improve spacing so the Clerk form does not appear compressed.
+
+3. FORGOT PASSWORD
+
+The current login experience does not provide an obvious password-recovery option.
+
+Add:
+
+FORGOT PASSWORD?
+
+near/below the password field.
+
+Use Clerk's supported password recovery flow.
+
+Expected flow:
+
+Forgot Password
+→ enter email
+→ receive Clerk-supported recovery email/code
+→ verify email ownership
+→ enter New Password
+→ Confirm New Password
+→ validate against the ACTUAL configured Clerk password requirements
+→ reset password
+→ return to Log In
+→ successfully log back into the SAME Legendary account
+
+Do not build a custom password/token system.
+
+Do not expose passwords, codes, or reset tokens in logs.
+
+4. PASSWORD REQUIREMENTS
+
+Legendary's displayed password requirements must match Clerk's actual configured policy.
+
+Do not show one minimum while Clerk enforces another.
+
+Client validation should catch known requirements before submission while Clerk/server validation remains authoritative.
+
+5. DEVELOPMENT MODE
+
+Determine whether the visible "Development mode" label is Clerk's development-instance indicator.
+
+If it is expected to disappear when the app uses the production Clerk instance, report that clearly.
+
+Do not use an unsupported CSS hack to hide required provider/development indicators.
+
+6. PRESERVE CURRENT WORKING AUTH
+
+Do not regress:
+
+- Create Account
+- email verification
+- authenticated sessions
+- profile creation
+- profile editing
+- logout
+- account isolation
+- V2.3 workout/progression behavior
+
+7. VERIFY
+
+Check:
+
+Main landing page:
+- large TRAIN. PROGRESS. BECOME LEGENDARY.
+- smaller "Your training. Your progression."
+- full dragon artwork unchanged
+
+Login:
+- clean spacing
+- one Create Account path
+- Forgot Password available
+
+Password recovery:
+- test as far as the environment permits
+- clearly state whether actual email delivery/reset was tested
+
+Test at:
+320px
+360px
+390px
+412px
+desktop
+
+Do not publish automatically.

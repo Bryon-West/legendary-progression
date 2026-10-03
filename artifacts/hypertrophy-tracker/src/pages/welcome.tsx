@@ -292,7 +292,7 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
             <span>Progress.</span>
             Become Legendary.
           </h1>
-          <p className="lp-welcome__tagline">Train. Progress. Become Legendary.</p>
+          <p className="lp-welcome__tagline">Your training. Your progression.</p>
           <hr className="lp-welcome__rule" />
           <p className="lp-welcome__description">
             Your training history, plans, recovery, and personal records—together in one place.
