@@ -1,8 +1,19 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getListProfilesQueryKey,
+  listProfiles,
+  updateProfile,
+} from "@workspace/api-client-react";
 import { SignIn, useSignUp } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { basePath, stripBase } from "@/lib/clerk";
+import {
+  createPasswordSignup,
+  finalizeSignupAndSaveName,
+  saveSignupNameToProfile,
+} from "@/lib/signup-flow";
 import "./auth.css";
 
 type ClerkOperationError = {
@@ -77,6 +88,7 @@ export function SignInPage() {
 export function SignUpPage() {
   const { signUp, fetchStatus } = useSignUp();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,19 +99,63 @@ export function SignUpPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [sessionFinalized, setSessionFinalized] = useState(false);
+  const [finalizedDestination, setFinalizedDestination] = useState(`${basePath}/`);
+
+  const navigateToDestination = (destination: string) => {
+    if (destination.startsWith("https://") || destination.startsWith("http://")) {
+      window.location.assign(destination);
+    } else {
+      navigate(stripBase(destination));
+    }
+  };
+
+  const persistNameAndContinue = async (destination: string) => {
+    const fullName = name.trim().replace(/\s+/g, " ");
+    await saveSignupNameToProfile({ listProfiles, updateProfile }, fullName);
+    await queryClient.invalidateQueries({ queryKey: getListProfilesQueryKey() });
+    navigateToDestination(destination);
+  };
 
   const finishSession = async () => {
-    const result = await signUp.finalize({
-      navigate: ({ decorateUrl }) => {
-        const destination = decorateUrl(`${basePath}/`);
-        if (destination.startsWith("https://") || destination.startsWith("http://")) {
-          window.location.assign(destination);
-        } else {
-          navigate(stripBase(destination));
-        }
-      },
-    });
-    if (result.error) setError(authError(result.error));
+    let didFinalizeSession = false;
+    try {
+      const result = await finalizeSignupAndSaveName(
+        signUp,
+        { listProfiles, updateProfile },
+        name.trim().replace(/\s+/g, " "),
+        `${basePath}/`,
+        (destination) => {
+          didFinalizeSession = true;
+          setFinalizedDestination(destination);
+          setSessionFinalized(true);
+        },
+      );
+      if (result.error) {
+        setError(authError(result.error));
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: getListProfilesQueryKey() });
+      navigateToDestination(result.destination);
+    } catch (caught) {
+      setError(
+        didFinalizeSession
+          ? "Your account is verified, but we couldn't finish saving your training profile. Try again."
+          : authError(caught),
+      );
+    }
+  };
+
+  const retryProfileSetup = async () => {
+    setError("");
+    setPending(true);
+    try {
+      await persistNameAndContinue(finalizedDestination);
+    } catch {
+      setError("Your account is verified, but we couldn't finish saving your training profile. Try again.");
+    } finally {
+      setPending(false);
+    }
   };
 
   const createAccount = async (event: FormEvent<HTMLFormElement>) => {
@@ -127,15 +183,9 @@ export function SignUpPage() {
       return;
     }
 
-    const [firstName, ...lastParts] = fullName.split(" ");
     setPending(true);
     try {
-      const result = await signUp.password({
-        firstName,
-        ...(lastParts.length ? { lastName: lastParts.join(" ") } : {}),
-        emailAddress: normalizedEmail,
-        password,
-      });
+      const result = await createPasswordSignup(signUp, normalizedEmail, password);
       if (result.error) {
         setError(authError(result.error));
         return;
@@ -212,8 +262,32 @@ export function SignUpPage() {
   };
 
   return (
-    <AuthFrame eyebrow={verifying ? "VERIFY YOUR EMAIL" : "CREATE YOUR ACCOUNT"}>
-      {!verifying ? (
+    <AuthFrame
+      eyebrow={
+        sessionFinalized
+          ? "FINISH YOUR ACCOUNT"
+          : verifying
+            ? "VERIFY YOUR EMAIL"
+            : "CREATE YOUR ACCOUNT"
+      }
+    >
+      {sessionFinalized ? (
+        <>
+          <div className="lp-auth__heading">
+            <h1>Finish setting up your account</h1>
+            <p>Your email is verified. Save your name to your private training profile to continue.</p>
+          </div>
+          {error && <p role="alert" className="lp-auth__error">{error}</p>}
+          <button
+            className="lp-auth__submit"
+            type="button"
+            onClick={() => void retryProfileSetup()}
+            disabled={pending}
+          >
+            {pending ? "Saving profile…" : "Continue"}
+          </button>
+        </>
+      ) : !verifying ? (
         <>
           <div className="lp-auth__heading">
             <h1>Create your account</h1>

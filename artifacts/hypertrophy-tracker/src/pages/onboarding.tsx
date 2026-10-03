@@ -48,7 +48,7 @@ export default function OnboardingPage() {
       setError("Choose your training experience before continuing.");
       return;
     }
-    const name = user?.fullName?.trim() || profile.name || "Athlete";
+    const name = profile.name.trim() || user?.fullName?.trim() || "Athlete";
     setStarting(destination);
     update.mutate(
       {
@@ -78,7 +78,7 @@ export default function OnboardingPage() {
       <div className="eyebrow">Your training account</div>
       <h1 className="display" style={{ fontSize: 46, margin: "8px 0 6px" }}>Set your defaults.</h1>
       <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 13, lineHeight: 1.6, margin: "0 0 20px" }}>
-        Welcome, {user?.fullName || profile.name}. These choices are yours and can be changed later.
+        Welcome, {profile.name.trim() || user?.fullName || "Athlete"}. These choices are yours and can be changed later.
       </p>
 
       <section className="panel" style={{ padding: 17, marginBottom: 14 }}>
