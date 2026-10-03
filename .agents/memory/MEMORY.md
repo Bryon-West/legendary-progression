@@ -5,4 +5,4 @@
 - [API test runner](api-test-runner.md) — Node workspace imports need a CommonJS bundle for route-level DB tests; development Pino transport resolution also needs care.
 - [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
-- [PWA startup icons](legendary-dragon-branding.md) — use a minimal L mark for Android's generated startup and launcher, then show the full original dragon after React starts.
+- [PWA startup icons](legendary-dragon-branding.md) — Android shares launcher/startup icons; use L before the full dragon and refresh old installs when the manifest changes.
