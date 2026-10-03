@@ -1,12 +1,12 @@
-const CACHE_NAME = 'legendary-progression-shell-v26';
+const CACHE_NAME = 'legendary-progression-shell-v27';
 const SHELL = [
   '/',
-  '/manifest.webmanifest?v=2',
+  '/manifest.webmanifest?v=3',
   '/favicon.svg',
-  '/brand/dragon-192-v2.png',
-  '/brand/dragon-512-v2.png',
-  '/brand/dragon-maskable-192-v2.png',
-  '/brand/dragon-maskable-512-v2.png',
+  '/brand/dragon-192-v3.png',
+  '/brand/dragon-512-v3.png',
+  '/brand/dragon-maskable-192-v3.png',
+  '/brand/dragon-maskable-512-v3.png',
 ];
 
 self.addEventListener('install', (event) => {
