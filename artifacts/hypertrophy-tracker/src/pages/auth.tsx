@@ -72,7 +72,8 @@ export function SignInPage() {
               card: {
                 width: "100%",
                 maxWidth: "440px",
-                padding: "24px",
+                padding: "18px 18px 0",
+                overflow: "hidden",
                 border: "1px solid rgba(231, 189, 75, .28)",
                 borderRadius: "12px",
                 backgroundColor: "#11110f",
@@ -88,13 +89,18 @@ export function SignInPage() {
               socialButtonsIconButton: { display: "none" },
               dividerRow: { display: "none" },
               form: { gap: "18px" },
-              formFieldRow: { gap: "8px", marginBottom: "5px" },
+              formFieldRow: {
+                gap: "8px",
+                marginBottom: "14px",
+              },
               formFieldLabel: {
                 color: "#e1ddd4",
                 fontSize: "12px",
                 fontWeight: "700",
               },
               formFieldInput: {
+                width: "100%",
+                margin: "0",
                 minHeight: "50px",
                 border: "1px solid #494437",
                 borderRadius: "8px",
@@ -108,7 +114,9 @@ export function SignInPage() {
                 fontWeight: "700",
               },
               formButtonPrimary: {
+                width: "100%",
                 minHeight: "50px",
+                margin: "0 0 8px",
                 border: "1px solid transparent",
                 borderRadius: "8px",
                 color: "#17140c",
@@ -118,6 +126,12 @@ export function SignInPage() {
                 fontWeight: "700",
                 letterSpacing: ".11em",
                 textTransform: "uppercase",
+                boxShadow: "none",
+              },
+              footer: {
+                padding: "10px 16px",
+                borderTop: "1px solid rgba(231, 189, 75, .16)",
+                backgroundColor: "transparent",
                 boxShadow: "none",
               },
               footerAction: { display: "none" },
