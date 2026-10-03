@@ -1,0 +1,161 @@
+LEGENDARY PWA STARTUP — USE FULL ORIGINAL DRAGON ARTWORK
+
+We have been trying to make the Android-generated PWA splash display the dragon correctly by modifying/padding the app icon.
+
+Stop doing that.
+
+I want to separate these two jobs:
+
+1. APP/LAUNCHER ICON
+2. LEGENDARY SPLASH/LOADING SCREEN
+
+--------------------------------
+1. APP / LAUNCHER ICON
+--------------------------------
+
+Android requires a square app icon and may mask it.
+
+Keep an appropriate square/maskable icon for the actual installed app icon.
+
+Do not use the launcher icon as the visual design for Legendary's controlled splash screen.
+
+The launcher icon and splash artwork do NOT need to use the same image geometry.
+
+--------------------------------
+2. LEGENDARY SPLASH SCREEN
+--------------------------------
+
+Use the EXACT FULL ORIGINAL rectangular dragon artwork I supply.
+
+This is the original full image containing:
+- the complete dragon
+- the long tail
+- the head
+- the entire back/spines
+- the original dark textured background
+
+DO NOT:
+- regenerate the artwork
+- recreate the dragon
+- crop the image
+- convert it into a square image
+- crop it to the dragon bounds
+- zoom it to fill the screen
+- alter the dragon
+- alter the composition
+
+Use the original image itself.
+
+Display it proportionally with CONTAIN behavior.
+
+The entire original rectangular image must remain visible.
+
+On a portrait phone, this means there may be black space above and below the rectangular artwork.
+
+THAT IS OKAY.
+
+Seeing the complete original artwork is more important than filling the entire phone screen.
+
+The surrounding splash background should be black/dark so the unused space blends naturally with the artwork.
+
+Conceptually:
+
+BLACK BACKGROUND
+
+        [ complete original dragon image ]
+        [ displayed at original aspect ratio ]
+        [ nothing cropped ]
+
+BLACK BACKGROUND
+
+--------------------------------
+ANDROID-GENERATED PWA STARTUP
+--------------------------------
+
+We understand Android may briefly generate its own startup screen from the PWA launcher icon before React renders.
+
+Do not try to turn the full rectangular artwork into Android's launcher icon just to control this screen.
+
+Instead, make Android's generated startup appearance as simple and unobtrusive as reasonably possible.
+
+Then Legendary's controlled splash/loading screen should immediately display the FULL original dragon artwork.
+
+Do not show two different dragon artworks back-to-back.
+
+If Android requires an icon during its generated startup, use the normal Legendary launcher icon.
+
+Then transition into the full original Legendary artwork.
+
+--------------------------------
+LEGENDARY LOADING BEHAVIOR
+--------------------------------
+
+Replace the current neutral-spinner-only loading presentation with the full original dragon artwork while initial authentication/app data loads.
+
+Use CSS/layout equivalent to:
+
+- width constrained to viewport
+- height constrained to viewport
+- object-fit: contain
+- object-position: center
+- preserve original aspect ratio
+- black background
+- no cropping
+
+Do NOT use:
+object-fit: cover
+
+Do NOT make the image width:100% if that causes its height to overflow and crop.
+
+It must fit within BOTH available width and height.
+
+--------------------------------
+IMPORTANT — USE THE SUPPLIED FILE
+--------------------------------
+
+Use the exact original dragon image I provide with this request.
+
+Do not substitute one of the generated/padded dragon images we created while troubleshooting.
+
+Do not substitute an older cropped dragon.
+
+--------------------------------
+VERIFY ON MOBILE
+--------------------------------
+
+Test at:
+
+320px
+360px
+390px
+412px
+
+and representative tall Android portrait dimensions.
+
+At every size confirm:
+
+- entire dragon head visible
+- entire tail visible
+- entire back/spines visible
+- entire rectangular source image fits
+- no horizontal cropping
+- no vertical cropping
+- original aspect ratio maintained
+
+Also verify the normal app launcher icon still works independently.
+
+Do not modify:
+- welcome page
+- authentication logic
+- accounts
+- profiles
+- workouts
+- progression
+- database
+
+Do not publish automatically.
+
+At completion report:
+
+1. Which exact original image file is now used by the Legendary splash.
+2. How the splash

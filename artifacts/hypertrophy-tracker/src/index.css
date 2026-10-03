@@ -74,22 +74,20 @@ button { cursor: pointer; }
 .topbar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(16px); background: hsl(var(--background) / .9); border-bottom: 1px solid hsl(var(--border)); }
 .page-wrap { width: min(100%, 720px); margin: 0 auto; padding: 22px 18px 34px; }
 .app-loading {
+  position: fixed;
+  inset: 0;
   display: grid;
   place-items: center;
-  min-height: 100vh;
-  min-height: 100svh;
-  padding: 24px;
-  background: #0f0e0c;
+  overflow: hidden;
+  background: #000;
 }
-.app-loading__indicator {
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgb(217 185 74 / 28%);
-  border-top-color: #d9b94a;
-  border-radius: 50%;
-  animation: app-loading-spin .8s linear infinite;
+.app-loading__artwork {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
-@keyframes app-loading-spin { to { transform: rotate(360deg); } }
 .eyebrow { font: 700 11px var(--app-font-mono); text-transform: uppercase; letter-spacing: .12em; color: hsl(var(--muted-foreground)); }
 .display { font-family: var(--display-font); text-transform: uppercase; letter-spacing: -.02em; line-height: .92; }
 .panel { border: 1px solid hsl(var(--border)); background: hsl(var(--card)); border-radius: 20px; box-shadow: var(--shadow-card); }

@@ -3,8 +3,8 @@ name: Legendary dragon artwork
 description: Approved source and handling for app icons and loading artwork.
 ---
 
-Use the user's latest square padded Legendary dragon image as the source for PWA icons and favicons; do not revert to the wide welcome-screen artwork. Preserve its complete square composition and padding when uniformly resizing the whole image to target icon dimensions. Never crop, zoom within the canvas, remove padding, redraw, or retouch it. Use versioned manifest icon URLs and bump the service-worker cache. Keep the React loading state neutral so Android's generated splash is the only dragon during startup; do not alter the welcome page or authentication for icon work.
+Keep the square v4 dragon icons for the installed launcher icon. For the controlled React loading screen, use the complete original rectangular `public/legendary-dragon.png` artwork at its native aspect ratio with `object-fit: contain` on a black background; do not crop or alter it. Do not use launcher-icon geometry as the loading-screen design. Keep the welcome page and authentication unchanged.
 
-**Why:** The user supplied a dedicated padded square asset and explicitly said its black padding is intentional for Android masking. Replacing image data at unchanged icon URLs previously left Android showing cached art, so preserve this composition and version references.
+**Why:** The user explicitly separated the square Android launcher icon from the full original artwork used after React renders. The full rectangular art is more important than filling the portrait screen, and Android's generated icon splash cannot be controlled by the React screen.
 
-**How to apply:** Use the latest user-provided padded image verbatim as the source for every standard and maskable icon size; only scale the entire square image uniformly. Version the manifest references and service-worker cache, and advise reinstalling an existing Android PWA to refresh its OS-cached launch icon.
+**How to apply:** Keep manifest icon references on the padded square set; render the original rectangle only in the app-controlled loading component, centered and contained in a full-viewport dark background. Include the original image in the service-worker shell cache so the loading artwork is available offline.
