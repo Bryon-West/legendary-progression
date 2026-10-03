@@ -2,20 +2,21 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, exercisesTable, mesocycleWeeksTable, plannedWorkoutsTable, plannedPrescriptionsTable, plannedPrescriptionSetsTable, profilesTable, splitDayExercisesTable, splitDaysTable, trainingSplitsTable, workoutExercisesTable, workoutSessionsTable, workoutSetsTable } from "@workspace/db";
 import { getExerciseBaseline } from "./baseline";
 import { getProfileLoadIncrement } from "./progression";
-import { deloadSets, equivalence, loadingSets, LOAD_NOT_CALCULATED, prescribe, snap, type PerformanceReference } from "./legendary-v22-core";
+import { deloadSets, loadingSets, LOAD_NOT_CALCULATED, prescribe, prescribeSets, snap, type PerformanceReference, type SetPrescription } from "./legendary-v22-core";
 
 export type PrescribedExercise = {
   exerciseId: number; exerciseName: string; muscleGroup: string; isCompound: boolean;
   category: string; orderIndex: number; targetSets: number; maximumWorkingSets: number;
   loadIncrement: number; calibrationMode: boolean; baselineStatus: string; rationale: string;
   reference: PerformanceReference | null;
-  sets: Array<{ setNumber: number; weight: number | null; expectedReps: number | null; rir: number; reference: PerformanceReference | null }>;
+  sets: SetPrescription[];
 };
 export type Prescription = {
   state: "generated" | "calibration" | "load_not_calculated" | "completed";
   plannedWorkoutId: number; splitId: number; weekIndex: number; kind: string;
   targetRir: number; scheduledDate: string; dayName: string;
   sessionId?: number; currentPlannedId?: number; message?: string; exercises: PrescribedExercise[];
+  engineVersion?: string;
 };
 
 export async function persistPrescription(bundle: Prescription, sourceSessionId: number | null, connection: any = db) {
@@ -63,9 +64,7 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
     .innerJoin(mesocycleWeeksTable, eq(mesocycleWeeksTable.id, plannedWorkoutsTable.weekId))
     .where(and(eq(plannedWorkoutsTable.splitId, split.id), eq(plannedWorkoutsTable.status, "scheduled")))
     .orderBy(asc(mesocycleWeeksTable.weekIndex), asc(plannedWorkoutsTable.scheduledDate), asc(plannedWorkoutsTable.id)).limit(1);
-  const [progress] = await db.select({ latestWeek: sql<number>`coalesce(max(${workoutSessionsTable.mesocycleWeek}),0)::integer` })
-    .from(workoutSessionsTable).where(and(eq(workoutSessionsTable.splitId, split.id), eq(workoutSessionsTable.status, "completed")));
-  if (week.weekIndex > progress.latestWeek + 1) {
+   if (week.weekIndex > (latest?.mesocycleWeek ?? 0) + 1) {
     return { ...base, state: "load_not_calculated", currentPlannedId: current?.planned_workouts.id, message: LOAD_NOT_CALCULATED, exercises: [] };
   }
   const [saved] = await db.select().from(plannedPrescriptionsTable).where(eq(plannedPrescriptionsTable.plannedWorkoutId, plannedId)).limit(1);
@@ -75,7 +74,7 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
     const newer = calibrationIds.length ? await db.execute(sql`SELECT 1 FROM exercise_baselines
       WHERE profile_id=${split.profileId} AND exercise_id IN (${sql.join(calibrationIds.map(n => sql`${n}`), sql`, `)})
       AND established_at>${saved.generatedAt} AND expires_at>now() LIMIT 1`) : { rows: [] };
-    if (linked?.status === "active" || !newer.rows.length) return { ...cached, ...base };
+     if (linked?.status === "active" || (cached.engineVersion === "legendary-v2.3b" && !newer.rows.length)) return { ...cached, ...base };
   }
   const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, split.profileId)).limit(1);
   if (!profile) throw new Error("Profile not found");
@@ -103,24 +102,40 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
     const loadingOffset = weeks.filter(w => w.kind === "loading" && w.weekIndex >= plan.anchorWeek && w.weekIndex < normalWeek).length;
     const normalSets = loadingSets(plan.targetSets, loadingOffset, plan.maximumWorkingSets);
     const targetSets = week.kind === "deload" ? deloadSets(normalSets) : normalSets;
-    const result = prescribe(reference, week.targetRir, increment, exercise.progressionType === "load_first" || (exercise.progressionType === null && exercise.isCompound));
-    // Deload maintains the final normal reference; it never adds load.
-    const weight = week.kind === "deload" && reference ? snap(reference.weight * profile.deloadLoadFraction, increment) : result.weight;
-    const estimate = reference && weight !== null ? equivalence(weight, reference, week.targetRir) : null;
-    const expectedReps = estimate?.expected == null ? null : Math.max(6, Math.min(30, Math.round(estimate.expected)));
+     // Use all corresponding working sets from the valid baseline's source,
+     // never the last (usually most fatigued) set for every row.
+     const historical = reference && baseline.sourceSessionId !== null ? await db.select({
+       weight: workoutSetsTable.actualWeight, reps: workoutSetsTable.actualReps,
+       rir: workoutSetsTable.actualRir, prescribedRir: workoutExercisesTable.targetRir,
+     }).from(workoutSetsTable)
+       .innerJoin(workoutExercisesTable, eq(workoutExercisesTable.id, workoutSetsTable.workoutExerciseId))
+       .where(and(eq(workoutExercisesTable.sessionId, baseline.sourceSessionId),
+         eq(workoutExercisesTable.exerciseId, exercise.id), eq(workoutExercisesTable.skipped, false),
+         sql`(${workoutExercisesTable.recoveryAdjustment} IS NULL OR ${workoutExercisesTable.recoveryAdjustment}='train_as_planned')`,
+         eq(workoutSetsTable.setType, "work"), eq(workoutSetsTable.completed, true), eq(workoutSetsTable.removed, false),
+         sql`${workoutSetsTable.actualReps} > 0`))
+       .orderBy(asc(workoutExercisesTable.orderIndex), asc(workoutSetsTable.setNumber), asc(workoutSetsTable.id)) : [];
+     const references: PerformanceReference[] = historical.filter(s => s.weight !== null && s.reps !== null && s.rir !== null)
+       .map(s => ({ weight: s.weight!, reps: s.reps!, rir: s.rir!, prescribedRir: s.prescribedRir }));
+     if (!references.length && reference) references.push(reference);
+     const compound = exercise.progressionType === "load_first" || (exercise.progressionType === null && exercise.isCompound);
+     const result = prescribe(references[0] ?? null, week.targetRir, increment, compound);
+     const sets = prescribeSets(references, targetSets, week.targetRir, increment, compound);
+     if (week.kind === "deload") for (const s of sets) {
+       const normal = s.reference ?? references.at(-1);
+       s.weight = normal ? snap(normal.weight * profile.deloadLoadFraction, increment) : null;
+     }
     exercises.push({
       exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscleGroup,
       isCompound: exercise.isCompound, category: exercise.category, orderIndex: plan.orderIndex,
       targetSets, maximumWorkingSets: plan.maximumWorkingSets, loadIncrement: increment,
       calibrationMode: reference === null, baselineStatus: reference ? "active" : baseline.status === "active" ? "no_baseline" : baseline.status,
-      rationale: week.kind === "deload" ? `Intentional recovery: half the final loading week's sets, rounded down, minimum one.${estimate?.warning ? ` ${estimate.warning}` : ""}` : result.rationale,
+       rationale: week.kind === "deload" ? "Intentional recovery: half the final loading week's sets, rounded down, minimum one. Not regression." : result.rationale,
       reference,
-      sets: Array.from({ length: targetSets }, (_, i) => ({
-        setNumber: i + 1, weight, expectedReps, rir: week.targetRir, reference,
-      })),
+       sets,
     });
   }
-  const bundle: Prescription = { ...base, state: exercises.some(e => e.calibrationMode) ? "calibration" : "generated", exercises };
+   const bundle: Prescription = { ...base, engineVersion: "legendary-v2.3b", state: exercises.some(e => e.calibrationMode) ? "calibration" : "generated", exercises };
   await persistPrescription(bundle, latest?.id ?? null);
   return bundle;
 }
@@ -156,7 +171,7 @@ export async function initializeV22Session(sessionId: number, bundle: Prescripti
         referenceTargetRir: s.reference?.rir ?? bundle.targetRir,
         referenceTargetRepsMin: e.calibrationMode ? null : 6, referenceTargetRepsMax: e.calibrationMode ? null : 30,
         adaptiveTargetWeight: s.weight, adaptiveTargetReps: s.expectedReps, adaptiveTargetRir: bundle.targetRir,
-        algorithmVersion: "legendary-v2.2",
+         algorithmVersion: "legendary-v2.3b",
       })));
       snapshot.push({ workoutExerciseId: created.id, exerciseId: e.exerciseId, exerciseName: e.exerciseName, orderIndex: e.orderIndex, sets: e.targetSets, maximumWorkingSets: e.maximumWorkingSets });
     }

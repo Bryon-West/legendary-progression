@@ -38,12 +38,38 @@ export function prescribe(reference: PerformanceReference | null, targetRir: num
     if (lower >= 0 && equivalence(lower, reference, targetRir).expected !== null) weight = lower;
     estimate = equivalence(weight, reference, targetRir);
   }
-  const reps = estimate.expected === null ? null : Math.max(6, Math.min(30, Math.round(estimate.expected)));
+  // Equivalence evaluates performance and guards load feasibility; it must never
+  // discount the achieved benchmark to pay for a heavier prescription.
+  const reps = Math.max(6, Math.min(30, Math.round(reference.reps +
+    (!compound && !increase && !hold && !overshot ? 1 : 0))));
   return { weight, reps, reference, rationale: overshot
     ? "Actual RIR overshot the previous prescription. Hold or reduce load so prescribed effort is achievable."
-    : increase ? "Load-first progression, with prescribed RIR and the six-rep floor protected."
+    : increase ? "Increase by a valid load step and preserve achieved reps as the benchmark. Train to the prescribed RIR."
     : compound ? "Hold load: prescribed RIR provides overload without pushing expected performance below six reps."
     : "Rep-first progression: keep the load while observed performance develops toward a viable equipment increment." };
+}
+export type SetPrescription = {
+  setNumber: number; weight: number | null; expectedReps: number | null; rir: number;
+  reference: PerformanceReference | null;
+  referenceKind: "direct_history" | "new_set_estimate" | "calibration";
+};
+export function prescribeSets(references: PerformanceReference[], count: number, targetRir: number,
+  increment: number, compound: boolean): SetPrescription[] {
+  const sets: SetPrescription[] = [];
+  for (let i = 0; i < count; i++) {
+    const reference = references[i] ?? null;
+    const result = prescribe(reference, targetRir, increment, compound);
+    const preceding = sets.at(-1);
+    sets.push({
+      setNumber: i + 1, rir: targetRir,
+      weight: reference ? result.weight : preceding?.weight ?? null,
+      expectedReps: reference ? result.reps : preceding?.expectedReps == null
+        ? null : Math.max(6, preceding.expectedReps - 1),
+      reference,
+      referenceKind: reference ? "direct_history" : references.length ? "new_set_estimate" : "calibration",
+    });
+  }
+  return sets;
 }
 export const loadingSets = (base: number, loadingIndex: number, maximum: number) => Math.max(1, Math.min(maximum, base + loadingIndex));
 export const deloadSets = (finalLoadingSets: number) => Math.max(1, Math.floor(finalLoadingSets / 2));
