@@ -1,4 +1,7 @@
 <svg width="192" height="192" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" fill="#0f0e0c"/>
-  <image href="/brand/dragon-192-v4.png" width="192" height="192" preserveAspectRatio="xMidYMid meet"/>
+  <rect width="192" height="192" fill="#000"/>
+  <g transform="rotate(45 96 96)" fill="none" stroke="#e7bd4b" stroke-opacity=".68" stroke-width="3">
+    <rect x="72" y="72" width="48" height="48"/>
+  </g>
+  <path d="M84 72h9v31h20v9H84z" fill="#f2cc5b"/>
 </svg>
