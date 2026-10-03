@@ -208,3 +208,88 @@ test("V2.4 provisions one private profile per account and isolates reset-trainin
     }
   }
 });
+
+test("authenticated profile updates persist across refresh, API restart, and re-login", async () => {
+  const userId = `v24-profile-update-qa-${randomUUID()}`;
+  let apiInstance;
+
+  const startApi = async () => {
+    const server = createServer(
+      createApp({
+        authMiddleware: (req, _res, next) => {
+          req.auth = { userId: req.get("x-qa-user-id") ?? null };
+          next();
+        },
+      }),
+    );
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    return { server, api: `http://127.0.0.1:${address.port}/api` };
+  };
+
+  const stopApi = async () => {
+    if (!apiInstance?.server.listening) return;
+    const server = apiInstance.server;
+    apiInstance = undefined;
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  };
+
+  try {
+    apiInstance = await startApi();
+    const initialResponse = await requestAs(apiInstance.api, userId, "/profiles");
+    assert.equal(initialResponse.status, 200);
+    const [profile] = await initialResponse.json();
+    assert.ok(profile?.id);
+
+    const updateResponse = await requestAs(apiInstance.api, userId, `/profiles/${profile.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Bryon", trainingExperience: "advanced" }),
+    });
+    assert.equal(updateResponse.status, 200);
+    const updatedProfile = await updateResponse.json();
+    assert.equal(updatedProfile.id, profile.id);
+    assert.equal(updatedProfile.name, "Bryon");
+    assert.equal(updatedProfile.trainingExperience, "advanced");
+
+    const [storedProfile] = await db
+      .select()
+      .from(profilesTable)
+      .where(eq(profilesTable.id, profile.id));
+    assert.equal(storedProfile.ownerUserId, userId);
+    assert.equal(storedProfile.name, "Bryon");
+    assert.equal(storedProfile.trainingExperience, "advanced");
+
+    const refreshedResponse = await requestAs(apiInstance.api, userId, "/profiles");
+    assert.equal(refreshedResponse.status, 200);
+    const [refreshedProfile] = await refreshedResponse.json();
+    assert.equal(refreshedProfile.id, profile.id);
+    assert.equal(refreshedProfile.name, "Bryon");
+    assert.equal(refreshedProfile.trainingExperience, "advanced");
+
+    const loggedOutResponse = await fetch(`${apiInstance.api}/profiles`);
+    assert.equal(loggedOutResponse.status, 401);
+    await stopApi();
+
+    apiInstance = await startApi();
+    const reloggedResponse = await requestAs(apiInstance.api, userId, "/profiles");
+    assert.equal(reloggedResponse.status, 200);
+    const [reloggedProfile] = await reloggedResponse.json();
+    assert.equal(reloggedProfile.id, profile.id);
+    assert.equal(reloggedProfile.name, "Bryon");
+    assert.equal(reloggedProfile.trainingExperience, "advanced");
+  } finally {
+    await stopApi();
+    const [profile] = await db
+      .select({ id: profilesTable.id })
+      .from(profilesTable)
+      .where(eq(profilesTable.ownerUserId, userId));
+    if (profile) await cleanupProfile(profile.id);
+  }
+});

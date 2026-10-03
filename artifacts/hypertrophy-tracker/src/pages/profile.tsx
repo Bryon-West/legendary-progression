@@ -66,9 +66,7 @@ export default function ProfilePage() {
     setProfileError("");
     setSaved(false);
     setSavingProfile(true);
-    const [firstName, ...lastNameParts] = trimmedName.split(" ");
     try {
-      await user.update({ firstName, lastName: lastNameParts.join(" ") });
       const updated = await update.mutateAsync({
         profileId: profile.id,
         data: { name: trimmedName, trainingExperience: experience },

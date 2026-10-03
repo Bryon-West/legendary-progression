@@ -75,6 +75,12 @@ router.post("/profiles", async (_req, res): Promise<void> => {
 });
 
 router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
+  const accountUserId = (req as typeof req & { accountUserId?: string }).accountUserId;
+  if (!accountUserId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
   const params = UpdateProfileParams.safeParse(req.params);
   const body = UpdateProfileBody.safeParse(req.body);
   if (!params.success || !body.success) {
@@ -91,7 +97,10 @@ router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
       ...(body.data.trainingExperience !== undefined ? { trainingExperience: body.data.trainingExperience } : {}),
       ...(body.data.onboardingComplete !== undefined ? { onboardingComplete: body.data.onboardingComplete } : {}),
     })
-    .where(eq(profilesTable.id, params.data.profileId))
+    .where(and(
+      eq(profilesTable.id, params.data.profileId),
+      eq(profilesTable.ownerUserId, accountUserId),
+    ))
     .returning();
   if (!profile) {
     res.status(404).json({ error: "Profile not found" });
