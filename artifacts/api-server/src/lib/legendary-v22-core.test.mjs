@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { deloadSets, equivalence, LB_PER_KG, loadingSets, performanceStatus, prescribe, recoveryLoad, recoverySets, snap } from "./legendary-v22-core.ts";
+import { deloadSets, equivalence, LB_PER_KG, loadingSets, performanceStatus, prescribe, prescribeSets, recoveryLoad, recoverySets, snap } from "./legendary-v22-core.ts";
 const kg = lb => lb / LB_PER_KG;
 const ref = { weight: kg(225), reps: 8, rir: 3, prescribedRir: 3 };
 test("week one calibrates at the configured RIR, including RIR 1", () => {
@@ -32,6 +32,32 @@ test("2.5-lb metadata snapping works in canonical kilograms", () => {
 test("+5 lb costs about one repetition; -5 lb adds about one", () => {
   assert.ok(Math.abs(equivalence(kg(230), ref, 3).expected - 7) < 0.00001);
   assert.ok(Math.abs(equivalence(kg(220), ref, 3).expected - 9) < 0.00001);
+});
+test("compound progression adds 5 lb while retaining the achieved 8-rep benchmark", () => {
+  const next = prescribe(ref, 3, kg(5), true);
+  assert.ok(Math.abs(next.weight * LB_PER_KG - 230) < 0.00001);
+  assert.equal(next.reps, 8);
+});
+test("performance evaluation, not prescription, uses load/rep equivalence and actual RIR", () => {
+  assert.equal(performanceStatus({ weight: kg(230), reps: 7, rir: 3 }, ref, 3).status, "target_met");
+  assert.equal(performanceStatus({ weight: kg(230), reps: 8, rir: 3 }, ref, 3).status, "above_target");
+  assert.equal(performanceStatus({ weight: kg(230), reps: 6, rir: 3 }, ref, 3).status, "below_target");
+  assert.equal(performanceStatus({ weight: kg(230), reps: 8, rir: 2 }, ref, 3).status, "target_met");
+});
+test("set prescriptions retain distinct corresponding benchmarks at progressed load", () => {
+  const values = prescribeSets([8, 7, 6].map(reps => ({ ...ref, reps })), 3, 3, kg(5), true);
+  assert.deepEqual(values.map(x => Math.round(x.expectedReps)), [8, 7, 6]);
+  assert.deepEqual(values.map(x => x.referenceKind), ["direct_history", "direct_history", "direct_history"]);
+  assert.ok(Math.abs(values[0].weight * LB_PER_KG - 230) < 0.00001);
+  assert.ok(Math.abs(values[1].weight * LB_PER_KG - 230) < 0.00001);
+  // The six-rep floor still protects a set whose next load would predict <6.
+  assert.ok(Math.abs(values[2].weight * LB_PER_KG - 225) < 0.00001);
+});
+test("new working set is estimated separately and does not receive fabricated history", () => {
+  const values = prescribeSets([{ ...ref, reps: 8 }, { ...ref, reps: 7 }], 3, 3, kg(5), true);
+  assert.equal(values[2].reference, null);
+  assert.equal(values[2].referenceKind, "new_set_estimate");
+  assert.equal(values[2].expectedReps, 6);
 });
 test("equivalence accepts exactly +/-20 lb and stops beyond it", () => {
   assert.notEqual(equivalence(kg(245), ref, 3).expected, null);

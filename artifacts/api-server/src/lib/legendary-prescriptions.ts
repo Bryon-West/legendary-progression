@@ -104,32 +104,37 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
     const targetSets = week.kind === "deload" ? deloadSets(normalSets) : normalSets;
      // Use all corresponding working sets from the valid baseline's source,
      // never the last (usually most fatigued) set for every row.
-     const historical = reference && baseline.sourceSessionId !== null ? await db.select({
+     const historicalSourceId = latest?.id ?? baseline.sourceSessionId;
+     const historical = reference && historicalSourceId !== null ? await db.select({
+       setNumber: workoutSetsTable.setNumber,
        weight: workoutSetsTable.actualWeight, reps: workoutSetsTable.actualReps,
        rir: workoutSetsTable.actualRir, prescribedRir: workoutExercisesTable.targetRir,
      }).from(workoutSetsTable)
        .innerJoin(workoutExercisesTable, eq(workoutExercisesTable.id, workoutSetsTable.workoutExerciseId))
-       .where(and(eq(workoutExercisesTable.sessionId, baseline.sourceSessionId),
+       .where(and(eq(workoutExercisesTable.sessionId, historicalSourceId),
          eq(workoutExercisesTable.exerciseId, exercise.id), eq(workoutExercisesTable.skipped, false),
          sql`(${workoutExercisesTable.recoveryAdjustment} IS NULL OR ${workoutExercisesTable.recoveryAdjustment}='train_as_planned')`,
          eq(workoutSetsTable.setType, "work"), eq(workoutSetsTable.completed, true), eq(workoutSetsTable.removed, false),
          sql`${workoutSetsTable.actualReps} > 0`))
        .orderBy(asc(workoutExercisesTable.orderIndex), asc(workoutSetsTable.setNumber), asc(workoutSetsTable.id)) : [];
-     const references: PerformanceReference[] = historical.filter(s => s.weight !== null && s.reps !== null && s.rir !== null)
-       .map(s => ({ weight: s.weight!, reps: s.reps!, rir: s.rir!, prescribedRir: s.prescribedRir }));
-     if (!references.length && reference) references.push(reference);
+     const references: Array<PerformanceReference | null> = [];
+     for (const s of historical) if (s.weight !== null && s.reps !== null && s.rir !== null) {
+       references[s.setNumber - 1] = { weight: s.weight, reps: s.reps, rir: s.rir, prescribedRir: s.prescribedRir };
+     }
+     if (!references.some(Boolean) && reference) references[0] = reference;
      const compound = exercise.progressionType === "load_first" || (exercise.progressionType === null && exercise.isCompound);
-     const result = prescribe(references[0] ?? null, week.targetRir, increment, compound);
+     const firstReference = references.find(Boolean) ?? null;
+     const result = prescribe(firstReference, week.targetRir, increment, compound);
      const sets = prescribeSets(references, targetSets, week.targetRir, increment, compound);
      if (week.kind === "deload") for (const s of sets) {
-       const normal = s.reference ?? references.at(-1);
+       const normal = s.reference ?? [...references].reverse().find(Boolean);
        s.weight = normal ? snap(normal.weight * profile.deloadLoadFraction, increment) : null;
      }
     exercises.push({
       exerciseId: exercise.id, exerciseName: exercise.name, muscleGroup: exercise.muscleGroup,
       isCompound: exercise.isCompound, category: exercise.category, orderIndex: plan.orderIndex,
       targetSets, maximumWorkingSets: plan.maximumWorkingSets, loadIncrement: increment,
-      calibrationMode: reference === null, baselineStatus: reference ? "active" : baseline.status === "active" ? "no_baseline" : baseline.status,
+       calibrationMode: firstReference === null, baselineStatus: firstReference ? "active" : baseline.status === "active" ? "no_baseline" : baseline.status,
        rationale: week.kind === "deload" ? "Intentional recovery: half the final loading week's sets, rounded down, minimum one. Not regression." : result.rationale,
       reference,
        sets,
@@ -157,7 +162,8 @@ export async function initializeV22Session(sessionId: number, bundle: Prescripti
         sessionId, exerciseId: e.exerciseId, exerciseName: e.exerciseName, muscleGroup: e.muscleGroup,
         category: e.category as "strength", isCompound: e.isCompound, orderIndex: e.orderIndex,
         targetSets: e.targetSets, normalSetCount: e.targetSets, maximumWorkingSets: e.maximumWorkingSets,
-        targetRepsMin: e.calibrationMode ? null : 6, targetRepsMax: e.calibrationMode ? null : 30,
+         targetRepsMin: e.calibrationMode || bundle.kind === "deload" ? null : 6,
+         targetRepsMax: e.calibrationMode || bundle.kind === "deload" ? null : 30,
         targetRir: bundle.targetRir, recommendedWeight: e.sets[0]?.weight ?? null,
         recommendedReps: e.sets[0]?.expectedReps ?? null,
         targetWeight: e.sets[0]?.weight ?? null,
@@ -167,15 +173,17 @@ export async function initializeV22Session(sessionId: number, bundle: Prescripti
       await tx.insert(workoutSetsTable).values(e.sets.map(s => ({
         workoutExerciseId: created.id, setNumber: s.setNumber, setType: "work" as const,
         targetWeight: s.weight, targetRepsMin: e.calibrationMode ? null : 6, targetRepsMax: e.calibrationMode ? null : 30,
-        referenceTargetWeight: s.reference?.weight ?? null, referenceTargetReps: s.reference?.reps ?? null,
+         referenceTargetWeight: s.referenceKind === "direct_history" ? s.reference?.weight ?? null : null,
+         referenceTargetReps: s.referenceKind === "direct_history" ? s.reference?.reps ?? null : null,
         referenceTargetRir: s.reference?.rir ?? bundle.targetRir,
-        referenceTargetRepsMin: e.calibrationMode ? null : 6, referenceTargetRepsMax: e.calibrationMode ? null : 30,
+         referenceTargetRepsMin: e.calibrationMode || bundle.kind === "deload" || s.referenceKind !== "direct_history" ? null : 6,
+         referenceTargetRepsMax: e.calibrationMode || bundle.kind === "deload" || s.referenceKind !== "direct_history" ? null : 30,
         adaptiveTargetWeight: s.weight, adaptiveTargetReps: s.expectedReps, adaptiveTargetRir: bundle.targetRir,
          algorithmVersion: "legendary-v2.3b",
       })));
       snapshot.push({ workoutExerciseId: created.id, exerciseId: e.exerciseId, exerciseName: e.exerciseName, orderIndex: e.orderIndex, sets: e.targetSets, maximumWorkingSets: e.maximumWorkingSets });
     }
-    await tx.update(workoutSessionsTable).set({ structureSnapshot: { version: "legendary-v2.2", exercises: snapshot } }).where(eq(workoutSessionsTable.id, sessionId));
+    await tx.update(workoutSessionsTable).set({ structureSnapshot: { version: "legendary-v2.3b", exercises: snapshot } }).where(eq(workoutSessionsTable.id, sessionId));
   };
   if (connection === db) await db.transaction(run); else await run(connection);
 }

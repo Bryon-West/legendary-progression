@@ -53,7 +53,7 @@ export type SetPrescription = {
   reference: PerformanceReference | null;
   referenceKind: "direct_history" | "new_set_estimate" | "calibration";
 };
-export function prescribeSets(references: PerformanceReference[], count: number, targetRir: number,
+export function prescribeSets(references: Array<PerformanceReference | null>, count: number, targetRir: number,
   increment: number, compound: boolean): SetPrescription[] {
   const sets: SetPrescription[] = [];
   for (let i = 0; i < count; i++) {
@@ -66,7 +66,7 @@ export function prescribeSets(references: PerformanceReference[], count: number,
       expectedReps: reference ? result.reps : preceding?.expectedReps == null
         ? null : Math.max(6, preceding.expectedReps - 1),
       reference,
-      referenceKind: reference ? "direct_history" : references.length ? "new_set_estimate" : "calibration",
+      referenceKind: reference ? "direct_history" : references.some(Boolean) ? "new_set_estimate" : "calibration",
     });
   }
   return sets;

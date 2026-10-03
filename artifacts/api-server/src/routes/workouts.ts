@@ -143,6 +143,11 @@ async function recalculatePendingSetTargets(
     },
   } : null;
   if (!calibrationMode && baseline.repsMin === 6 && baseline.repsMax === 30) {
+    // V2.3B freezes the set-specific prescription within the active workout.
+    // Evaluate each completed set against its own stored reference; only the
+    // next planned exposure may derive a new prescription from completed work.
+    const v23bRows = rows.filter((r: typeof workoutSetsTable.$inferSelect) => r.setType === "work");
+    if (v23bRows.some((r: typeof workoutSetsTable.$inferSelect) => r.algorithmVersion === "legendary-v2.3b")) return;
     const source = latest ?? rows.find((r: typeof workoutSetsTable.$inferSelect) => r.setType === "work" && !r.removed);
     const reference = latest && latest.actualWeight !== null && latest.actualReps !== null && latest.actualRir !== null
       ? { weight: latest.actualWeight, reps: latest.actualReps, rir: latest.actualRir, prescribedRir: exercise.targetRir }
@@ -1079,6 +1084,7 @@ router.post(
         maximumWorkingSets: workoutExercisesTable.maximumWorkingSets,
         targetRepsMin: workoutExercisesTable.targetRepsMin,
         targetRepsMax: workoutExercisesTable.targetRepsMax,
+        weekKindSnapshot: workoutSessionsTable.weekKindSnapshot,
       })
       .from(workoutExercisesTable)
       .innerJoin(
@@ -1126,12 +1132,19 @@ router.post(
     const actualReps = body.data.actualReps ?? null;
     const actualRir = body.data.actualRir ?? null;
     const completed = body.data.completed ?? false;
-    const calibration = row.calibrationMode ||
+    const calibration = row.calibrationMode || row.weekKindSnapshot === "deload" ||
       row.targetRepsMin === null || row.targetRepsMax === null;
     if (completed && body.data.setType === "work" && (actualWeight === null || actualReps === null)) {
       res.status(400).json({ error: "Completed working sets require actual weight and reps" });
       return;
     }
+    const existingSets = await db.select().from(workoutSetsTable)
+      .where(eq(workoutSetsTable.workoutExerciseId, body.data.workoutExerciseId))
+      .orderBy(asc(workoutSetsTable.setNumber), asc(workoutSetsTable.id));
+    const v23b = existingSets.some(s => s.algorithmVersion === "legendary-v2.3b");
+    const previousWork = existingSets.filter(s => s.setType === "work" && !s.removed).at(-1);
+    const estimatedReps = Math.max(6, (previousWork?.adaptiveTargetReps ??
+      previousWork?.actualReps ?? row.recommendedReps ?? 6) - 1);
     const reference: SetTargetReference = {
       weight: row.calibrationMode ? null : row.recommendedWeight ?? row.targetWeight,
       reps: row.calibrationMode ? null : row.recommendedReps ?? row.targetRepsMin,
@@ -1139,7 +1152,7 @@ router.post(
       repsMin: row.calibrationMode ? null : row.targetRepsMin,
       repsMax: row.calibrationMode ? null : row.targetRepsMax,
     };
-    const performance = completed && body.data.setType === "work" && !calibration
+    const performance = completed && body.data.setType === "work" && !calibration && !v23b
       ? assessSet({
           reps: actualReps!,
           rir: actualRir ?? row.targetRir,
@@ -1156,24 +1169,24 @@ router.post(
         targetWeight: calibration ? null : targetWeight,
         targetRepsMin: calibration ? null : body.data.targetRepsMin ?? row.targetRepsMin,
         targetRepsMax: calibration ? null : body.data.targetRepsMax ?? row.targetRepsMax,
-        referenceTargetWeight: reference.weight,
-        referenceTargetReps: reference.reps,
+         referenceTargetWeight: v23b ? null : reference.weight,
+         referenceTargetReps: v23b ? null : reference.reps,
         referenceTargetRir: reference.rir,
-        referenceTargetRepsMin: reference.repsMin,
-        referenceTargetRepsMax: reference.repsMax,
+         referenceTargetRepsMin: v23b ? null : reference.repsMin,
+         referenceTargetRepsMax: v23b ? null : reference.repsMax,
         actualWeight,
         actualReps,
         actualRir,
         completed,
         completedAt: completed ? new Date() : null,
         adaptiveTargetWeight: calibration || body.data.setType === "warmup" ? null : actualWeight ?? targetWeight,
-        adaptiveTargetReps: calibration || body.data.setType === "warmup" ? null : initialTarget.reps,
+         adaptiveTargetReps: calibration || body.data.setType === "warmup" ? null : v23b ? estimatedReps : initialTarget.reps,
         adaptiveTargetRir: row.targetRir,
         targetStatus: performance?.status ?? null,
         targetExplanation: performance?.explanation ?? (calibration || body.data.setType === "warmup"
           ? null
           : initialTarget.warning),
-        algorithmVersion: calibration || body.data.setType === "warmup" ? null : PROGRESSION_ALGORITHM_VERSION,
+         algorithmVersion: calibration || body.data.setType === "warmup" ? null : PROGRESSION_ALGORITHM_VERSION,
       })
       .returning();
     const siblingSets = await db.select().from(workoutSetsTable)
@@ -1289,11 +1302,13 @@ router.post(
           adaptiveTargetWeight: current.set.setType === "work" && !current.exercise.calibrationMode
             ? body.data.actualWeight
             : null,
-          adaptiveTargetReps: adaptive.reps,
+          adaptiveTargetReps: current.set.algorithmVersion === "legendary-v2.3b"
+            ? current.set.adaptiveTargetReps : adaptive.reps,
           adaptiveTargetRir: current.exercise.targetRir,
           targetStatus: performance?.status ?? null,
           targetExplanation: performance?.explanation ?? null,
-          algorithmVersion: performance ? PROGRESSION_ALGORITHM_VERSION : null,
+          algorithmVersion: current.set.algorithmVersion ??
+            (performance ? PROGRESSION_ALGORITHM_VERSION : null),
         }).where(eq(workoutSetsTable.id, current.set.id)).returning();
         if (current.set.setType === "work") {
           await recalculatePendingSetTargets(tx, current.exercise, {
@@ -1448,11 +1463,13 @@ router.patch(
           actualRir,
           targetWeight,
           adaptiveTargetWeight: calibration || current.set.setType !== "work" ? null : selectedWeight,
-          adaptiveTargetReps: adaptive.reps,
+          adaptiveTargetReps: current.set.algorithmVersion === "legendary-v2.3b"
+            ? current.set.adaptiveTargetReps : adaptive.reps,
           adaptiveTargetRir: current.exercise.targetRir,
           targetStatus: performance?.status ?? null,
           targetExplanation: performance?.explanation ?? (completed ? null : adaptive.warning),
-          algorithmVersion: performance ? PROGRESSION_ALGORITHM_VERSION : null,
+          algorithmVersion: current.set.algorithmVersion ??
+            (performance ? PROGRESSION_ALGORITHM_VERSION : null),
           completedAt: completed ? current.set.completedAt ?? new Date() : null,
         }).where(eq(workoutSetsTable.id, params.data.setId)).returning();
         if (completed && current.set.setType === "work") {

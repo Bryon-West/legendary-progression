@@ -28,7 +28,7 @@ export {
   type RecoveryObservation,
 } from "./progression-core";
 
-export const PROGRESSION_ALGORITHM_VERSION = "legendary-v2.2";
+export const PROGRESSION_ALGORITHM_VERSION = "legendary-v2.3b";
 export function adaptiveRepsForWeight(selectedWeight: number | null, baseWeight: number | null, baseReps: number, minReps: number, maxReps: number, targetRir = 2) {
   if (minReps !== 6 || maxReps !== 30) return legacyAdaptiveReps(selectedWeight, baseWeight, baseReps, minReps, maxReps, targetRir);
   if (selectedWeight === null || baseWeight === null) return { reps: null, warning: null };

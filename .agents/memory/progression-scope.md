@@ -24,3 +24,11 @@ V2.3A updates the existing app; never reset or drop PostgreSQL as implementation
 **Why:** the user explicitly prohibited database resets and completed-history deletion during implementation, while requesting a protected training-data reset for end users.
 
 **How to apply:** use isolated synthetic profiles for destructive verification. Never interpret a request to implement the reset button as permission to reset the creator's existing training data. Preserve profile settings and the exercise library, and never clear another profile's data.
+
+## Performance equivalence versus prescription
+
+Use the 5 lb ≈ 1 rep heuristic only to compare completed performances and protect the six-rep feasibility floor. When load increases, keep each corresponding set's achieved rep count as its benchmark; do not subtract reps to account for heavier load. Preserve each set's own weight/reps/RIR reference. Mark added sets as estimates without claiming fabricated historical references. Generate trusted load progress only through the next occurrence of the same training day, and use the stored week RIR.
+
+**Why:** the V2.3B specification explicitly separates evaluation from prescription; using equivalence to reduce a prescribed rep benchmark erases earned progress.
+
+**How to apply:** keep the rule in any future prescription-generation, in-session set update, or target-status change. Verify database rows and the started workout, including the 225 × 8 → 230 × 8 regression.
