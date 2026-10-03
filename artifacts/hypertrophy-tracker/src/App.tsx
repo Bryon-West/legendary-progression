@@ -11,6 +11,7 @@ import { useActiveProfile } from "@/lib/profile";
 import { Loading, QueryError } from "@/components/ui-bits";
 import Welcome from "@/pages/welcome";
 import { SignInPage, SignUpPage } from "@/pages/auth";
+import ForgotPasswordPage from "@/pages/forgot-password";
 import AccountPage from "@/pages/account";
 import OnboardingPage from "@/pages/onboarding";
 import ProfileSettingsPage from "@/pages/profile";
@@ -84,6 +85,13 @@ function PublicSignUpRoute() {
   return <SignUpPage />;
 }
 
+function PublicForgotPasswordRoute() {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (!isLoaded) return <Loading />;
+  if (isSignedIn) return <Redirect to="/" />;
+  return <ForgotPasswordPage />;
+}
+
 function UnauthenticatedFlow() {
   const [, navigate] = useLocation();
   return (
@@ -121,6 +129,7 @@ function AccountFlow() {
 function AppRoutes() {
   return (
     <Switch>
+      <Route path="/forgot-password" component={PublicForgotPasswordRoute} />
       {/* Required Wouter syntax: Clerk also routes through nested auth paths. */}
       <Route path="/sign-in/*?" component={PublicSignInRoute} />
       <Route path="/sign-up/*?" component={PublicSignUpRoute} />

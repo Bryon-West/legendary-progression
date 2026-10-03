@@ -33,7 +33,7 @@ function authError(error: unknown): string {
     || "We couldn't complete that request. Check your details and try again.";
 }
 
-function AuthFrame({ children, eyebrow = "LEGENDARY PROGRESSION" }: { children: ReactNode; eyebrow?: string }) {
+export function AuthFrame({ children, eyebrow = "LEGENDARY PROGRESSION" }: { children: ReactNode; eyebrow?: string }) {
   return (
     <main className="lp-auth">
       <header className="lp-auth__top">
@@ -109,10 +109,7 @@ export function SignInPage() {
                 fontSize: "14px",
                 boxShadow: "none",
               },
-              formFieldAction: {
-                color: "#f4d36e",
-                fontWeight: "700",
-              },
+              formFieldAction: { display: "none" },
               formButtonPrimary: {
                 width: "100%",
                 minHeight: "50px",
@@ -139,6 +136,9 @@ export function SignInPage() {
           }}
         />
       </div>
+      <p className="lp-auth__switch">
+        Forgot your password? <Link href="/forgot-password">RESET PASSWORD</Link>
+      </p>
       <p className="lp-auth__switch">
         New here? <Link href="/sign-up">CREATE AN ACCOUNT</Link>
       </p>
