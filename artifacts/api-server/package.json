@@ -7,7 +7,8 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:v23c:qa": "node --test src/lib/personal-records-core.test.mjs && esbuild src/lib/v23c-qa.integration.test.mjs --bundle --platform=node --format=cjs --outfile=/tmp/v23c-qa.integration.cjs --external:pg-native && NODE_ENV=production node --test /tmp/v23c-qa.integration.cjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

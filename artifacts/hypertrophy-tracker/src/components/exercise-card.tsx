@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { Edit3, Minus, Plus, SkipForward, TriangleAlert, Undo2 } from 'lucide-react';
-import { getGetExerciseHistoryQueryKey, useCreateWorkoutSet, useGetExerciseHistory, useRemoveWorkoutSet, useUpdateWorkoutExercise } from '@workspace/api-client-react';
+import { getGetExerciseHistoryQueryKey, getGetPersonalRecordsQueryKey, useCreateWorkoutSet, useGetExerciseHistory, useGetPersonalRecords, useRemoveWorkoutSet, useUpdateWorkoutExercise } from '@workspace/api-client-react';
 import type { WorkoutExercise, WorkoutSet } from '@workspace/api-client-react';
 import { Modal } from '@/components/modal';
 import { ErrorNote } from '@/components/ui-bits';
 import { SetRow } from '@/components/set-row';
 import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/components/status';
-import { humanize } from '@/lib/labels';
+import { formatRir, humanize } from '@/lib/labels';
 import { fmtWeight, type WeightUnit } from '@/lib/units';
 
 export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, onSubstitute }: {
   exercise: WorkoutExercise; sessionId: number; profileId: number; unit: WeightUnit; onChanged: () => void; onSubstitute: () => void;
 }) {
   const history = useGetExerciseHistory(profileId, exercise.exerciseId, { query: { queryKey: getGetExerciseHistoryQueryKey(profileId, exercise.exerciseId), enabled: !!profileId } });
+  const records = useGetPersonalRecords(profileId, { query: { queryKey: getGetPersonalRecordsQueryKey(profileId), enabled: !!profileId } });
   const updateExercise = useUpdateWorkoutExercise();
   const createSet = useCreateWorkoutSet();
   const removeSet = useRemoveWorkoutSet();
@@ -30,6 +31,9 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
   const minSets = exercise.minimumWorkingSets ?? 1;
   const maxSets = exercise.maximumWorkingSets ?? 20;
   const prior = history.data?.filter((h) => h.setType === 'work').slice(0, 4) ?? [];
+  const record = records.data?.exercises.find((r) => r.exerciseId === exercise.exerciseId);
+  const newPr = record?.history.some((r) => r.sessionId === sessionId && (r.heaviestLoadRecord || r.legendaryPerformanceRecord)
+    && exercise.sets.some((s) => s.id === r.setId && s.completed && s.setType === 'work' && !s.removed)) ?? false;
   const add = (setType: 'warmup' | 'work') => {
     const same = exercise.sets.filter((s) => s.setType === setType);
     const setNumber = same.length ? Math.max(...same.map((s) => s.setNumber)) + 1 : 1;
@@ -68,7 +72,7 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
           {exercise.recoveryAdjustment && !['train_as_planned', 'pending', 'repeat_limited'].includes(exercise.recoveryAdjustment) && <span className="badge badge-warning" data-testid={`badge-recovery-${exercise.id}`}>Recovery-adjusted</span>}
         </div>
         <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 8 }}>
-          RIR <b style={{ color: 'hsl(var(--foreground))' }}>{calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir}</b>{calibration && ' (calibration)'} · Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
+          RIR <b style={{ color: 'hsl(var(--foreground))' }}>{formatRir(calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir)}</b>{calibration && ' (calibration)'} · Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
         </div>
       </div>
     </div>
@@ -76,14 +80,19 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
     {skipped && !superseded && <div className="notice-warn" style={{ marginBottom: 10 }}>Skipped. It is recorded as skipped and does not count against progression.</div>}
     {!readOnly && calibration && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-calibration-${exercise.id}`}>
       <span className="badge badge-red">Calibration mode</span>
-      <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.45 }}>Choose a weight you believe you can perform at approximately {exercise.calibrationRir ?? exercise.targetRir} RIR.</div>
+      <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.45 }}>Choose a weight you believe you can perform at approximately {formatRir(exercise.calibrationRir ?? exercise.targetRir)} RIR.</div>
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>{baseline === 'expired' ? 'Your last baseline for this exercise has expired. ' : ''}Record weight, reps and actual RIR. This sets your baseline; no target is shown until it exists.</div>
     </div>}
     {!readOnly && !calibration && outcome && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-recommendation-${exercise.id}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}><span className="badge badge-red">{outcome}</span>{exercise.recommendedWeight != null && <span className="metric" style={{ fontSize: 12, fontWeight: 700 }}>{fmtWeight(exercise.recommendedWeight, unit)}{exercise.recommendedReps ? ` × ${exercise.recommendedReps}` : ''}</span>}</div>
       {exercise.recommendationRationale && <div style={{ fontSize: 12, marginTop: 7, lineHeight: 1.45, color: 'hsl(var(--muted-foreground))' }}>{exercise.recommendationRationale}</div>}
     </div>}
-    {prior.length > 0 && <div style={{ padding: '8px 10px', marginBottom: 12, background: 'hsl(var(--secondary))', borderRadius: 11, fontSize: 11, color: 'hsl(var(--muted-foreground))' }}><span style={{ fontWeight: 700, color: 'hsl(var(--foreground))' }}>Last time</span> · {prior.map((p) => `${fmtWeight(p.actualWeight ?? p.targetWeight, unit, false)} × ${p.actualReps ?? p.targetRepsMin ?? '—'}`).join('  /  ')} {unit}</div>}
+    {(prior.length > 0 || record?.heaviestLoad || record?.bestPerformance) && <div className="pr-context" data-testid={`context-pr-${exercise.id}`}>
+      {prior.length > 0 && <span><b style={{ color: 'hsl(var(--foreground))' }}>Last time</b> · {prior.map((p) => `${fmtWeight(p.actualWeight ?? p.targetWeight, unit, false)} × ${p.actualReps ?? p.targetRepsMin ?? '—'}`).join(' / ')} {unit}</span>}
+      {record?.heaviestLoad && <span><b style={{ color: 'hsl(var(--foreground))' }}>Heaviest</b> · {fmtWeight(record.heaviestLoad.weight, unit, false)} × {record.heaviestLoad.reps}</span>}
+      {record?.bestPerformance && <span><b style={{ color: 'hsl(var(--foreground))' }}>Best</b> · {fmtWeight(record.bestPerformance.weight, unit, false)} × {record.bestPerformance.reps}{record.bestPerformance.rir != null ? ` @ ${record.bestPerformance.rir} RIR` : ''}</span>}
+      {newPr && <span className="badge badge-success" data-testid={`badge-new-pr-${exercise.id}`}>NEW PR</span>}
+    </div>}
     <div className="set-grid" style={{ marginBottom: 6 }}><span className="set-head">Set</span><span className="set-head">Weight ({unit})</span><span className="set-head">Reps</span><span className="set-head">RIR</span><span className="set-head"></span></div>
     {live.length ? <>
       {warmups.map((s, idx) => <SetRow key={s.id} set={s} label={idx + 1} exercise={exercise} sessionId={sessionId} unit={unit} readOnly={readOnly} locked={false} onSaved={onChanged} onStatus={setStatusSet} onError={setRowFailed} onRemove={requestRemove}/>)}
@@ -104,7 +113,7 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
     {statusSet && <Modal title={statusLabel(statusPicked)} close={() => setStatusSet(null)}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><span className={`status-btn ${statusClass(statusPicked)}`}><StatusIcon status={statusPicked}/></span><span style={{ fontSize: 14, lineHeight: 1.5 }}>{statusSet.targetExplanation ?? 'This set was logged before target ratings existed, so it has no rating.'}</span></div>
       <div className="eyebrow">Target</div>
-      <p style={{ margin: '4px 0 12px' }}>{statusSet.targetRepsMin != null && statusSet.targetRepsMax != null ? `Snapshot ${statusSet.targetRepsMin}–${statusSet.targetRepsMax} reps, ` : ''}RIR effort target {statusSet.adaptiveTargetRir ?? exercise.targetRir}{statusSet.adaptiveTargetWeight != null ? <><br/><span className="metric">Adjusted: {fmtWeight(statusSet.adaptiveTargetWeight, unit)}{statusSet.adaptiveTargetReps ? ` × ${Math.round(statusSet.adaptiveTargetReps)}` : ''}</span></> : null}</p>
+      <p style={{ margin: '4px 0 12px' }}>{statusSet.targetRepsMin != null && statusSet.targetRepsMax != null ? `Snapshot ${statusSet.targetRepsMin}–${statusSet.targetRepsMax} reps, ` : ''}RIR effort target {formatRir(statusSet.adaptiveTargetRir ?? exercise.targetRir)}{statusSet.adaptiveTargetWeight != null ? <><br/><span className="metric">Adjusted: {fmtWeight(statusSet.adaptiveTargetWeight, unit)}{statusSet.adaptiveTargetReps ? ` × ${Math.round(statusSet.adaptiveTargetReps)}` : ''}</span></> : null}</p>
       <div className="eyebrow">Completed</div>
       <p className="metric" style={{ margin: '4px 0 0' }}>{fmtWeight(statusSet.actualWeight, unit)} × {statusSet.actualReps ?? '—'} @ {statusSet.actualRir ?? '—'} RIR</p>
       {statusSet.algorithmVersion && <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 12 }}>Rating model {String(statusSet.algorithmVersion)}</div>}

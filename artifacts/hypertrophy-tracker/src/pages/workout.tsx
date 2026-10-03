@@ -4,12 +4,13 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Plus } from 'lucide-react'
 import { Link, useLocation, useParams } from 'wouter';
 import {
   getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getGetWorkoutStructureChangesQueryKey, getWorkoutStructureChanges, useGetWorkoutStructureChanges, getGetWorkoutQueryKey, getListExercisesQueryKey,
-  getListSplitsQueryKey, getListWorkoutsQueryKey, useAddExerciseToWorkout, useFinishWorkout, useGetWorkout,
+  getListSplitsQueryKey, getListWorkoutsQueryKey, getGetPersonalRecordsQueryKey, useAddExerciseToWorkout, useFinishWorkout, useGetWorkout,
   useListExercises, useSubstituteWorkoutExercise,
 } from '@workspace/api-client-react';
 import type { Exercise, FinishWorkoutResult } from '@workspace/api-client-react';
 import { useActiveProfile } from '@/lib/profile';
 import { fmtTotal } from '@/lib/units';
+import { formatRir } from '@/lib/labels';
 import { Modal } from '@/components/modal';
 import { Empty, ErrorNote, Loading, QueryError } from '@/components/ui-bits';
 import { ExercisePicker } from '@/components/exercise-picker';
@@ -30,7 +31,7 @@ export default function WorkoutPage() {
   const { profile, unit } = useActiveProfile();
   const pid = profile?.id ?? 0;
   const qc = useQueryClient();
-  const [summary, setSummary] = useState<{ duration: number; sets: number; result: FinishWorkoutResult } | null>(null);
+  const [summary, setSummary] = useState<FinishWorkoutResult | null>(null);
   const [modal, setModal] = useState<'substitute' | 'add' | 'finish' | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [settling, setSettling] = useState(false);
@@ -39,6 +40,7 @@ export default function WorkoutPage() {
   const [swapTargetId, setSwapTargetId] = useState<number | null>(null);
   const [swapChoice, setSwapChoice] = useState<Exercise | null>(null);
   const [decision, setDecision] = useState<StructureChanges | null>(null);
+  const [hiddenExerciseIds, setHiddenExerciseIds] = useState<number[]>([]);
   const [skippedFb, setSkippedFb] = useState<number[]>([]);
   const changesQuery = useGetWorkoutStructureChanges(id, { query: { enabled: Number.isFinite(id) && workoutQuery.data?.status === 'active', queryKey: getGetWorkoutStructureChangesQueryKey(id) } });
   const workout = workoutQuery.data;
@@ -51,19 +53,20 @@ export default function WorkoutPage() {
   useEffect(() => { if (!workout?.startedAt || workout.status !== 'active') return; const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000))); tick(); const timer = window.setInterval(tick, 1000); return () => window.clearInterval(timer); }, [workout?.startedAt, workout?.status]);
 
   if (summary) {
-    const w = summary.result.workout;
+    const w = summary.workout;
     return <main className="page-wrap enter">
-      <div className="eyebrow">Session complete{w.mesocycleWeek != null ? ` · mesocycle week ${w.mesocycleWeek}` : ''}</div><h1 className="display" style={{ fontSize: 52, margin: '10px 0 20px' }}>Work<br/>logged.</h1>
+        <div className="eyebrow">Workout complete{w.mesocycleWeek != null ? ` · mesocycle week ${w.mesocycleWeek}` : ''}</div><h1 className="display" style={{ fontSize: 52, margin: '10px 0 20px' }}>Work<br/>logged.</h1>
       <div className="panel" style={{ padding: 20 }}>
         <div className="eyebrow">Total weight lifted</div>
         <div className="display metric" style={{ fontSize: 40, margin: '8px 0 14px' }} data-testid="text-summary-total">{fmtTotal(w.totalVolume, unit)}</div>
         {(w.muscleTotals ?? []).length > 0 && <MuscleTotals totalKg={w.totalVolume} muscleTotals={w.muscleTotals ?? []} unit={unit}/>}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginTop: 18 }}>
-          <div><div className="eyebrow">Time</div><div style={{ fontWeight: 700, marginTop: 6 }}>{formatTime(summary.duration)}</div></div>
-          <div><div className="eyebrow">Working sets</div><div style={{ fontWeight: 700, marginTop: 6 }}>{summary.sets}</div></div>
-          <div><div className="eyebrow">Next day</div><div style={{ fontWeight: 700, marginTop: 6 }}>{summary.result.nextWorkout?.dayName ?? 'Rest'}</div></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
+          <div><div className="eyebrow">Exercises</div><div className="metric" style={{ fontWeight: 700, marginTop: 6 }} data-testid="text-summary-exercises">{summary.summary.exerciseCount}</div></div>
+          <div><div className="eyebrow">Working sets</div><div className="metric" style={{ fontWeight: 700, marginTop: 6 }} data-testid="text-summary-working-sets">{summary.summary.workingSetCount}</div></div>
+          <div><div className="eyebrow">New PRs</div><div className="metric" style={{ fontWeight: 700, marginTop: 6, color: 'hsl(var(--primary))' }} data-testid="text-summary-prs">{summary.summary.newPrCount}</div></div>
+          <div><div className="eyebrow">Next day</div><div style={{ fontWeight: 700, marginTop: 6 }}>{summary.nextWorkout?.dayName ?? 'Rest'}</div></div>
         </div>
-        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 14 }}>Warm-ups, skipped exercises and removed sets are excluded. Sets from replaced exercises that you performed are included.</div>
+        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 14 }}>Completed working sets only. Warm-ups and removed sets are excluded.</div>
       </div>
       <Link href="/" className="btn btn-primary" style={{ width: '100%', textDecoration: 'none', marginTop: 18 }}>Back to today <ArrowRight size={17}/></Link>
     </main>;
@@ -72,7 +75,7 @@ export default function WorkoutPage() {
   if (workoutQuery.isError || !workout) return <main className="page-wrap"><QueryError retry={() => void workoutQuery.refetch()}/></main>;
   if (workout.status === 'completed') return <CompletedWorkout workout={workout} unit={unit}/>;
 
-  const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetWorkoutStructureChangesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetWorkoutQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId: workout.profileId }) }); };
+  const invalidate = () => { void qc.invalidateQueries({ queryKey: getGetWorkoutStructureChangesQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetWorkoutQueryKey(id) }); void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId: workout.profileId }) }); void qc.invalidateQueries({ queryKey: getGetPersonalRecordsQueryKey(workout.profileId) }); };
   const settle = async () => {
     setSettling(true);
     try {
@@ -96,8 +99,7 @@ export default function WorkoutPage() {
       } catch { setSaveError('Could not check structure changes. Try again.'); return; }
     }
     finish.mutate({ sessionId: id, ...(structureDecision ? { data: { structureDecision } } : {}) }, { onSuccess: (result) => {
-      const sets = result.workout.exercises.filter((e) => !e.skipped).reduce((n, e) => n + e.sets.filter((s) => s.completed && s.setType === 'work' && !s.removed).length, 0);
-      setSummary({ duration: Math.max(0, Math.floor((Date.now() - new Date(workout.startedAt).getTime()) / 1000)), sets, result });
+      setSummary(result);
       qc.setQueryData(getGetWorkoutQueryKey(id), result.workout);
       void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ queryKey: getListWorkoutsQueryKey({ profileId: workout.profileId }) });
@@ -135,15 +137,16 @@ export default function WorkoutPage() {
     <div className="eyebrow">{workout.splitName || 'Open session'}</div><h1 className="display" style={{ fontSize: 43, margin: '6px 0 14px' }}>{workout.dayName || 'Training session'}</h1>
     {(workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
       <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '.04em' }}>{workout.weekKindSnapshot === 'deload' ? 'RECOVERY WEEK — DELOAD' : 'RECOVERY WEEK — WEEK OFF'}</div>
-      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${workout.targetRirSnapshot})` : ''} with reduced sets and load. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
+      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${formatRir(workout.targetRirSnapshot)})` : ''} with reduced sets and load. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
     </div>}
-    <SessionContext workout={workout}/>
+     <SessionContext workout={workout}/>
+     {saveError && modal === null && <ErrorNote message={saveError}/>}
     {!workout.exercises.length ? <Empty title="Your session is ready" detail="Add an exercise from your library to start logging sets." action={<button className="btn btn-primary" onClick={() => setModal('add')}><Plus size={17}/> Add exercise</button>}/> : null}
     <div style={{ display: 'grid', gap: 13 }}>
-      {workout.exercises.map((exercise, i, all) => recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
+      {workout.exercises.filter((exercise) => !hiddenExerciseIds.includes(exercise.id)).map((exercise, i, all) => recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
         ? <RecoveryPrompt key={exercise.id} exercise={exercise} rec={recMap.get(exercise.id)} sessionId={id} onDone={invalidate} onChangeExercise={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
         : <div key={exercise.id}><ExerciseCard exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
-          {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} first={i === 0} last={i === all.length - 1} onChanged={invalidate}/>}</div>)}
+          {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} first={i === 0} last={i === all.length - 1} onChanged={invalidate} onRemoved={() => { setSaveError(null); setHiddenExerciseIds((items) => items.includes(exercise.id) ? items : [...items, exercise.id]); }} onRemoveFailed={() => { setHiddenExerciseIds((items) => items.filter((x) => x !== exercise.id)); setSaveError('Could not remove this exercise. It has been restored to today’s list.'); }}/>}</div>)}
     </div>
     <button className="btn btn-secondary" style={{ width: '100%', marginTop: 14 }} onClick={() => setModal('add')} data-testid="button-add-exercise"><Plus size={18}/> Add exercise</button>
     <button className="btn btn-primary" data-testid="button-finish-workout" style={{ width: '100%', marginTop: 10, minHeight: 56 }} disabled={finish.isPending} onClick={() => setModal('finish')}><CheckCircle2 size={19}/> Finish workout</button>
@@ -166,13 +169,14 @@ export default function WorkoutPage() {
       {substitute.isError && <ErrorNote message="Could not replace the exercise."/>}
     </Modal>}
     {feedbackFor && <FeedbackSheet exercise={feedbackFor} sessionId={id} onDone={invalidate} onSkip={() => setSkippedFb((v) => [...v, feedbackFor.id])}/>}
-    {decision && <Modal title="Keep these changes?" close={() => setDecision(null)}>
-      <ul style={{ margin: '0 0 14px', paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }} data-testid="list-structure-changes">{decision.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+     {decision && <Modal title="You changed today's workout" close={() => setDecision(null)}>
+       <p style={{ margin: '0 0 12px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Your completed session will always record exactly what you performed. Choose whether these structure changes carry forward to uncompleted workouts.</p>
+       <ul style={{ margin: '0 0 14px', paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }} data-testid="list-structure-changes">{decision.changes.map((c, i) => <li key={`${i}-${c}`}>{c}</li>)}</ul>
       <div style={{ display: 'grid', gap: 8 }}>
-        <button className="btn btn-primary" disabled={busy} onClick={() => void finishSession('keep')} data-testid="button-structure-keep">Keep for rest of mesocycle</button>
-        <button className="btn btn-secondary" disabled={busy} onClick={() => void finishSession('today_only')} data-testid="button-structure-today">Today only</button>
-        <button className="btn btn-ghost" onClick={() => setDecision(null)}>Keep training</button>
+         <button className="btn btn-primary" disabled={busy} onClick={() => void finishSession('keep')} data-testid="button-structure-keep">Keep changes for rest of mesocycle</button>
+         <button className="btn btn-secondary" disabled={busy} onClick={() => void finishSession('today_only')} data-testid="button-structure-today">Today only</button>
       </div>
+       {saveError && <ErrorNote message={saveError}/>}
       {finish.isError && <ErrorNote message="Could not finish this workout. Your session is still saved as active."/>}
     </Modal>}
   </main></WorkoutDraftsContext.Provider>;

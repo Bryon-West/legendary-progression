@@ -58,8 +58,8 @@ export default function MesocyclesPage() {
             {g.key === 'paused' && btn(split, 'end_early', 'End early')}
             {g.key === 'past' && btn(split, 'restart', 'Restart', true)}
             {(g.key === 'current' || g.key === 'planned') && <>
-              <button className="btn btn-ghost btn-sm" onClick={() => setWeekFor({ split, rir: '1' })} data-testid={`button-add-week-${split.id}`}><Plus size={13}/> Week</button>
-              <button className="btn btn-ghost btn-sm" disabled={removeWeek.isPending} onClick={() => removeWeek.mutate({ splitId: split.id }, { onSuccess: refresh, onError: () => setErr('Only an unstarted final loading week can be removed.') })} data-testid={`button-remove-week-${split.id}`}><Minus size={13}/> Final loading week</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setWeekFor({ split, rir: '1' })} data-testid={`button-add-week-${split.id}`}><Plus size={13}/> ADD WEEK</button>
+              <button className="btn btn-ghost btn-sm" disabled={removeWeek.isPending} onClick={() => removeWeek.mutate({ splitId: split.id }, { onSuccess: refresh, onError: () => setErr('Only an unstarted final loading week can be removed.') })} data-testid={`button-remove-week-${split.id}`}><Minus size={13}/> REMOVE WEEK</button>
             </>}
           </div>
         </article>)}</div>

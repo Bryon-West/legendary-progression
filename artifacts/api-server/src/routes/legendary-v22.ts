@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { and, asc, eq, sql } from "drizzle-orm";
-import { AddLoadingWeekBody, AdjustExerciseRecoveryBody, ReorderWorkoutExerciseBody, RemoveWorkoutExerciseBody, SaveExercisePostFeedbackBody, TransitionMesocycleBody } from "@workspace/api-zod";
+import { AddLoadingWeekBody, AdjustExerciseRecoveryBody, GetPersonalRecordsParams, GetPersonalRecordsResponse, ReorderWorkoutExerciseBody, RemoveWorkoutExerciseBody, SaveExercisePostFeedbackBody, TransitionMesocycleBody } from "@workspace/api-zod";
 import { db, exerciseFeedbackTable, mesocycleWeeksTable, plannedWorkoutsTable, splitDayExercisesTable, trainingSplitsTable, workoutExercisesTable, workoutSessionsTable, workoutSetsTable } from "@workspace/db";
 import { getWorkoutTree } from "../lib/hypertrophy";
 import { getProfileLoadIncrement } from "../lib/progression";
 import { changeLoadingWeek, transitionLifecycle } from "../lib/legendary-lifecycle";
 import { getPrescription, invalidateFuturePrescriptions } from "../lib/legendary-prescriptions";
 import { workoutContext } from "../lib/legendary-structure";
+import { getPersonalRecords } from "../lib/personal-records";
 import { recoveryLoad, recoverySets } from "../lib/legendary-v22-core";
 const router = Router();
 const id = (value: unknown) => {
@@ -40,6 +41,15 @@ router.delete("/mesocycles/:splitId/delete-unstarted", handle(async (req, res) =
     await tx.delete(trainingSplitsTable).where(eq(trainingSplitsTable.id, splitId));
   });
   res.sendStatus(204);
+}));
+router.get("/profiles/:profileId/records", handle(async (req, res) => {
+  const params = GetPersonalRecordsParams.parse(req.params);
+  const records = await getPersonalRecords(params.profileId);
+  if (!records) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+  res.json(GetPersonalRecordsResponse.parse(records));
 }));
 router.get("/workouts/:sessionId/structure-changes", handle(async (req, res) => { res.json(await workoutContext(id(req.params.sessionId))); }));
 router.put("/workouts/:sessionId/exercises/:workoutExerciseId/post-feedback", handle(async (req, res) => {

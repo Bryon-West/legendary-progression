@@ -64,7 +64,7 @@ export function FeedbackSheet({ exercise, sessionId, onDone, onSkip }: { exercis
   </Modal>;
 }
 
-export function ExerciseTools({ exercise, sessionId, first, last, onChanged }: { exercise: WorkoutExercise; sessionId: number; first: boolean; last: boolean; onChanged: () => void }) {
+export function ExerciseTools({ exercise, sessionId, first, last, onChanged, onRemoved, onRemoveFailed }: { exercise: WorkoutExercise; sessionId: number; first: boolean; last: boolean; onChanged: () => void; onRemoved?: () => void; onRemoveFailed?: () => void }) {
   const reorder = useReorderWorkoutExercise();
   const remove = useRemoveWorkoutExercise();
   const [ask, setAsk] = useState(false);
@@ -75,9 +75,9 @@ export function ExerciseTools({ exercise, sessionId, first, last, onChanged }: {
     <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Move ${exercise.exerciseName} down`} disabled={last || reorder.isPending} onClick={() => mv('down')} data-testid={`button-move-down-${exercise.id}`}><ArrowDown size={14}/></button>
     <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Remove ${exercise.exerciseName}`} onClick={() => setAsk(true)} data-testid={`button-remove-exercise-${exercise.id}`}><Trash2 size={14}/></button>
     {ask && <Modal title="Remove this exercise?" close={() => setAsk(false)}>
-      <p style={{ marginTop: 0, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>Remove it from today's structure. {hasLogged && 'Completed sets remain in your history and total weight lifted. '}At Finish Workout, choose once whether to keep all structural changes for the rest of the mesocycle.</p>
+     <p style={{ marginTop: 0, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>Remove it from today's visible workout now. {hasLogged && 'Completed sets remain in your history and total weight lifted. '}Unperformed sets will not count. You can decide at Finish Workout whether the change carries forward.</p>
       <div style={{ display: 'grid', gap: 8 }}>
-        <button className="btn btn-primary" disabled={remove.isPending} onClick={() => remove.mutate({ sessionId, workoutExerciseId: exercise.id, data: { scope: 'today_only' } }, { onSuccess: () => { setAsk(false); onChanged(); } })} data-testid="button-remove-today">Remove exercise</button>
+       <button className="btn btn-primary" disabled={remove.isPending} onClick={() => { onRemoved?.(); remove.mutate({ sessionId, workoutExerciseId: exercise.id, data: { scope: 'today_only' } }, { onSuccess: () => { setAsk(false); onChanged(); }, onError: () => onRemoveFailed?.() }); }} data-testid="button-remove-today">Remove exercise</button>
         <button className="btn btn-ghost" onClick={() => setAsk(false)}>Cancel</button>
       </div>
       {remove.isError && <ErrorNote message="Could not remove the exercise."/>}

@@ -2,3 +2,4 @@
 - [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
 - [Calendar-date contracts](calendar-date-contracts.md) — keep date strings and stable planned occurrence IDs; dates must not determine week/RIR identity.
 - [Verification isolation](verification-isolation.md) — verify the selected QA profile, not just workout ownership; preservation checks must include profile preferences.
+- [API test runner](api-test-runner.md) — Node workspace imports need a CommonJS bundle for route-level DB tests; development Pino transport resolution also needs care.

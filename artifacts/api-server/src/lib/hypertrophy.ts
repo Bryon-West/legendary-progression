@@ -218,15 +218,7 @@ export async function getWorkoutSummary(sessionId: number) {
     .limit(1);
   if (!session) return null;
 
-  const exercises = await db
-    .select({
-      id: workoutExercisesTable.id,
-      superseded: workoutExercisesTable.superseded,
-      skipped: workoutExercisesTable.skipped,
-    })
-    .from(workoutExercisesTable)
-    .where(eq(workoutExercisesTable.sessionId, sessionId));
-  const performedSupersededExercises = await db
+  const completedExercises = await db
     .select({ id: workoutExercisesTable.id })
     .from(workoutExercisesTable)
     .innerJoin(
@@ -236,7 +228,6 @@ export async function getWorkoutSummary(sessionId: number) {
     .where(
       and(
         eq(workoutExercisesTable.sessionId, sessionId),
-        eq(workoutExercisesTable.superseded, true),
         eq(workoutExercisesTable.skipped, false),
         eq(workoutSetsTable.setType, "work"),
         eq(workoutSetsTable.completed, true),
@@ -271,9 +262,7 @@ export async function getWorkoutSummary(sessionId: number) {
     startedAt: session.startedAt,
     endedAt: session.endedAt,
     totalVolume: session.totalVolume,
-    exerciseCount:
-      exercises.filter((exercise) => !exercise.superseded && !exercise.skipped).length +
-      performedSupersededExercises.length,
+    exerciseCount: completedExercises.length,
     workingSetCount: setCount?.count ?? 0,
     muscleTotals: workoutTree?.muscleTotals ?? [],
     mesocycleWeek: session.mesocycleWeek,

@@ -46,6 +46,7 @@ import type {
   MesocycleTemplate,
   NewMesocycleInput,
   NotFoundResponse,
+  PersonalRecords,
   PostFeedbackInput,
   Profile,
   ProfileEngineSettings,
@@ -1635,6 +1636,83 @@ export function useGetExerciseHistory<TData = Awaited<ReturnType<typeof getExerc
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetExerciseHistoryQueryOptions(profileId,exerciseId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPersonalRecordsUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/records`
+}
+
+/**
+ * @summary Get completed working-set records for a profile
+ */
+export const getPersonalRecords = async (profileId: number, options?: Parameters<typeof customFetch>[1]): Promise<PersonalRecords> => {
+
+  return customFetch<PersonalRecords>(getGetPersonalRecordsUrl(profileId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonalRecordsQueryKey = (profileId: number,) => {
+    return [
+    `/api/profiles/${profileId}/records`
+    ] as const;
+    }
+
+
+export const getGetPersonalRecordsQueryOptions = <TData = Awaited<ReturnType<typeof getPersonalRecords>>, TError = ErrorType<unknown>>(profileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonalRecordsQueryKey(profileId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonalRecords>>> = ({ signal }) => getPersonalRecords(profileId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: profileId !== null && profileId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPersonalRecords>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonalRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof getPersonalRecords>>>
+export type GetPersonalRecordsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get completed working-set records for a profile
+ */
+
+export function useGetPersonalRecords<TData = Awaited<ReturnType<typeof getPersonalRecords>>, TError = ErrorType<unknown>>(
+ profileId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonalRecords>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonalRecordsQueryOptions(profileId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

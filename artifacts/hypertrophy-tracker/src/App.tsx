@@ -9,6 +9,7 @@ import { ProfileProvider } from '@/lib/profile';
 import HomePage from '@/pages/home';
 import WorkoutPage from '@/pages/workout';
 import { HistoryPage, HistoryDetailPage } from '@/pages/history';
+import { PersonalRecordsPage, PersonalRecordDetailPage } from '@/pages/personal-records';
 import ExercisesPage from '@/pages/library';
 import MesocyclesPage from '@/pages/mesocycles';
 import MesocycleEditorPage from '@/pages/mesocycle-editor';
@@ -31,6 +32,8 @@ function Router() {
     <Route path="/" component={HomePage}/>
     <Route path="/workout/:sessionId" component={WorkoutPage}/>
     <Route path="/history" component={HistoryPage}/>
+    <Route path="/history/prs" component={PersonalRecordsPage}/>
+    <Route path="/history/prs/:exerciseId" component={PersonalRecordDetailPage}/>
     <Route path="/history/:sessionId" component={HistoryDetailPage}/>
     <Route path="/exercises" component={ExercisesPage}/>
     <Route path="/splits" component={MesocyclesPage}/>

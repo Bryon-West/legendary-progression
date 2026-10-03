@@ -1069,6 +1069,41 @@ export interface ExerciseHistoryEntry {
   actualRir: number | null;
 }
 
+export interface PersonalRecordSet {
+  sessionId: number;
+  setId: number;
+  /** The workout start date/time */
+  sessionDate: string;
+  weight: number;
+  reps: number;
+  /** @nullable */
+  rir: number | null;
+  heaviestLoadRecord: boolean;
+  legendaryPerformanceRecord: boolean;
+}
+
+export interface PersonalRecordExercise {
+  exerciseId: number;
+  exerciseName: string;
+  heaviestLoad: PersonalRecordSet | null;
+  bestPerformance: PersonalRecordSet | null;
+  history: PersonalRecordSet[];
+}
+
+export type PersonalRecordsWeightUnit = typeof PersonalRecordsWeightUnit[keyof typeof PersonalRecordsWeightUnit];
+
+
+export const PersonalRecordsWeightUnit = {
+  kg: 'kg',
+  lb: 'lb',
+} as const;
+
+export interface PersonalRecords {
+  profileId: number;
+  weightUnit: PersonalRecordsWeightUnit;
+  exercises: PersonalRecordExercise[];
+}
+
 export interface NextWorkoutDay {
   splitId: number;
   splitName: string;
@@ -1094,9 +1129,16 @@ export interface ProfileOverview {
   previouslyTrainedMuscles: string[];
 }
 
+export type FinishWorkoutResultSummary = {
+  exerciseCount: number;
+  workingSetCount: number;
+  newPrCount: number;
+};
+
 export interface FinishWorkoutResult {
   workout: WorkoutSession;
   nextWorkout: NextWorkoutDay | null;
+  summary: FinishWorkoutResultSummary;
 }
 
 /**

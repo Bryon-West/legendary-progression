@@ -749,6 +749,53 @@ export const GetExerciseHistoryResponse = zod.array(GetExerciseHistoryResponseIt
 
 
 /**
+ * @summary Get completed working-set records for a profile
+ */
+export const GetPersonalRecordsParams = zod.object({
+  "profileId": zod.coerce.number().int()
+})
+
+export const GetPersonalRecordsResponse = zod.object({
+  "profileId": zod.number().int(),
+  "weightUnit": zod.enum(['kg', 'lb']),
+  "exercises": zod.array(zod.object({
+  "exerciseId": zod.number().int(),
+  "exerciseName": zod.string(),
+  "heaviestLoad": zod.union([zod.object({
+  "sessionId": zod.number().int(),
+  "setId": zod.number().int(),
+  "sessionDate": zod.coerce.date().describe('The workout start date/time'),
+  "weight": zod.number(),
+  "reps": zod.number().int(),
+  "rir": zod.number().nullable(),
+  "heaviestLoadRecord": zod.boolean(),
+  "legendaryPerformanceRecord": zod.boolean()
+}),zod.null()]),
+  "bestPerformance": zod.union([zod.object({
+  "sessionId": zod.number().int(),
+  "setId": zod.number().int(),
+  "sessionDate": zod.coerce.date().describe('The workout start date/time'),
+  "weight": zod.number(),
+  "reps": zod.number().int(),
+  "rir": zod.number().nullable(),
+  "heaviestLoadRecord": zod.boolean(),
+  "legendaryPerformanceRecord": zod.boolean()
+}),zod.null()]),
+  "history": zod.array(zod.object({
+  "sessionId": zod.number().int(),
+  "setId": zod.number().int(),
+  "sessionDate": zod.coerce.date().describe('The workout start date/time'),
+  "weight": zod.number(),
+  "reps": zod.number().int(),
+  "rir": zod.number().nullable(),
+  "heaviestLoadRecord": zod.boolean(),
+  "legendaryPerformanceRecord": zod.boolean()
+}))
+}))
+})
+
+
+/**
  * @summary List workout splits for a profile
  */
 export const ListSplitsQueryParams = zod.object({
@@ -3068,7 +3115,12 @@ export const FinishWorkoutResponse = zod.object({
   "dayName": zod.string(),
   "dayIndex": zod.number().int(),
   "exerciseCount": zod.number().int()
-}),zod.null()])
+}),zod.null()]),
+  "summary": zod.object({
+  "exerciseCount": zod.number().int(),
+  "workingSetCount": zod.number().int(),
+  "newPrCount": zod.number().int()
+})
 })
 
 

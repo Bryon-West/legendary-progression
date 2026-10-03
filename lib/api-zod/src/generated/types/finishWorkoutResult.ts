@@ -5,10 +5,12 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { FinishWorkoutResultSummary } from './finishWorkoutResultSummary';
 import type { NextWorkoutDay } from './nextWorkoutDay';
 import type { WorkoutSession } from './workoutSession';
 
 export interface FinishWorkoutResult {
   workout: WorkoutSession;
   nextWorkout: NextWorkoutDay | null;
+  summary: FinishWorkoutResultSummary;
 }

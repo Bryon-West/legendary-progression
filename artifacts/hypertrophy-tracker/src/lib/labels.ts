@@ -17,7 +17,10 @@ export function humanize(raw: string) {
 export const CATEGORIES = ['strength', 'bodyweight', 'conditioning', 'mobility', 'other'] as const;
 export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Selectorized machine', 'Plate-loaded machine', 'Machine', 'Smith machine', 'Bodyweight', 'Other'];
 export const MUSCLES = ['Chest', 'Back', 'Lats', 'Upper back', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Front delts', 'Side delts', 'Rear delts', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Abs', 'Core'];
-export const weekLabel = (kind: string | null | undefined, index?: number | null, rir?: number | null) => kind === 'deload' ? 'RECOVERY WEEK — DELOAD' : kind === 'week_off' ? 'RECOVERY WEEK — WEEK OFF' : `WEEK ${index ?? ''} — ${rir ?? '?'} RIR`;
+export const formatRir = (rir: number | null | undefined) =>
+  rir == null || !Number.isFinite(rir) ? '—' : String(Number(rir.toFixed(1)));
+export const weekLabel = (kind: string | null | undefined, index?: number | null, rir?: number | null) =>
+  kind === 'deload' ? 'RECOVERY WEEK — DELOAD' : kind === 'week_off' ? 'RECOVERY WEEK — WEEK OFF' : `WEEK ${index ?? ''} — ${rir == null ? '?' : formatRir(rir)} RIR`;
 export const STATUS_META = {
   target_met: { label: 'Target met', cls: 'status-met' },
   above_target: { label: 'Above target', cls: 'status-above' },

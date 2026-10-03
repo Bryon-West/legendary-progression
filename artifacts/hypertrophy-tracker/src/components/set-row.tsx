@@ -3,6 +3,7 @@ import { Check, Lock, Pencil, Trash2, X } from 'lucide-react';
 import { getGetProfileEngineSettingsQueryKey, useCompleteWorkoutSet, useGetProfileEngineSettings, useUpdateWorkoutSet } from '@workspace/api-client-react';
 import type { WorkoutExercise, WorkoutSet, WorkoutSetUpdate } from '@workspace/api-client-react';
 import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/components/status';
+import { formatRir } from '@/lib/labels';
 import { fmtWeight, inputValue, parseInputToKg, parseIntOrNull, type WeightUnit } from '@/lib/units';
 import { useActiveProfile } from '@/lib/profile';
 import { useWorkoutDrafts } from '@/lib/workout-drafts';
@@ -183,9 +184,9 @@ export function SetRow({ set, label, exercise, sessionId, unit, readOnly, locked
         : <span className="set-head" style={{ fontSize: 8, display: 'grid', placeItems: 'center' }}>{locked && !set.completed ? <Lock size={13}/> : set.completed ? <Check size={14} color="hsl(var(--primary))"/> : isWork ? '' : 'warm-up'}</span>}
     </div>
     {isWork ? <div style={{ fontSize: 10.5, color: 'hsl(var(--muted-foreground))', margin: '4px 0 0 39px', lineHeight: 1.4 }} data-testid={`text-target-${set.id}`}>
-      {calibration ? <>Calibration set. About {exercise.calibrationRir ?? exercise.targetRir} RIR. Not rated.</>
+      {calibration ? <>Calibration set. About {formatRir(exercise.calibrationRir ?? exercise.targetRir)} RIR. Not rated.</>
         : locked && !set.completed ? <>Locked until the previous working set is completed.</>
-        : <>Target <b className="metric" style={{ color: 'hsl(var(--foreground))' }}>{fmtWeight(tw, unit)}{tr ? ` × ${Math.round(tr)}` : ''}</b> · {rangeText}, {rirT} RIR effort target</>}
+        : <>Target <b className="metric" style={{ color: 'hsl(var(--foreground))' }}>{fmtWeight(tw, unit)}{tr ? ` × ${Math.round(tr)}` : ''}</b> · {rangeText}, {formatRir(rirT)} RIR effort target</>}
     </div> : <div style={{ fontSize: 10.5, color: 'hsl(var(--muted-foreground))', margin: '4px 0 0 39px' }}>Warm-up, not rated and not counted</div>}
     {(liveInfo || incText) && !readOnly && !set.completed && isWork && !calibration && <div role="status" style={{ margin: '4px 0 0 39px', fontSize: 10.5, color: 'hsl(var(--primary))', lineHeight: 1.4 }} data-testid={`text-live-info-${set.id}`}>{liveInfo} {incText}</div>}
     {warning && <div className="notice-warn" style={{ margin: '5px 0 0 39px' }} data-testid={`text-warning-${set.id}`}>{warning}</div>}

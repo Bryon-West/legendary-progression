@@ -349,6 +349,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ExerciseHistoryEntry"
+  /profiles/{profileId}/records:
+    get:
+      operationId: getPersonalRecords
+      tags: [workouts]
+      summary: Get completed working-set records for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Exercise records and chronological qualifying set history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalRecords"
   /splits:
     get:
       operationId: listSplits
@@ -1489,6 +1507,44 @@ components:
         actualWeight: { type: ["number", "null"] }
         actualReps: { type: ["integer", "null"] }
         actualRir: { type: ["number", "null"] }
+    PersonalRecordSet:
+      type: object
+      required: [sessionId, setId, sessionDate, weight, reps, rir, heaviestLoadRecord, legendaryPerformanceRecord]
+      properties:
+        sessionId: { type: integer }
+        setId: { type: integer }
+        sessionDate: { type: string, format: date-time, description: The workout start date/time, unchanged by later edits. }
+        weight: { type: number }
+        reps: { type: integer }
+        rir: { type: ["number", "null"] }
+        heaviestLoadRecord: { type: boolean }
+        legendaryPerformanceRecord: { type: boolean }
+    PersonalRecordExercise:
+      type: object
+      required: [exerciseId, exerciseName, heaviestLoad, bestPerformance, history]
+      properties:
+        exerciseId: { type: integer }
+        exerciseName: { type: string }
+        heaviestLoad:
+          oneOf:
+            - $ref: "#/components/schemas/PersonalRecordSet"
+            - type: "null"
+        bestPerformance:
+          oneOf:
+            - $ref: "#/components/schemas/PersonalRecordSet"
+            - type: "null"
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/PersonalRecordSet" }
+    PersonalRecords:
+      type: object
+      required: [profileId, weightUnit, exercises]
+      properties:
+        profileId: { type: integer }
+        weightUnit: { type: string, enum: [kg, lb] }
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/PersonalRecordExercise" }
     NextWorkoutDay:
       type: object
       required: [splitId, splitName, dayId, dayName, dayIndex, exerciseCount]
@@ -1531,13 +1587,20 @@ components:
         workingSetCount: { type: integer }
     FinishWorkoutResult:
       type: object
-      required: [workout, nextWorkout]
+      required: [workout, nextWorkout, summary]
       properties:
         workout: { $ref: "#/components/schemas/WorkoutSession" }
         nextWorkout:
           oneOf:
             - $ref: "#/components/schemas/NextWorkoutDay"
             - type: "null"
+        summary:
+          type: object
+          required: [exerciseCount, workingSetCount, newPrCount]
+          properties:
+            exerciseCount: { type: integer }
+            workingSetCount: { type: integer }
+            newPrCount: { type: integer }
     DateOnly:
       type: string
       description: Calendar date kept as a string; never parse through a timestamp.

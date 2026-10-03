@@ -65,6 +65,7 @@ import { getExerciseBaseline, updateBaselinesFromCompletedSession } from "../lib
 import { getPrescription, initializeV22Session, generateNextOccurrence, type Prescription } from "../lib/legendary-prescriptions";
 import { activateMesocycle } from "../lib/legendary-lifecycle";
 import { applyAcceptedStructure, structuralState } from "../lib/legendary-structure";
+import { getPersonalRecords } from "../lib/personal-records";
 import { equivalence, performanceStatus, prescribe } from "../lib/legendary-v22-core";
 import {
   canEditSet,
@@ -1701,9 +1702,20 @@ router.post(
       res.status(500).json({ error: "Could not finish workout" });
       return;
     }
+    const records = await getPersonalRecords(session.profileId);
+    const newPrCount = records?.exercises.reduce((count, exercise) =>
+      count + exercise.history.filter((entry) =>
+        entry.sessionId === session.id &&
+        (entry.heaviestLoadRecord || entry.legendaryPerformanceRecord),
+      ).length, 0) ?? 0;
     res.json(FinishWorkoutResponse.parse({
       workout,
       nextWorkout: await getNextWorkout(session.profileId),
+      summary: {
+        exerciseCount: summary.exerciseCount,
+        workingSetCount: summary.workingSetCount,
+        newPrCount,
+      },
     }));
   },
 );
