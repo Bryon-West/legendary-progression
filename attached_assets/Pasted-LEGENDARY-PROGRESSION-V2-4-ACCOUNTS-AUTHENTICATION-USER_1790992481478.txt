@@ -1,0 +1,759 @@
+LEGENDARY PROGRESSION — V2.4
+ACCOUNTS, AUTHENTICATION & USER DATA SEPARATION
+
+V2.3 is complete and stable.
+
+V2.4 turns Legendary Progression from a development/profile-based application into a secure multi-user application.
+
+IMPORTANT:
+- Do NOT rewrite the V2.3 progression engine.
+- Preserve all V2.3A/B/C functionality and tests.
+- Do NOT reset/drop PostgreSQL.
+- Do NOT delete existing workout history.
+- Use safe migrations.
+- Authentication and authorization must be enforced SERVER-SIDE.
+- Do not build a fake frontend-only login system.
+- Do not store plaintext passwords.
+- Use established secure authentication/session practices.
+- Preserve the current mobile/PWA-first experience.
+- The attached gold Legendary Progression dragon artwork is the official authentication/welcome-screen artwork.
+
+==================================================
+1. ACCOUNT MODEL
+==================================================
+
+Move toward:
+
+ONE ACCOUNT = ONE ATHLETE
+
+A logged-in account owns its own:
+
+- settings/preferences
+- mesocycles
+- training splits
+- planned workouts
+- completed workouts
+- completed sets
+- exercise baselines
+- prescriptions
+- PR/history
+- recovery/readiness information
+- post-exercise feedback
+- Total Weight Lifted history
+- Calendar data
+
+The current development profile-selection system must NOT remain the security boundary.
+
+Authenticated account identity becomes the security boundary.
+
+Do not allow one account to access another account's training data.
+
+==================================================
+2. PRESERVE EXISTING USER DATA
+==================================================
+
+CRITICAL:
+
+Existing V2.3 data must not be lost during authentication migration.
+
+Do not automatically delete, recreate, or detach existing profiles.
+
+Create a safe migration strategy that allows the current primary working profile/data to become associated with an authenticated account.
+
+Before modifying ownership relationships:
+
+- inspect current user/profile relationships
+- inspect foreign keys
+- identify records belonging to existing profiles
+- determine a safe account/profile migration
+- preserve completed history
+
+If ownership is ambiguous, STOP and report the ambiguity rather than assigning historical data to the wrong account.
+
+Do not reset the database as part of authentication implementation.
+
+==================================================
+3. WELCOME / AUTHENTICATION SCREEN
+==================================================
+
+When no valid authenticated session exists, show a dedicated full-screen Legendary Progression welcome screen.
+
+Use the ATTACHED gold dragon artwork.
+
+IMPORTANT:
+- use the supplied image asset
+- do not redraw it
+- do not regenerate it
+- do not trace it
+- do not alter the dragon artwork
+- preserve aspect ratio
+- do not stretch
+- do not crop important portions of the dragon
+- allow the artwork to occupy a large hero area
+- preserve the dark artwork/background appearance
+
+Below/with the artwork display:
+
+LEGENDARY PROGRESSION
+
+Train. Progress. Become Legendary.
+
+Primary action:
+
+CREATE ACCOUNT
+
+Secondary action:
+
+LOG IN
+
+Keep the screen clean, premium, dark, and consistent with the existing black/gold Legendary design.
+
+==================================================
+4. LOGIN
+==================================================
+
+Login screen:
+
+LEGENDARY PROGRESSION
+
+Email
+
+Password
+
+LOG IN
+
+Forgot Password?
+
+Need an account? CREATE ACCOUNT
+
+Requirements:
+
+- email validation
+- password field obscured
+- show/hide password control is acceptable
+- clear validation messages
+- loading state while submitting
+- prevent duplicate submissions
+- keyboard-friendly mobile layout
+- appropriate password manager/autofill support
+
+Successful login:
+
+→ authenticate securely
+→ establish secure session
+→ load only that account's data
+→ go to Today
+
+Do not make the user log in every time they open the installed PWA.
+
+==================================================
+5. CREATE ACCOUNT
+==================================================
+
+Initial signup should remain simple.
+
+Collect:
+
+NAME
+EMAIL
+PASSWORD
+CONFIRM PASSWORD
+
+CREATE ACCOUNT
+
+Validate:
+
+- required fields
+- valid email
+- password confirmation
+- reasonable secure password requirements
+- duplicate email handling
+
+Do not collect unnecessary personal information.
+
+After successful account creation:
+
+→ establish authenticated session
+→ continue to first-time setup
+
+==================================================
+6. FIRST-TIME SETUP
+==================================================
+
+For a genuinely new account, show a short setup flow.
+
+At minimum:
+
+UNITS
+- lb
+- kg
+
+TRAINING EXPERIENCE
+- Beginner
+- Intermediate
+- Advanced
+
+Then:
+
+HOW WOULD YOU LIKE TO START?
+
+START FROM TEMPLATE
+BUILD MY OWN
+
+Use the existing mesocycle creation/template system rather than creating a second program builder.
+
+Do not force returning users through onboarding again.
+
+Store onboarding completion state.
+
+==================================================
+7. SESSION EXPERIENCE
+==================================================
+
+Installed PWA/mobile behavior should feel like a normal app.
+
+After initial authentication:
+
+Open Legendary
+→ restore valid session
+→ go directly to Today
+
+Do not show Login on every launch.
+
+If session is invalid/expired:
+
+→ return safely to Login
+
+Do not expose previously loaded private training information after logout/session expiration.
+
+==================================================
+8. LOGOUT
+==================================================
+
+Add LOG OUT under Profile/Settings.
+
+Logout must:
+
+- invalidate/end the current session appropriately
+- clear private account-specific client/cache state
+- return to authentication screen
+- prevent using browser back navigation to expose private workout data
+
+Do NOT delete training data when logging out.
+
+==================================================
+9. SERVER-SIDE AUTHORIZATION
+==================================================
+
+This is CRITICAL.
+
+Authentication answers:
+
+"Who is this user?"
+
+Authorization must answer:
+
+"Does this user own this requested resource?"
+
+Every protected server/API operation must derive or verify ownership from the authenticated account.
+
+Do not trust arbitrary client-provided user/profile IDs.
+
+Example:
+
+Authenticated Account A requests workout 500.
+
+Server must verify workout 500 belongs to Account A.
+
+If it belongs to Account B:
+
+DENY ACCESS.
+
+Changing an ID in a request must never expose another user's data.
+
+==================================================
+10. PROTECT ALL TRAINING RESOURCES
+==================================================
+
+Audit authorization for at least:
+
+- account/profile
+- mesocycles
+- training splits
+- mesocycle weeks
+- planned workouts
+- planned prescriptions
+- workout sessions
+- workout exercises
+- working sets
+- exercise baselines
+- PRs
+- Calendar
+- recovery/readiness
+- post-exercise feedback
+- Total Weight Lifted/history
+- custom exercises
+- user settings
+
+Every read/write/update/delete action must be appropriately scoped to the authenticated account.
+
+==================================================
+11. SHARED VS USER-OWNED DATA
+==================================================
+
+Clearly distinguish GLOBAL/shared application data from USER-owned data.
+
+GLOBAL examples:
+
+- standard exercise library
+- Legendary template definitions
+- general application configuration
+
+USER OWNED examples:
+
+- custom exercises created by that user
+- mesocycles
+- workouts
+- sets
+- PRs
+- baselines
+- feedback
+- recovery
+- preferences
+
+A user may read shared exercise/template data.
+
+A user must not modify global records in a way that affects every other user unless specifically intended/admin-controlled.
+
+==================================================
+12. REMOVE PROFILE PICKER AS NORMAL LOGIN FLOW
+==================================================
+
+The existing multiple-profile selection system was useful during development.
+
+It should NOT be the normal production authentication experience.
+
+Normal flow:
+
+ACCOUNT LOGIN
+→ THAT ATHLETE'S DATA
+
+Do not expose a list of other users/profiles on app startup.
+
+If internal profile records remain for architectural compatibility, they should be automatically associated with the authenticated account rather than manually selected by normal users.
+
+==================================================
+13. PROFILE / ACCOUNT SETTINGS
+==================================================
+
+Update Profile/Settings to include appropriate account information.
+
+At minimum:
+
+NAME
+EMAIL
+UNITS
+TRAINING EXPERIENCE
+
+Account actions:
+
+CHANGE PASSWORD
+LOG OUT
+
+Keep existing relevant training settings.
+
+Keep:
+
+RESET TRAINING DATA
+
+but scope it strictly to the authenticated account.
+
+Reset Training Data must NEVER clear another user's information.
+
+==================================================
+14. RESET TRAINING DATA WITH AUTH
+==================================================
+
+Preserve V2.3's protected reset feature.
+
+RESET TRAINING DATA should delete only the CURRENT AUTHENTICATED USER'S training data.
+
+Preserve their account/login.
+
+After reset:
+
+- account remains logged in
+- account settings remain
+- exercise library remains
+- training history/mesocycles/PRs/etc. are cleared for that user only
+
+Require existing RESET confirmation.
+
+Test with at least two accounts to prove Account A reset does not affect Account B.
+
+==================================================
+15. PASSWORD HANDLING
+==================================================
+
+Do NOT implement custom plaintext/reversible password storage.
+
+Use an established authentication/password system appropriate to the current Replit application architecture.
+
+Passwords must be securely handled using established password hashing/session practices.
+
+Do not expose password hashes through normal APIs or frontend data.
+
+Do not log passwords.
+
+==================================================
+16. FORGOT / RESET PASSWORD
+==================================================
+
+Implement a proper Forgot Password flow if supported by the chosen authentication system.
+
+User enters email.
+
+Provide a safe reset mechanism.
+
+Security requirements:
+
+- do not reveal unnecessarily whether a particular email exists
+- reset tokens must expire
+- tokens must be single-use where supported
+- new password invalidates/reset behavior appropriately
+
+If production email delivery requires an external service/configuration that is not currently available, implement the secure application-side flow and clearly report what external setup remains rather than inventing an insecure workaround.
+
+==================================================
+17. EMAIL VERIFICATION
+==================================================
+
+Design the account model so email verification can be supported.
+
+If the selected authentication provider supports verification cleanly, implement it.
+
+If external email configuration is required and unavailable, clearly identify that requirement.
+
+Do not block the rest of V2.4 merely by fabricating email delivery.
+
+==================================================
+18. GOOGLE / APPLE LOGIN
+==================================================
+
+Do NOT make Google or Apple login required for V2.4.
+
+V2.4 primary authentication:
+
+EMAIL + PASSWORD
+
+Structure authentication cleanly enough that social login can be added later without rewriting workout ownership.
+
+==================================================
+19. AUTHENTICATION ROUTE PROTECTION
+==================================================
+
+Unauthenticated users must not access protected application screens by manually navigating to their URLs.
+
+Protected:
+
+Today
+Calendar
+Log
+PRs
+Library user-specific features
+Plans
+Profile/account
+active workouts
+historical workouts
+
+If unauthenticated:
+
+redirect/show authentication flow.
+
+Public/shared exercise data does not need to be exposed publicly unless intentionally designed that way.
+
+==================================================
+20. MULTI-ACCOUNT ISOLATION TEST
+==================================================
+
+Create safe temporary QA accounts.
+
+ACCOUNT A:
+create mesocycle
+complete workout
+create PR
+
+ACCOUNT B:
+create separate mesocycle/workout
+
+Verify:
+
+A sees only A's training data.
+
+B sees only B's training data.
+
+Attempt server/API access from A to:
+
+B workout ID
+B mesocycle ID
+B set ID
+B PR/history
+B calendar records
+
+All must be denied.
+
+Repeat in reverse.
+
+This must be tested SERVER-SIDE, not merely by checking what the UI displays.
+
+Clean temporary QA accounts afterward if safe.
+
+Do not use or modify preserved production/test historical data unnecessarily.
+
+==================================================
+21. LOGOUT/CACHE ISOLATION TEST
+==================================================
+
+Test:
+
+Login Account A.
+Open workout/history.
+Logout.
+Login Account B.
+
+Account B must never briefly see cached Account A:
+
+- Today data
+- Calendar
+- Log
+- PRs
+- Plans
+- profile data
+
+Account-specific query caches/state must be cleared or safely keyed.
+
+==================================================
+22. TWO-DEVICE / SESSION DESIGN
+==================================================
+
+The architecture should support the same account being used on another device.
+
+Training data lives server-side in PostgreSQL, not only local browser storage.
+
+Logging into the same account elsewhere should retrieve the same persisted training history.
+
+Do not make localStorage the source of truth for authenticated training data.
+
+==================================================
+23. EXISTING V2.3 FUNCTIONALITY MUST REMAIN
+==================================================
+
+After authentication work, rerun V2.3 critical tests.
+
+Especially:
+
+- mesocycle create/calendar sync
+- Pause/Resume
+- End Early
+- delete mesocycle while preserving history
+- PR persistence
+- structural workout changes
+- Finish Workout
+- Week 1 RIR 3
+- next-week generation
+- recovery behavior
+
+CRITICAL PROGRESSION REGRESSION:
+
+225 × 8
+→ approved +5 lb progression
+→ 230 × 8 benchmark
+
+Do not allow authentication changes to regress progression.
+
+==================================================
+24. LOGIN/WELCOME MOBILE TEST
+==================================================
+
+Test authentication UI at approximately:
+
+320px
+360px
+390px
+412px
+tablet
+desktop
+
+Verify:
+
+- attached dragon artwork fits
+- no important artwork cropped
+- Legendary Progression name readable
+- Create Account visible
+- Log In visible
+- keyboard does not make fields/buttons unusable
+- password manager/autofill behavior is reasonable
+- errors fit without overflow
+- safe-area/PWA layout works
+
+==================================================
+25. INSTALLED PWA BEHAVIOR
+==================================================
+
+Where the environment permits, test:
+
+unauthenticated launch
+authenticated launch
+logout
+session restore
+expired/invalid session
+
+If an actual installed home-screen PWA cannot be tested in the environment, state that explicitly.
+
+Do not claim real-device PWA verification if only responsive browser preview was tested.
+
+==================================================
+26. DATABASE MIGRATION SAFETY
+==================================================
+
+Before applying ownership/auth migrations:
+
+inspect current records and relationships.
+
+Do not assign existing data to arbitrary newly-created accounts.
+
+Do not cascade-delete historical workout records.
+
+Use migrations and constraints carefully.
+
+If the existing profile/account relationship requires a potentially destructive migration:
+
+STOP and report the issue before executing it.
+
+==================================================
+27. SECURITY BASICS
+==================================================
+
+Use secure production-appropriate defaults.
+
+Include where applicable:
+
+- secure session handling
+- appropriate cookie/session flags
+- CSRF protections appropriate to architecture
+- input validation
+- rate limiting or reasonable protection on authentication attempts
+- no sensitive auth information in client logs
+- no passwords in logs
+- authorization checks on server
+- generic login/reset errors where appropriate
+
+Do not rely on obscured frontend buttons for security.
+
+==================================================
+28. AUTH FAILURE UX
+==================================================
+
+Use understandable messages.
+
+Examples:
+
+Login failed:
+"Email or password is incorrect."
+
+Expired session:
+"Your session has expired. Please log in again."
+
+Unauthorized resource:
+do not reveal another user's private resource details.
+
+Network failure:
+allow retry without losing entered email unnecessarily.
+
+==================================================
+29. AUTHENTICATION MUST NOT AFFECT TRAINING LOGIC
+==================================================
+
+Authentication should determine:
+
+WHO OWNS THE DATA.
+
+It should NOT change:
+
+HOW PROGRESSION WORKS.
+
+Do not refactor V2.3B progression calculations unless required solely to scope data ownership.
+
+Do not change:
+
+5 lb ≈ 1 rep evaluation rule
+±20 lb comparison limit
+6–30 rep guardrails
+compound load-first behavior
+set-specific rep benchmarks
++1 working-set progression
+deload logic
+RIR progression
+
+==================================================
+30. REQUIRED END-TO-END V2.4 TEST
+==================================================
+
+Run a safe QA scenario:
+
+1. Open unauthenticated app.
+2. Verify Legendary welcome screen with attached dragon artwork.
+3. Create Account A.
+4. Complete onboarding.
+5. Create mesocycle.
+6. Verify Week 1 RIR = 3.
+7. Complete test workout.
+8. Verify history/PR.
+9. Logout.
+10. Verify private data is no longer visible.
+11. Create/Login Account B.
+12. Verify B sees no A training data.
+13. Create separate B training data.
+14. Attempt direct API access to A's resources while authenticated as B.
+15. Verify denied.
+16. Logout B.
+17. Login A.
+18. Verify A's original data remains.
+19. Close/reopen application.
+20. Verify authenticated session restoration as designed.
+21. Run Reset Training Data on temporary Account B.
+22. Verify Account A remains completely unchanged.
+23. Rerun V2.3 progression regression:
+    225×8 → 230×8.
+24. Verify V2.3 lifecycle/calendar tests still pass.
+
+==================================================
+31. COMPLETION REPORT
+==================================================
+
+When finished report:
+
+- authentication system/provider/approach used
+- database/schema migrations
+- how existing profiles were handled
+- how existing historical data was preserved
+- server-side authorization strategy
+- session strategy
+- password handling approach
+- Forgot Password status
+- email verification status
+- files/components/routes changed
+- multi-account isolation test results
+- V2.3 regression results
+- responsive widths tested
+- whether installed PWA was actually tested
+- any external configuration still required
+- any unresolved security/data-migration concerns
+
+Do NOT publish the app automatically.
+
+Do NOT reset existing historical data.
+
+Do NOT begin payment/subscription/social-login work.
+
+V2.4 is complete only when authentication works AND server-side user-data isolation has been verified.
