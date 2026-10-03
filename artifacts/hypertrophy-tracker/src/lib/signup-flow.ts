@@ -1,5 +1,6 @@
 import type { useSignUp } from "@clerk/react";
 import type { listProfiles, updateProfile } from "@workspace/api-client-react";
+import { getSignupPasswordLengthError } from "./signup-password-policy.ts";
 
 type SignUpResource = ReturnType<typeof useSignUp>["signUp"];
 
@@ -12,6 +13,9 @@ export function buildPasswordSignupPayload(
   emailAddress: string,
   password: string,
 ): Parameters<SignUpResource["password"]>[0] {
+  const passwordError = getSignupPasswordLengthError(password);
+  if (passwordError) throw new Error(passwordError);
+
   return { emailAddress, password };
 }
 

@@ -5,6 +5,32 @@ import {
   createPasswordSignup,
   finalizeSignupAndSaveName,
 } from "./signup-flow.ts";
+import {
+  getSignupPasswordLengthError,
+  MIN_SIGNUP_PASSWORD_LENGTH,
+} from "./signup-password-policy.ts";
+
+test("signup blocks passwords below Clerk's 15-character minimum before sending the request", () => {
+  assert.equal(MIN_SIGNUP_PASSWORD_LENGTH, 15);
+  assert.match(getSignupPasswordLengthError("x".repeat(14)), /at least 15 characters/);
+  assert.equal(getSignupPasswordLengthError("x".repeat(15)), null);
+
+  let passwordRequests = 0;
+  assert.throws(
+    () => createPasswordSignup(
+      {
+        password: async () => {
+          passwordRequests += 1;
+          return { error: null };
+        },
+      },
+      "jordan@example.com",
+      "x".repeat(14),
+    ),
+    /at least 15 characters/,
+  );
+  assert.equal(passwordRequests, 0);
+});
 
 test("signup sends only Clerk-supported credentials and saves the entered name after verification", async () => {
   const calls = [];

@@ -10,6 +10,10 @@ import { SignIn, useSignUp } from "@clerk/react";
 import { Link, useLocation } from "wouter";
 import { basePath, stripBase } from "@/lib/clerk";
 import {
+  getSignupPasswordLengthError,
+  MIN_SIGNUP_PASSWORD_LENGTH,
+} from "@/lib/signup-password-policy";
+import {
   createPasswordSignup,
   finalizeSignupAndSaveName,
   saveSignupNameToProfile,
@@ -174,8 +178,9 @@ export function SignUpPage() {
       setError("Enter a valid email address.");
       return;
     }
-    if (password.length < 12) {
-      setError("Use a password with at least 12 characters.");
+    const passwordLengthError = getSignupPasswordLengthError(password);
+    if (passwordLengthError) {
+      setError(passwordLengthError);
       return;
     }
     if (password !== confirmation) {
@@ -321,12 +326,12 @@ export function SignUpPage() {
               />
             </label>
             <label className="lp-auth__field">
-              <span>Password <small>12 characters minimum</small></span>
+              <span>Password <small>{MIN_SIGNUP_PASSWORD_LENGTH} characters minimum</small></span>
               <input
                 type={showPasswords ? "text" : "password"}
                 autoComplete="new-password"
                 required
-                minLength={12}
+                minLength={MIN_SIGNUP_PASSWORD_LENGTH}
                 maxLength={256}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -341,7 +346,7 @@ export function SignUpPage() {
                   type={showPasswords ? "text" : "password"}
                   autoComplete="new-password"
                   required
-                  minLength={12}
+                  minLength={MIN_SIGNUP_PASSWORD_LENGTH}
                   maxLength={256}
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
