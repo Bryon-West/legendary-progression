@@ -4,14 +4,7 @@ import { CircleHelp, Dumbbell } from 'lucide-react';
 export function Loading({ label = 'Loading your training log' }: { label?: string }) {
   return (
     <main className="app-loading" role="status" aria-label={label}>
-      <img
-        className="app-loading__dragon"
-        src="/brand/dragon-512.png"
-        alt=""
-        aria-hidden="true"
-        width={512}
-        height={512}
-      />
+      <span className="app-loading__indicator" aria-hidden="true" />
     </main>
   );
 }

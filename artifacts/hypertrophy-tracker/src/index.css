@@ -81,13 +81,15 @@ button { cursor: pointer; }
   padding: 24px;
   background: #0f0e0c;
 }
-.app-loading__dragon {
-  width: min(78vw, 360px);
-  height: auto;
-  aspect-ratio: 1;
-  object-fit: contain;
-  animation: rise .8s ease-in-out infinite alternate;
+.app-loading__indicator {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgb(217 185 74 / 28%);
+  border-top-color: #d9b94a;
+  border-radius: 50%;
+  animation: app-loading-spin .8s linear infinite;
 }
+@keyframes app-loading-spin { to { transform: rotate(360deg); } }
 .eyebrow { font: 700 11px var(--app-font-mono); text-transform: uppercase; letter-spacing: .12em; color: hsl(var(--muted-foreground)); }
 .display { font-family: var(--display-font); text-transform: uppercase; letter-spacing: -.02em; line-height: .92; }
 .panel { border: 1px solid hsl(var(--border)); background: hsl(var(--card)); border-radius: 20px; box-shadow: var(--shadow-card); }
