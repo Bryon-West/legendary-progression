@@ -5,6 +5,7 @@ import { beatsComparablePerformance, derivePersonalRecords } from "./personal-re
 const candidate = (overrides = {}) => ({
   exerciseId: 7,
   exerciseName: "Barbell Bench Press",
+  category: "strength",
   sessionId: 1,
   sessionDate: "2026-09-25T16:00:00.000Z",
   sessionStatus: "completed",
@@ -28,7 +29,47 @@ test("a completed working set establishes the initial load and performance recor
   assert.equal(record.history[0].legendaryPerformanceRecord, true);
 });
 
-test("225 x 8 to 230 x 8 at the same RIR is a comparable performance PR", () => {
+test("the Epley estimate prefers 225 x 8 over the heavier 230 x 5", () => {
+  const records = derivePersonalRecords([
+    candidate(),
+    candidate({
+      sessionId: 2,
+      setId: 2,
+      sessionDate: "2026-10-02T16:00:00.000Z",
+      actualWeight: 230,
+      actualReps: 5,
+    }),
+  ], "lb");
+  assert.equal(records[0].bestPerformance?.setId, 1);
+  assert.equal(records[0].history[0].estimatedOneRepMax, 285);
+  assert.ok(Math.abs(records[0].history[1].estimatedOneRepMax - 268.3333333333333) < 1e-10);
+  assert.equal(records[0].heaviestLoad?.setId, 2);
+});
+
+test("strength e1RM history only includes working sets in the 1-10 rep range", () => {
+  const records = derivePersonalRecords([
+    candidate(),
+    candidate({
+      sessionId: 2,
+      setId: 2,
+      actualWeight: 250,
+      actualReps: 12,
+    }),
+  ], "lb");
+  assert.equal(records[0].history[1].estimatedOneRepMax, null);
+  assert.equal(records[0].bestPerformance?.setId, 1);
+});
+
+test("bodyweight exercises retain load records without fabricating an e1RM", () => {
+  const [record] = derivePersonalRecords([
+    candidate({ category: "bodyweight" }),
+  ], "lb");
+  assert.equal(record.heaviestLoad?.setId, 1);
+  assert.equal(record.bestPerformance, null);
+  assert.equal(record.history[0].estimatedOneRepMax, null);
+});
+
+test("strength e1RM improves with a later same-rep load PR", () => {
   const records = derivePersonalRecords([
     candidate(),
     candidate({

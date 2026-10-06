@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
+import { needsCatalogMetadataUpdate } from "./exercise-library-seed-model";
 
 type ExerciseSeed = {
   name: string;
   muscleGroup: string;
   equipment: string;
-  category: "strength" | "bodyweight" | "conditioning" | "mobility" | "other";
+  category: "strength" | "bodyweight" | "calisthenics" | "cardio" | "plyometric" | "carry" | "sled" | "conditioning" | "mobility" | "other";
   isCompound: boolean;
   instructions?: string;
   secondaryMuscles: string[];
@@ -13,9 +14,26 @@ type ExerciseSeed = {
   defaultRepMax: number;
   loadIncrementLb: number | null;
   loadIncrementKg: number | null;
+  metricDefinitions?: Array<{
+    type: "weight" | "reps" | "distance" | "time" | "height" | "elevation" | "calories" | "steps";
+    label: string;
+    unit: string;
+    required: boolean;
+  }>;
 };
 
-type ExistingExercise = { id: number; name: string; equipment: string };
+type ExistingExercise = {
+  id: number;
+  name: string;
+  equipment: string;
+  secondaryMuscles: string[];
+  aliases: string[];
+  defaultRepMin: number;
+  defaultRepMax: number;
+  loadIncrementLb: number | null;
+  loadIncrementKg: number | null;
+  metricDefinitions: NonNullable<ExerciseSeed["metricDefinitions"]> | null;
+};
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 const equipmentKey = (value: string) => {
@@ -25,13 +43,24 @@ const equipmentKey = (value: string) => {
 
 async function main() {
   const { pool } = await import(new URL("../../lib/db/src/index.ts", import.meta.url).href);
-  const fileUrl = new URL("../../lib/db/exercise-library-v21.json", import.meta.url);
-  const catalog = JSON.parse(await readFile(fileUrl, "utf8")) as ExerciseSeed[];
+  const [baseCatalog, additions] = await Promise.all([
+    readFile(new URL("../../lib/db/exercise-library-v21.json", import.meta.url), "utf8"),
+    readFile(new URL("../../lib/db/src/exercise-library-v22-additions.json", import.meta.url), "utf8"),
+  ]);
+  const catalog = [
+    ...JSON.parse(baseCatalog) as ExerciseSeed[],
+    ...JSON.parse(additions) as ExerciseSeed[],
+  ];
+  const dryRun = process.argv.includes("--dry-run");
   const canonicalNames = new Map<string, string>();
 
   for (const exercise of catalog) {
     if (exercise.defaultRepMin < 1 || exercise.defaultRepMax < exercise.defaultRepMin) {
       throw new Error(`Invalid rep range for catalog exercise "${exercise.name}".`);
+    }
+    if (exercise.metricDefinitions &&
+      (exercise.metricDefinitions.length < 1 || exercise.metricDefinitions.length > 2)) {
+      throw new Error(`Metric-driven exercise "${exercise.name}" must define one or two metrics.`);
     }
     for (const name of [exercise.name, ...exercise.aliases]) {
       const key = normalize(name);
@@ -49,10 +78,18 @@ async function main() {
   let metadataUpdated = 0;
   try {
     await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('legendary-exercise-library-v21'))");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('legendary-exercise-library-v22'))");
 
     const existingResult = await client.query(
-      "SELECT id, name, equipment FROM exercises WHERE profile_id IS NULL ORDER BY id",
+      `SELECT id, name, equipment,
+              secondary_muscles AS "secondaryMuscles",
+              aliases,
+              default_rep_min AS "defaultRepMin",
+              default_rep_max AS "defaultRepMax",
+              load_increment_lb AS "loadIncrementLb",
+              load_increment_kg AS "loadIncrementKg",
+              metric_definitions AS "metricDefinitions"
+       FROM exercises WHERE profile_id IS NULL ORDER BY id`,
     );
     const existingRows = existingResult.rows as ExistingExercise[];
 
@@ -73,13 +110,22 @@ async function main() {
         );
       });
 
+      if (matches.length > 1) {
+        const ambiguity = `Catalog exercise "${exercise.name}" matches multiple global rows: ${matches.map((row) => `${row.id}:${row.name}`).join(", ")}`;
+        if (dryRun) {
+          console.warn(`AMBIGUOUS: ${ambiguity}`);
+          continue;
+        }
+        throw new Error(ambiguity);
+      }
+
       if (matches.length === 0) {
-        await client.query(
+        if (!dryRun) await client.query(
           `INSERT INTO exercises (
              profile_id, name, muscle_group, equipment, category, instructions, is_compound,
              secondary_muscles, aliases, default_rep_min, default_rep_max,
-             load_increment_lb, load_increment_kg
-           ) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+             load_increment_lb, load_increment_kg, metric_definitions
+           ) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
           [
             exercise.name,
             exercise.muscleGroup,
@@ -93,6 +139,7 @@ async function main() {
             exercise.defaultRepMax,
             exercise.loadIncrementLb,
             exercise.loadIncrementKg,
+            exercise.metricDefinitions ? JSON.stringify(exercise.metricDefinitions) : null,
           ],
         );
         inserted += 1;
@@ -101,6 +148,10 @@ async function main() {
 
       matched += matches.length;
       for (const row of matches) {
+        if (dryRun) {
+          if (needsCatalogMetadataUpdate(row, exercise)) metadataUpdated += 1;
+          continue;
+        }
         const result = await client.query(
           `UPDATE exercises
            SET secondary_muscles = CASE
@@ -131,7 +182,11 @@ async function main() {
                  ELSE default_rep_max
                END,
                load_increment_lb = COALESCE(load_increment_lb, $6),
-               load_increment_kg = COALESCE(load_increment_kg, $7)
+               load_increment_kg = COALESCE(load_increment_kg, $7),
+               metric_definitions = CASE
+                 WHEN metric_definitions IS NULL AND $11::jsonb IS NOT NULL THEN $11::jsonb
+                 ELSE metric_definitions
+               END
            WHERE id = $1
              AND (
                (cardinality(secondary_muscles) = 0 AND cardinality($2::text[]) > 0)
@@ -150,6 +205,7 @@ async function main() {
                )
                OR (load_increment_lb IS NULL AND $6::double precision IS NOT NULL)
                OR (load_increment_kg IS NULL AND $7::double precision IS NOT NULL)
+               OR (metric_definitions IS NULL AND $11::jsonb IS NOT NULL)
              )`,
           [
             row.id,
@@ -162,15 +218,16 @@ async function main() {
             exercise.name,
             normalize(row.name) !== normalize(exercise.name),
             normalize(exercise.name),
+            exercise.metricDefinitions ? JSON.stringify(exercise.metricDefinitions) : null,
           ],
         );
         if ((result.rowCount ?? 0) > 0) metadataUpdated += 1;
       }
     }
 
-    await client.query("COMMIT");
+    await client.query(dryRun ? "ROLLBACK" : "COMMIT");
     console.info(
-      `Legendary exercise library seed complete: ${catalog.length} catalog entries, ${inserted} inserted, ${matched} existing global row(s) matched, ${metadataUpdated} existing row(s) had metadata filled.`,
+      `Legendary exercise library ${dryRun ? "dry run" : "seed"} complete: ${catalog.length} catalog entries, ${inserted} ${dryRun ? "would be inserted" : "inserted"}, ${matched} existing global row(s) matched, ${metadataUpdated} existing row(s) had metadata filled.`,
     );
   } catch (error) {
     await client.query("ROLLBACK");

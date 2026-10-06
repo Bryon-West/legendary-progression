@@ -12,6 +12,11 @@ export type ExerciseCategory = typeof ExerciseCategory[keyof typeof ExerciseCate
 export const ExerciseCategory = {
   strength: 'strength',
   bodyweight: 'bodyweight',
+  calisthenics: 'calisthenics',
+  cardio: 'cardio',
+  plyometric: 'plyometric',
+  carry: 'carry',
+  sled: 'sled',
   conditioning: 'conditioning',
   mobility: 'mobility',
   other: 'other',

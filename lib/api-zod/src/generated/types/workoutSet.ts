@@ -32,6 +32,13 @@ export interface WorkoutSet {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  /**
+     * Values are stored in canonical units (kg, m, seconds, counts or kcal), in the exercise's configured metric order.
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues: (number | null)[] | null;
   removed: boolean;
   /** @nullable */
   adaptiveTargetWeight: number | null;

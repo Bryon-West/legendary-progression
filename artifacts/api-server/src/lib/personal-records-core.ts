@@ -3,6 +3,7 @@ export type PersonalRecordWeightUnit = "kg" | "lb";
 export type PersonalRecordCandidate = {
   exerciseId: number;
   exerciseName: string;
+  category: string;
   sessionId: number;
   sessionDate: string | Date;
   sessionStatus: "active" | "completed";
@@ -24,6 +25,7 @@ export type PersonalRecordSet = {
   weight: number;
   reps: number;
   rir: number | null;
+  estimatedOneRepMax: number | null;
   heaviestLoadRecord: boolean;
   legendaryPerformanceRecord: boolean;
 };
@@ -71,6 +73,10 @@ export function beatsComparablePerformance(
   return candidate.actualReps > expectedReps + 1e-8;
 }
 
+export function epleyOneRepMax(weight: number, reps: number): number {
+  return weight * (1 + reps / 30);
+}
+
 export function derivePersonalRecords(
   candidates: PersonalRecordCandidate[],
   unit: PersonalRecordWeightUnit,
@@ -113,6 +119,10 @@ export function derivePersonalRecords(
       weight: candidate.actualWeight!,
       reps: candidate.actualReps!,
       rir: candidate.actualRir,
+      estimatedOneRepMax: candidate.category === "strength" &&
+        candidate.actualReps! >= 1 && candidate.actualReps! <= 10
+        ? epleyOneRepMax(candidate.actualWeight!, candidate.actualReps!)
+        : null,
       heaviestLoadRecord: false,
       legendaryPerformanceRecord: false,
     };
@@ -121,7 +131,9 @@ export function derivePersonalRecords(
       entry.heaviestLoadRecord = true;
       exercise.heaviestLoad = entry;
     }
-    if (!exercise.bestPerformance || beatsComparablePerformance(candidate, exercise.bestPerformance, unit)) {
+    if (entry.estimatedOneRepMax !== null &&
+      (!exercise.bestPerformance ||
+        entry.estimatedOneRepMax > (exercise.bestPerformance.estimatedOneRepMax ?? -Infinity))) {
       entry.legendaryPerformanceRecord = true;
       exercise.bestPerformance = entry;
     }

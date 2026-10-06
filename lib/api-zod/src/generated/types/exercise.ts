@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExerciseCategory } from './exerciseCategory';
+import type { ExerciseMetricDefinition } from './exerciseMetricDefinition';
 
 export interface Exercise {
   id: number;
@@ -15,6 +16,11 @@ export interface Exercise {
   muscleGroup: string;
   equipment: string;
   category: ExerciseCategory;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;

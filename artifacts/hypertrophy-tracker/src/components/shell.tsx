@@ -3,6 +3,7 @@ import { BarChart3, CalendarDays, Dumbbell, History, Home, UserRound } from 'luc
 import { useHealthCheck } from '@workspace/api-client-react';
 import { Link, useLocation } from 'wouter';
 import { useActiveProfile } from '@/lib/profile';
+import { profileInitials } from '@/lib/profile-initials';
 
 export function Shell({ children }: { children: ReactNode }) {
   const { profile, unit } = useActiveProfile();
@@ -23,7 +24,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="brand-wordmark">LEGENDARY PROGRESSION</span>
         </Link>
         {profile && <Link href="/profiles" className="badge badge-red" data-testid="badge-unit" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }} aria-label={`Profile settings, weight unit ${unit}`}>
-          <UserRound size={13}/>{unit}
+          <span aria-hidden="true" style={{ display: 'inline-grid', placeItems: 'center', width: 17, height: 17, borderRadius: '50%', fontSize: 9, fontWeight: 800, background: 'hsl(var(--background) / .2)' }}>{profileInitials(profile.name)}</span>{unit}
         </Link>}
       </div>
     </header>

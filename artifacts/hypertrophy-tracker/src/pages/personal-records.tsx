@@ -30,7 +30,7 @@ export function PersonalRecordsPage() {
       <Link href="/history" className="log-tab" data-testid="link-log-history">HISTORY</Link>
       <Link href="/history/prs" className="log-tab active" data-testid="link-log-prs">PRs</Link>
     </div>
-    <p style={{ margin: '0 0 16px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Completed working sets only. Records keep their original workout dates.</p>
+    <p style={{ margin: '0 0 16px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Strength e1RM records use the Epley estimate from completed sets of 1–10 reps. Heaviest load is tracked separately.</p>
     {exercises.length ? <div style={{ display: 'grid', gap: 10 }}>{exercises.map((exercise) => <RecordCard key={exercise.exerciseId} exercise={exercise} unit={unit} showRir={showRir}/>)}</div>
       : <Empty title="No records yet" detail="Completed working sets that establish a record will appear here. Warm-ups and planned work never qualify."/>}
   </main>;
@@ -46,8 +46,9 @@ function RecordCard({ exercise, unit, showRir }: { exercise: PersonalRecordExerc
         <ArrowRight size={17} color="hsl(var(--primary))"/>
       </div>
       {best && <div style={{ padding: '10px 11px', borderRadius: 12, background: 'hsl(var(--primary) / .09)', border: '1px solid hsl(var(--primary) / .24)' }}>
-        <div className="eyebrow" style={{ color: 'hsl(var(--primary))' }}>BEST PERFORMANCE / LEGENDARY PR</div>
-        <div className="metric" style={{ fontWeight: 700, marginTop: 5 }}>{performance(best, unit, showRir)}</div>
+        <div className="eyebrow" style={{ color: 'hsl(var(--primary))' }}>ESTIMATED 1RM PR · EPLEY</div>
+        <div className="metric" style={{ fontWeight: 700, marginTop: 5 }}>{best.estimatedOneRepMax != null ? `${fmtWeight(best.estimatedOneRepMax, unit, false)} ${unit}` : performance(best, unit, showRir)}</div>
+        {best.estimatedOneRepMax != null && <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Actual set · {performance(best, unit, showRir)}</div>}
         <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(best.sessionDate)}</div>
       </div>}
       {heaviest && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
@@ -73,6 +74,11 @@ export function PersonalRecordDetailPage() {
     <Link href="/history/prs" className="btn btn-ghost" style={{ padding: 0, textDecoration: 'none' }}><ArrowLeft size={17}/> All PRs</Link>
     <div className="eyebrow" style={{ marginTop: 18 }}>Chronological record history</div>
     <h1 className="display" style={{ fontSize: 43, margin: '7px 0 16px' }}>{exercise.exerciseName}</h1>
+    {exercise.bestPerformance?.estimatedOneRepMax != null && <div className="panel" style={{ padding: 14, marginBottom: 12 }}>
+      <div className="eyebrow">Estimated 1RM PR · Epley</div>
+      <div className="metric" style={{ marginTop: 5, fontWeight: 700 }}>{fmtWeight(exercise.bestPerformance.estimatedOneRepMax, unit, false)} {unit}</div>
+      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Established by {performance(exercise.bestPerformance, unit, showRir)} · {achievedDate(exercise.bestPerformance.sessionDate)}</div>
+    </div>}
     {exercise.heaviestLoad && <div className="panel" style={{ padding: 14, marginBottom: 12 }}>
       <div className="eyebrow">Heaviest load</div><div className="metric" style={{ marginTop: 5, fontWeight: 700 }}>{performance(exercise.heaviestLoad, unit, showRir)}</div>
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(exercise.heaviestLoad.sessionDate)}</div>
@@ -81,10 +87,11 @@ export function PersonalRecordDetailPage() {
       <span className="metric" style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, paddingTop: 2 }}>{String(index + 1).padStart(2, '0')}</span>
       <div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 5 }}>
-          {entry.legendaryPerformanceRecord && <span className="badge badge-red">BEST PERFORMANCE / LEGENDARY PR</span>}
+          {entry.legendaryPerformanceRecord && <span className="badge badge-red">ESTIMATED 1RM PR · EPLEY</span>}
           {entry.heaviestLoadRecord && <span className="badge">HEAVIEST LOAD</span>}
         </div>
         <div className="metric" style={{ fontWeight: 700 }}>{performance(entry, unit, showRir)}</div>
+        {entry.estimatedOneRepMax != null && <div style={{ fontSize: 12, marginTop: 4 }}>Estimated 1RM · {fmtWeight(entry.estimatedOneRepMax, unit, false)} {unit}</div>}
         <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(entry.sessionDate)}</div>
       </div>
     </article>)}</div> : <Empty title="No record history" detail="Completed performance records will appear here in workout-date order."/>}

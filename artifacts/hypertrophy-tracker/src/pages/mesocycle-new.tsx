@@ -34,12 +34,39 @@ export default function MesocycleNewPage() {
   const activeWeek = pickedWeek ?? recommended;
   const byId = new Map<number, Exercise>((exercises.data ?? []).map((e) => [e.id, e]));
 
-  const begin = (days: MesocycleDayInput[], rirs: number[], name: string, source: Source) => {
+  const begin = (
+    days: MesocycleDayInput[],
+    rirs: number[],
+    name: string,
+    source: Source,
+    weekPlan?: NonNullable<MesocycleTemplate['defaultWeeks']>,
+  ) => {
     const start = localToday();
     const dd: DraftDay[] = days.map((d) => ({ key: nk(), name: d.name, exercises: d.exercises.map((x) => exFromInput(x, byId, unit)) }));
-    setStarted({ draft: { name, startDate: start, days: dd, weeks: [...defaultWeeks(rirs, dd, start), { key: nk(), kind: 'deload' as const, rir: String(settings.data?.deloadRir ?? 4), state: 'new' as const, occ: newWeekOcc(dd, start, rirs.length) }] }, source });
+    const weeks = weekPlan
+      ? weekPlan.map((week, index) => ({
+          key: nk(),
+          kind: week.kind,
+          rir: String(week.targetRir ?? settings.data?.deloadRir ?? 4),
+          state: 'new' as const,
+          occ: newWeekOcc(dd, start, index),
+        }))
+      : [...defaultWeeks(rirs, dd, start), {
+          key: nk(),
+          kind: 'deload' as const,
+          rir: String(settings.data?.deloadRir ?? 4),
+          state: 'new' as const,
+          occ: newWeekOcc(dd, start, rirs.length),
+        }];
+    setStarted({ draft: { name, startDate: start, days: dd, weeks }, source });
   };
-  const startTemplate = (t: MesocycleTemplate) => begin(t.days, t.defaultLoadingRirs.length ? t.defaultLoadingRirs : [3, 2, 1, 0], t.name, { createMode: 'template', templateId: t.templateId, description: `Based on template ${t.name}` });
+  const startTemplate = (t: MesocycleTemplate) => begin(
+    t.days,
+    t.defaultLoadingRirs.length ? t.defaultLoadingRirs : [3, 2, 1, 0],
+    t.name,
+    { createMode: 'template', templateId: t.templateId, description: `Based on template ${t.name}` },
+    t.defaultWeeks,
+  );
   const startCopy = (chosen?: CopyEligibleWeek) => {
     const activeWeek = chosen ?? pickedWeek ?? recommended;
     if (!activeWeek) return;
@@ -72,12 +99,17 @@ export default function MesocycleNewPage() {
     <h1 className="display" style={{ fontSize: 44, margin: '8px 0 6px' }}>How do you want<br/>to start?</h1>
     <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 0 }}>Every option opens an editable draft. Nothing is saved until you press Save &amp; Exit.</p>
     <div className="seg" style={{ gridTemplateColumns: '1fr', margin: '16px 0' }} role="tablist">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-pressed={tab === id} onClick={() => setTab(id)} data-testid={`tab-${id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon size={17}/>{label.toUpperCase()}</button>)}</div>
-    {tab === 'template' && (templates.isLoading ? <div className="skeleton" style={{ height: 150 }}/> : templates.isError ? <QueryError retry={() => void templates.refetch()}/> : <div style={{ display: 'grid', gap: 9 }}>{templates.data?.map((t) => <article key={t.templateId} className="panel" style={{ padding: 15 }} data-testid={`card-template-${t.templateId}`}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><h2 style={{ margin: 0, fontSize: 16 }}>{t.name}</h2><div className="eyebrow" style={{ marginTop: 5 }}>{t.days.length} days · {t.defaultLoadingRirs.length} loading weeks</div></div></div>
+     {tab === 'template' && (templates.isLoading ? <div className="skeleton" style={{ height: 150 }}/> : templates.isError ? <QueryError retry={() => void templates.refetch()}/> : <div style={{ display: 'grid', gap: 9 }}>{templates.data?.map((t) => {
+       const loadingWeeks = t.defaultWeeks?.filter((week) => week.kind === 'loading').length ?? t.defaultLoadingRirs.length;
+       const deloadWeeks = t.defaultWeeks?.filter((week) => week.kind === 'deload').length ?? 1;
+       const totalWeeks = t.defaultWeeks?.length ?? loadingWeeks + deloadWeeks;
+       return <article key={t.templateId} className="panel" style={{ padding: 15 }} data-testid={`card-template-${t.templateId}`}>
+       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><h2 style={{ margin: 0, fontSize: 16 }}>{t.name}</h2><div className="eyebrow" style={{ marginTop: 5 }}>{t.days.length} days · {totalWeeks} weeks · {loadingWeeks} loading · {deloadWeeks} deload</div></div></div>
       <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))', margin: '9px 0' }}>{t.description}</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 11 }}>{t.days.map((d) => <span key={d.dayIndex} className="badge">{d.name}</span>)}</div>
       <button className="btn btn-primary btn-sm" style={{ width: '100%' }} disabled={exercises.isLoading || pickedTemplate === t.templateId} onClick={() => { setPickedTemplate(t.templateId); startTemplate(t); }} data-testid={`button-use-template-${t.templateId}`}>Use and edit <ArrowRight size={15}/></button>
-    </article>)}{!templates.data?.length && <Empty title="No templates yet" detail="Templates arrive from the server. Build your own in the meantime."/>}</div>)}
+     </article>;
+     })}{!templates.data?.length && <Empty title="No templates yet" detail="Templates arrive from the server. Build your own in the meantime."/>}</div>)}
     {tab === 'copy' && (copy.isLoading ? <div className="skeleton" style={{ height: 120 }}/> : copy.isError ? <QueryError retry={() => void copy.refetch()}/> : !copy.data?.eligibleWeeks.length ? <Empty title="Nothing to copy yet" detail="Only fully completed loading weeks can be copied. Deloads, weeks off and unfinished weeks are not eligible."/> : <div style={{ display: 'grid', gap: 10 }}>
       {recommended && <div className="panel" style={{ padding: 15, borderColor: 'hsl(var(--primary) / .5)' }}>
         <span className="badge badge-red">Recommended</span>

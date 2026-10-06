@@ -5,9 +5,11 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { ListExercisesCategory } from './listExercisesCategory';
 
 export type ListExercisesParams = {
 profileId: number;
 search?: string;
 muscleGroup?: string;
+category?: ListExercisesCategory;
 };

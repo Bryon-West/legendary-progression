@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MesocycleDayInput } from './mesocycleDayInput';
+import type { MesocycleTemplateDefaultWeeksItem } from './mesocycleTemplateDefaultWeeksItem';
 
 export interface MesocycleTemplate {
   templateId: string;
@@ -17,4 +18,6 @@ export interface MesocycleTemplate {
      * @items.maximum 10
      */
   defaultLoadingRirs: number[];
+  /** Optional explicit week structure for templates with interspersed deloads. */
+  defaultWeeks?: MesocycleTemplateDefaultWeeksItem[];
 }

@@ -42,6 +42,12 @@ export interface WorkoutSetUpdate {
      * @nullable
      */
   actualRir?: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues?: (number | null)[] | null;
   completed?: boolean;
   /** Must be true to modify an already completed row; blank prefills are not completed performance. */
   editIntent?: boolean;

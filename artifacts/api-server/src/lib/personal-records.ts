@@ -23,6 +23,7 @@ export async function getPersonalRecords(profileId: number) {
     .select({
       exerciseId: workoutExercisesTable.exerciseId,
       exerciseName: workoutExercisesTable.exerciseName,
+      category: workoutExercisesTable.category,
       sessionId: workoutSessionsTable.id,
       sessionDate: workoutSessionsTable.startedAt,
       sessionStatus: workoutSessionsTable.status,

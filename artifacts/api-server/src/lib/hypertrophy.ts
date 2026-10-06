@@ -510,6 +510,8 @@ export async function getExerciseHistory(profileId: number, exerciseId: number) 
       actualWeight: workoutSetsTable.actualWeight,
       actualReps: workoutSetsTable.actualReps,
       actualRir: workoutSetsTable.actualRir,
+      metricDefinitions: workoutExercisesTable.metricDefinitions,
+      metricValues: workoutSetsTable.metricValues,
     })
     .from(workoutSetsTable)
     .innerJoin(

@@ -5,6 +5,7 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+import type { ExerciseMetricDefinition } from './exerciseMetricDefinition';
 import type { WorkoutExerciseBaselineStatus } from './workoutExerciseBaselineStatus';
 import type { WorkoutExerciseCategory } from './workoutExerciseCategory';
 import type { WorkoutExerciseRecommendationOutcome } from './workoutExerciseRecommendationOutcome';
@@ -39,6 +40,11 @@ export interface WorkoutExercise {
   /** @nullable */
   painNote: string | null;
   category: WorkoutExerciseCategory;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
   isCompound: boolean;
   /** @nullable */
   recommendedWeight: number | null;

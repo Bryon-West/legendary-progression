@@ -15,6 +15,11 @@ export interface PersonalRecordSet {
   reps: number;
   /** @nullable */
   rir: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  estimatedOneRepMax: number | null;
   heaviestLoadRecord: boolean;
   legendaryPerformanceRecord: boolean;
 }

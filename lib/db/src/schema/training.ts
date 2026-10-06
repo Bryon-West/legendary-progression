@@ -16,6 +16,38 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+export type ExerciseMetricType =
+  | "weight"
+  | "reps"
+  | "distance"
+  | "time"
+  | "height"
+  | "elevation"
+  | "calories"
+  | "steps";
+export type ExerciseMetricUnit =
+  | "profile"
+  | "kg"
+  | "lb"
+  | "reps"
+  | "m"
+  | "km"
+  | "mi"
+  | "ft"
+  | "cm"
+  | "in"
+  | "s"
+  | "min"
+  | "h"
+  | "kcal"
+  | "steps";
+export interface ExerciseMetricDefinition {
+  type: ExerciseMetricType;
+  label: string;
+  unit: ExerciseMetricUnit;
+  required: boolean;
+}
+
 export const profilesTable = pgTable("training_profiles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -71,10 +103,23 @@ export const exercisesTable = pgTable(
     muscleGroup: text("muscle_group").notNull(),
     equipment: text("equipment").notNull(),
     category: text("category", {
-      enum: ["strength", "bodyweight", "conditioning", "mobility", "other"],
+      enum: [
+        "strength",
+        "bodyweight",
+        "calisthenics",
+        "cardio",
+        "plyometric",
+        "carry",
+        "sled",
+        "conditioning",
+        "mobility",
+        "other",
+      ],
     })
       .notNull()
       .default("strength"),
+    metricDefinitions: jsonb("metric_definitions")
+      .$type<ExerciseMetricDefinition[] | null>(),
     instructions: text("instructions"),
     isCompound: boolean("is_compound").notNull().default(false),
     progressionType: text("progression_type"),
@@ -363,10 +408,23 @@ export const workoutExercisesTable = pgTable(
     painReported: boolean("pain_reported").notNull().default(false),
     painNote: text("pain_note"),
     category: text("category", {
-      enum: ["strength", "bodyweight", "conditioning", "mobility", "other"],
+      enum: [
+        "strength",
+        "bodyweight",
+        "calisthenics",
+        "cardio",
+        "plyometric",
+        "carry",
+        "sled",
+        "conditioning",
+        "mobility",
+        "other",
+      ],
     })
       .notNull()
       .default("strength"),
+    metricDefinitions: jsonb("metric_definitions")
+      .$type<ExerciseMetricDefinition[] | null>(),
     isCompound: boolean("is_compound").notNull().default(false),
     recommendedWeight: doublePrecision("recommended_weight"),
     recommendedReps: integer("recommended_reps"),
@@ -424,6 +482,7 @@ export const workoutSetsTable = pgTable(
     actualWeight: doublePrecision("actual_weight"),
     actualReps: integer("actual_reps"),
     actualRir: doublePrecision("actual_rir"),
+    metricValues: jsonb("metric_values").$type<(number | null)[] | null>(),
     adaptiveTargetWeight: doublePrecision("adaptive_target_weight"),
     adaptiveTargetReps: integer("adaptive_target_reps"),
     adaptiveTargetRir: doublePrecision("adaptive_target_rir"),

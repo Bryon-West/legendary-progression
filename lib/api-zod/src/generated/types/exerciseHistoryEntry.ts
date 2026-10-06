@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExerciseHistoryEntrySetType } from './exerciseHistoryEntrySetType';
+import type { ExerciseMetricDefinition } from './exerciseMetricDefinition';
 
 export interface ExerciseHistoryEntry {
   sessionId: number;
@@ -26,4 +27,15 @@ export interface ExerciseHistoryEntry {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues: (number | null)[] | null;
 }

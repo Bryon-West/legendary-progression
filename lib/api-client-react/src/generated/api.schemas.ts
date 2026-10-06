@@ -257,12 +257,63 @@ export interface ProfileUpdate {
   onboardingComplete?: boolean;
 }
 
+export type ExerciseMetricDefinitionType = typeof ExerciseMetricDefinitionType[keyof typeof ExerciseMetricDefinitionType];
+
+
+export const ExerciseMetricDefinitionType = {
+  weight: 'weight',
+  reps: 'reps',
+  distance: 'distance',
+  time: 'time',
+  height: 'height',
+  elevation: 'elevation',
+  calories: 'calories',
+  steps: 'steps',
+} as const;
+
+export type ExerciseMetricDefinitionUnit = typeof ExerciseMetricDefinitionUnit[keyof typeof ExerciseMetricDefinitionUnit];
+
+
+export const ExerciseMetricDefinitionUnit = {
+  profile: 'profile',
+  kg: 'kg',
+  lb: 'lb',
+  reps: 'reps',
+  m: 'm',
+  km: 'km',
+  mi: 'mi',
+  ft: 'ft',
+  cm: 'cm',
+  in: 'in',
+  s: 's',
+  min: 'min',
+  h: 'h',
+  kcal: 'kcal',
+  steps: 'steps',
+} as const;
+
+export interface ExerciseMetricDefinition {
+  type: ExerciseMetricDefinitionType;
+  /**
+     * @minLength 1
+     * @maxLength 24
+     */
+  label: string;
+  unit: ExerciseMetricDefinitionUnit;
+  required: boolean;
+}
+
 export type ExerciseCategory = typeof ExerciseCategory[keyof typeof ExerciseCategory];
 
 
 export const ExerciseCategory = {
   strength: 'strength',
   bodyweight: 'bodyweight',
+  calisthenics: 'calisthenics',
+  cardio: 'cardio',
+  plyometric: 'plyometric',
+  carry: 'carry',
+  sled: 'sled',
   conditioning: 'conditioning',
   mobility: 'mobility',
   other: 'other',
@@ -276,6 +327,11 @@ export interface Exercise {
   muscleGroup: string;
   equipment: string;
   category: ExerciseCategory;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
@@ -302,6 +358,11 @@ export type ExerciseInputCategory = typeof ExerciseInputCategory[keyof typeof Ex
 export const ExerciseInputCategory = {
   strength: 'strength',
   bodyweight: 'bodyweight',
+  calisthenics: 'calisthenics',
+  cardio: 'cardio',
+  plyometric: 'plyometric',
+  carry: 'carry',
+  sled: 'sled',
   conditioning: 'conditioning',
   mobility: 'mobility',
   other: 'other',
@@ -325,6 +386,11 @@ export interface ExerciseInput {
      */
   equipment: string;
   category?: ExerciseInputCategory;
+  /**
+     * @minItems 1
+     * @maxItems 2
+     */
+  metricDefinitions?: ExerciseMetricDefinition[];
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;
@@ -660,6 +726,13 @@ export interface WorkoutSet {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  /**
+     * Values are stored in canonical units (kg, m, seconds, counts or kcal), in the exercise's configured metric order.
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues: (number | null)[] | null;
   removed: boolean;
   /** @nullable */
   adaptiveTargetWeight: number | null;
@@ -689,6 +762,11 @@ export type WorkoutExerciseCategory = typeof WorkoutExerciseCategory[keyof typeo
 export const WorkoutExerciseCategory = {
   strength: 'strength',
   bodyweight: 'bodyweight',
+  calisthenics: 'calisthenics',
+  cardio: 'cardio',
+  plyometric: 'plyometric',
+  carry: 'carry',
+  sled: 'sled',
   conditioning: 'conditioning',
   mobility: 'mobility',
   other: 'other',
@@ -749,6 +827,11 @@ export interface WorkoutExercise {
   /** @nullable */
   painNote: string | null;
   category: WorkoutExerciseCategory;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
   isCompound: boolean;
   /** @nullable */
   recommendedWeight: number | null;
@@ -919,6 +1002,12 @@ export interface WorkoutSetUpdate {
      * @nullable
      */
   actualRir?: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues?: (number | null)[] | null;
   completed?: boolean;
   /** Must be true to modify an already completed row; blank prefills are not completed performance. */
   editIntent?: boolean;
@@ -927,16 +1016,28 @@ export interface WorkoutSetUpdate {
 }
 
 export interface WorkoutSetCompletionInput {
-  /** @minimum 0 */
-  actualWeight: number;
-  /** @minimum 0 */
-  actualReps: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  actualWeight?: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  actualReps?: number | null;
   /**
      * @minimum 0
      * @maximum 10
      * @nullable
      */
   actualRir?: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues?: (number | null)[] | null;
   /** @nullable */
   notes?: string | null;
 }
@@ -1160,6 +1261,17 @@ export interface ExerciseHistoryEntry {
   actualReps: number | null;
   /** @nullable */
   actualRir: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     */
+  metricDefinitions: ExerciseMetricDefinition[] | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues: (number | null)[] | null;
 }
 
 export interface PersonalRecordSet {
@@ -1171,6 +1283,11 @@ export interface PersonalRecordSet {
   reps: number;
   /** @nullable */
   rir: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  estimatedOneRepMax: number | null;
   heaviestLoadRecord: boolean;
   legendaryPerformanceRecord: boolean;
 }
@@ -1482,6 +1599,24 @@ export type MesocycleCreateInput = NewMesocycleInput & ({
   sourceWeekId?: number | null;
 });
 
+export type MesocycleTemplateDefaultWeeksItemKind = typeof MesocycleTemplateDefaultWeeksItemKind[keyof typeof MesocycleTemplateDefaultWeeksItemKind];
+
+
+export const MesocycleTemplateDefaultWeeksItemKind = {
+  loading: 'loading',
+  deload: 'deload',
+} as const;
+
+export type MesocycleTemplateDefaultWeeksItem = {
+  kind: MesocycleTemplateDefaultWeeksItemKind;
+  /**
+     * @minimum 0
+     * @maximum 10
+     * @nullable
+     */
+  targetRir: number | null;
+};
+
 export interface MesocycleTemplate {
   templateId: string;
   name: string;
@@ -1492,6 +1627,8 @@ export interface MesocycleTemplate {
      * @items.maximum 10
      */
   defaultLoadingRirs: number[];
+  /** Optional explicit week structure for templates with interspersed deloads. */
+  defaultWeeks?: MesocycleTemplateDefaultWeeksItem[];
 }
 
 export interface CopyEligibleWeek {
@@ -1690,7 +1827,24 @@ export type ListExercisesParams = {
 profileId: number;
 search?: string;
 muscleGroup?: string;
+category?: ListExercisesCategory;
 };
+
+export type ListExercisesCategory = typeof ListExercisesCategory[keyof typeof ListExercisesCategory];
+
+
+export const ListExercisesCategory = {
+  strength: 'strength',
+  bodyweight: 'bodyweight',
+  calisthenics: 'calisthenics',
+  cardio: 'cardio',
+  plyometric: 'plyometric',
+  carry: 'carry',
+  sled: 'sled',
+  conditioning: 'conditioning',
+  mobility: 'mobility',
+  other: 'other',
+} as const;
 
 export type ListSplitsParams = {
 profileId: number;

@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import {
+  hypertrophyEightWeekPlan,
+  sizeTwelveWeekPlan,
+  type DefaultMesocycleWeek,
+} from "../lib/mesocycle-template-plan";
+import {
   CreateMesocycleBody,
   CreateMesocycleResponse,
   GetExerciseBaselineParams,
@@ -261,7 +266,13 @@ function validateDraft(days: DayPlan[], weeks: WeekPlan[], startDate: string, en
   });
 }
 
-const templateLayouts: Array<{ id: string; name: string; description: string; days: Array<{ name: string; exercises: Array<[string, number, number, number]> }> }> = [
+const templateLayouts: Array<{
+  id: string;
+  name: string;
+  description: string;
+  days: Array<{ name: string; exercises: Array<[string, number, number, number]> }>;
+  defaultWeeks?: DefaultMesocycleWeek[];
+}> = [
   { id: "legendary-full-body-3", name: "Legendary Full Body — 3 Day", description: "Balanced full-body training with alternating emphasis.", days: [
     { name: "Full Body A", exercises: [["Barbell Bench Press", 3, 6, 10], ["Barbell Back Squat", 3, 6, 10], ["Seated Cable Row", 3, 8, 12], ["Romanian Deadlift", 2, 8, 12], ["Cable Lateral Raise", 2, 12, 20]] },
     { name: "Full Body B", exercises: [["Incline Dumbbell Press", 3, 8, 12], ["Leg Press", 3, 8, 12], ["Lat Pulldown", 3, 8, 12], ["Seated Leg Curl", 2, 10, 15], ["Dumbbell Curl", 2, 10, 15]] },
@@ -312,6 +323,25 @@ const templateLayouts: Array<{ id: string; name: string; description: string; da
   ] },
 ];
 
+const hypertrophyDays = templateLayouts.find((layout) => layout.id === "legendary-hypertrophy-5")!.days;
+const sizeDays = templateLayouts.find((layout) => layout.id === "legendary-upper-lower-4")!.days;
+templateLayouts.push(
+  {
+    id: "legendary-hypertrophy-8",
+    name: "8-Week Hypertrophy",
+    description: "Five focused training days with two planned deload weeks and three-week loading blocks.",
+    days: hypertrophyDays,
+    defaultWeeks: hypertrophyEightWeekPlan,
+  },
+  {
+    id: "legendary-size-12",
+    name: "12-Week Size",
+    description: "Upper/lower training with three loading blocks, each followed by a planned deload.",
+    days: sizeDays,
+    defaultWeeks: sizeTwelveWeekPlan,
+  },
+);
+
 async function resolveTemplateLayouts() {
   const catalog = await db.select().from(exercisesTable).where(isNull(exercisesTable.profileId));
   const byName = new Map<string, typeof catalog[number]>();
@@ -350,7 +380,10 @@ async function resolveTemplateLayouts() {
       name: layout.name,
       description: layout.description,
       days,
-      defaultLoadingRirs: [3, 2, 1, 0],
+      defaultLoadingRirs: layout.defaultWeeks
+        ? layout.defaultWeeks.filter((week) => week.kind === "loading").map((week) => week.targetRir ?? 0)
+        : [3, 2, 1, 0],
+      ...(layout.defaultWeeks ? { defaultWeeks: layout.defaultWeeks } : {}),
     });
   }
   return templates;

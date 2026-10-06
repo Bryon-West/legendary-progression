@@ -57,6 +57,7 @@ import {
   getProfileOverview,
   getSplitTree,
 } from "../lib/hypertrophy";
+import { validateMetricDefinitions } from "../lib/exercise-metrics";
 
 const router: IRouter = Router();
 
@@ -230,15 +231,24 @@ router.get("/exercises", async (req, res): Promise<void> => {
     filters.push(or(
       ilike(exercisesTable.name, search),
       ilike(exercisesTable.muscleGroup, search),
+        ilike(exercisesTable.equipment, search),
+        ilike(exercisesTable.category, search),
       sql<boolean>`EXISTS (
         SELECT 1 FROM unnest(${exercisesTable.aliases}) AS lookup(alias)
         WHERE lookup.alias ILIKE ${search}
       )`,
+        sql<boolean>`EXISTS (
+          SELECT 1 FROM unnest(${exercisesTable.secondaryMuscles}) AS lookup(muscle)
+          WHERE lookup.muscle ILIKE ${search}
+        )`,
     ));
   }
   if (parsed.data.muscleGroup?.trim()) {
     filters.push(eq(exercisesTable.muscleGroup, parsed.data.muscleGroup.trim()));
   }
+    if (parsed.data.category) {
+      filters.push(eq(exercisesTable.category, parsed.data.category));
+    }
   const exercises = await db
     .select()
     .from(exercisesTable)
@@ -253,6 +263,14 @@ router.post("/exercises", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (parsed.data.metricDefinitions) {
+    try {
+      validateMetricDefinitions(parsed.data.metricDefinitions);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Invalid metric configuration" });
+      return;
+    }
+  }
   const [exercise] = await db
     .insert(exercisesTable)
     .values({
@@ -261,6 +279,10 @@ router.post("/exercises", async (req, res): Promise<void> => {
       muscleGroup: parsed.data.muscleGroup.trim(),
       equipment: parsed.data.equipment.trim(),
       instructions: parsed.data.instructions?.trim() || null,
+      metricDefinitions: parsed.data.metricDefinitions?.map((metric) => ({
+        ...metric,
+        label: metric.label.trim(),
+      })) ?? null,
     })
     .returning();
   res.status(201).json(CreateExerciseResponse.parse(exercise));

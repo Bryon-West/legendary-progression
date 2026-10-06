@@ -328,6 +328,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [strength, bodyweight, calisthenics, cardio, plyometric, carry, sled, conditioning, mobility, other]
       responses:
         "200":
           description: Exercises available to this profile
@@ -1154,16 +1160,28 @@ components:
           type: ["string", "null"]
           enum: [beginner, intermediate, advanced, null]
         onboardingComplete: { type: boolean }
+    ExerciseMetricDefinition:
+      type: object
+      required: [type, label, unit, required]
+      properties:
+        type: { type: string, enum: [weight, reps, distance, time, height, elevation, calories, steps] }
+        label: { type: string, minLength: 1, maxLength: 24 }
+        unit: { type: string, enum: [profile, kg, lb, reps, m, km, mi, ft, cm, in, s, min, h, kcal, steps] }
+        required: { type: boolean }
     Exercise:
       type: object
-      required: [id, profileId, name, muscleGroup, equipment, category, isCompound, secondaryMuscles, aliases, defaultRepMin, defaultRepMax, loadIncrementLb, loadIncrementKg, createdAt]
+      required: [id, profileId, name, muscleGroup, equipment, category, metricDefinitions, isCompound, secondaryMuscles, aliases, defaultRepMin, defaultRepMax, loadIncrementLb, loadIncrementKg, createdAt]
       properties:
         id: { type: integer }
         profileId: { type: ["integer", "null"] }
         name: { type: string }
         muscleGroup: { type: string }
         equipment: { type: string }
-        category: { type: string, enum: [strength, bodyweight, conditioning, mobility, other] }
+        category: { type: string, enum: [strength, bodyweight, calisthenics, cardio, plyometric, carry, sled, conditioning, mobility, other] }
+        metricDefinitions:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { $ref: "#/components/schemas/ExerciseMetricDefinition" }
         instructions: { type: ["string", "null"] }
         isCompound: { type: boolean }
         secondaryMuscles: { type: array, items: { type: string } }
@@ -1181,7 +1199,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         muscleGroup: { type: string, minLength: 1, maxLength: 60 }
         equipment: { type: string, minLength: 1, maxLength: 80 }
-        category: { type: string, enum: [strength, bodyweight, conditioning, mobility, other], default: strength }
+        category: { type: string, enum: [strength, bodyweight, calisthenics, cardio, plyometric, carry, sled, conditioning, mobility, other], default: strength }
+        metricDefinitions:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items: { $ref: "#/components/schemas/ExerciseMetricDefinition" }
         instructions: { type: ["string", "null"] }
         isCompound: { type: boolean }
         secondaryMuscles: { type: array, items: { type: string } }
@@ -1322,7 +1345,7 @@ components:
           items: { $ref: "#/components/schemas/MesocycleDayInput" }
     WorkoutSet:
       type: object
-      required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, completed, removed, adaptiveTargetWeight, adaptiveTargetReps, adaptiveTargetRir, adaptiveWarning, targetStatus, targetExplanation, algorithmVersion, completedAt, workflowState]
+      required: [id, workoutExerciseId, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, metricValues, completed, removed, adaptiveTargetWeight, adaptiveTargetReps, adaptiveTargetRir, adaptiveWarning, targetStatus, targetExplanation, algorithmVersion, completedAt, workflowState]
       properties:
         referenceTargetWeight: { type: ["number", "null"] }
         referenceTargetReps: { type: ["integer", "null"] }
@@ -1337,6 +1360,11 @@ components:
         actualWeight: { type: ["number", "null"] }
         actualReps: { type: ["integer", "null"] }
         actualRir: { type: ["number", "null"] }
+        metricValues:
+          type: ["array", "null"]
+          maxItems: 2
+          description: Values are stored in canonical units (kg, m, seconds, counts or kcal), in the exercise's configured metric order.
+          items: { type: ["number", "null"], minimum: 0 }
         removed: { type: boolean }
         adaptiveTargetWeight: { type: ["number", "null"] }
         adaptiveTargetReps: { type: ["integer", "null"] }
@@ -1351,7 +1379,7 @@ components:
         workflowState: { type: string, enum: [locked, active, unlocked] }
     WorkoutExercise:
       type: object
-      required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, orderIndex, superseded, skipped, painReported, painNote, category, isCompound, recommendedWeight, recommendedReps, recommendationOutcome, recommendationRationale, substitutedFromExerciseId, calibrationMode, calibrationRir, baselineStatus, sets]
+      required: [id, sessionId, exerciseId, exerciseName, muscleGroup, targetRir, targetSets, minimumWorkingSets, maximumWorkingSets, targetRepsMin, targetRepsMax, orderIndex, superseded, skipped, painReported, painNote, category, metricDefinitions, isCompound, recommendedWeight, recommendedReps, recommendationOutcome, recommendationRationale, substitutedFromExerciseId, calibrationMode, calibrationRir, baselineStatus, sets]
       properties:
         loadIncrement: { type: number }
         recoveryAdjustment: { type: ["string", "null"] }
@@ -1373,7 +1401,11 @@ components:
         skipped: { type: boolean }
         painReported: { type: boolean }
         painNote: { type: ["string", "null"] }
-        category: { type: string, enum: [strength, bodyweight, conditioning, mobility, other] }
+        category: { type: string, enum: [strength, bodyweight, calisthenics, cardio, plyometric, carry, sled, conditioning, mobility, other] }
+        metricDefinitions:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { $ref: "#/components/schemas/ExerciseMetricDefinition" }
         isCompound: { type: boolean }
         recommendedWeight: { type: ["number", "null"] }
         recommendedReps: { type: ["integer", "null"] }
@@ -1437,6 +1469,10 @@ components:
         actualWeight: { type: ["number", "null"], minimum: 0 }
         actualReps: { type: ["integer", "null"], minimum: 0 }
         actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
+        metricValues:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { type: ["number", "null"], minimum: 0 }
         completed: { type: boolean }
         editIntent:
           type: boolean
@@ -1444,11 +1480,14 @@ components:
         notes: { type: ["string", "null"] }
     WorkoutSetCompletionInput:
       type: object
-      required: [actualWeight, actualReps]
       properties:
-        actualWeight: { type: number, minimum: 0 }
-        actualReps: { type: integer, minimum: 0 }
+        actualWeight: { type: ["number", "null"], minimum: 0 }
+        actualReps: { type: ["integer", "null"], minimum: 0 }
         actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
+        metricValues:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { type: ["number", "null"], minimum: 0 }
         notes: { type: ["string", "null"] }
     WorkoutSetWorkflowResult:
       type: object
@@ -1548,7 +1587,7 @@ components:
         readiness: { type: ["string", "null"], enum: [great, normal, below_normal, poor, null] }
     ExerciseHistoryEntry:
       type: object
-      required: [sessionId, sessionDate, dayName, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir]
+      required: [sessionId, sessionDate, dayName, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, metricDefinitions, metricValues]
       properties:
         sessionId: { type: integer }
         sessionDate: { type: string, format: date-time }
@@ -1561,9 +1600,17 @@ components:
         actualWeight: { type: ["number", "null"] }
         actualReps: { type: ["integer", "null"] }
         actualRir: { type: ["number", "null"] }
+        metricDefinitions:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { $ref: "#/components/schemas/ExerciseMetricDefinition" }
+        metricValues:
+          type: ["array", "null"]
+          maxItems: 2
+          items: { type: ["number", "null"], minimum: 0 }
     PersonalRecordSet:
       type: object
-      required: [sessionId, setId, sessionDate, weight, reps, rir, heaviestLoadRecord, legendaryPerformanceRecord]
+      required: [sessionId, setId, sessionDate, weight, reps, rir, estimatedOneRepMax, heaviestLoadRecord, legendaryPerformanceRecord]
       properties:
         sessionId: { type: integer }
         setId: { type: integer }
@@ -1571,6 +1618,7 @@ components:
         weight: { type: number }
         reps: { type: integer }
         rir: { type: ["number", "null"] }
+        estimatedOneRepMax: { type: ["number", "null"], minimum: 0 }
         heaviestLoadRecord: { type: boolean }
         legendaryPerformanceRecord: { type: boolean }
     PersonalRecordExercise:
@@ -1803,6 +1851,15 @@ components:
         defaultLoadingRirs:
           type: array
           items: { type: number, minimum: 0, maximum: 10 }
+        defaultWeeks:
+          type: array
+          description: Optional explicit week structure for templates with interspersed deloads.
+          items:
+            type: object
+            required: [kind, targetRir]
+            properties:
+              kind: { type: string, enum: [loading, deload] }
+              targetRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
     MesocycleCopyOptions:
       type: object
       required: [recommendedWeekId, eligibleWeeks]

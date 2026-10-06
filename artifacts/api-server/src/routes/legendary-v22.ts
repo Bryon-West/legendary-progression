@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { AddLoadingWeekBody, AdjustExerciseRecoveryBody, GetPersonalRecordsParams, GetPersonalRecordsResponse, ReorderWorkoutExerciseBody, RemoveWorkoutExerciseBody, SaveExercisePostFeedbackBody, TransitionMesocycleBody } from "@workspace/api-zod";
-import { db, exerciseFeedbackTable, mesocycleWeeksTable, plannedWorkoutsTable, splitDayExercisesTable, trainingSplitsTable, workoutExercisesTable, workoutSessionsTable, workoutSetsTable } from "@workspace/db";
+import { db, exerciseFeedbackTable, exercisesTable, mesocycleWeeksTable, plannedWorkoutsTable, splitDayExercisesTable, trainingSplitsTable, workoutExercisesTable, workoutSessionsTable, workoutSetsTable } from "@workspace/db";
 import { getWorkoutTree } from "../lib/hypertrophy";
 import { getProfileLoadIncrement } from "../lib/progression";
 import { changeLoadingWeek, transitionLifecycle } from "../lib/legendary-lifecycle";
@@ -9,6 +9,7 @@ import { getPrescription, invalidateFuturePrescriptions } from "../lib/legendary
 import { workoutContext } from "../lib/legendary-structure";
 import { getPersonalRecords } from "../lib/personal-records";
 import { recoveryLoad, recoverySets } from "../lib/legendary-v22-core";
+import { isMetricDrivenExercise } from "../lib/exercise-metrics";
 const router = Router();
 const id = (value: unknown) => {
   const n = Number(value); if (!Number.isSafeInteger(n) || n <= 0) throw new Error("Invalid ID"); return n;
@@ -17,8 +18,13 @@ const handle = (work: (req: any, res: any) => Promise<void>) => async (req: any,
   try { await work(req, res); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : "Request failed" }); }
 };
 async function activeExercise(req: any) {
-  const [record] = await db.select({ exercise: workoutExercisesTable, session: workoutSessionsTable })
+  const [record] = await db.select({
+    exercise: workoutExercisesTable,
+    session: workoutSessionsTable,
+    exerciseCategory: exercisesTable.category,
+  })
     .from(workoutExercisesTable).innerJoin(workoutSessionsTable, eq(workoutSessionsTable.id, workoutExercisesTable.sessionId))
+    .innerJoin(exercisesTable, eq(exercisesTable.id, workoutExercisesTable.exerciseId))
     .where(and(eq(workoutExercisesTable.id, id(req.params.workoutExerciseId)), eq(workoutSessionsTable.id, id(req.params.sessionId)))).limit(1);
   if (!record || record.session.status !== "active" || record.exercise.superseded) throw new Error("Exercise is unavailable in an active workout");
   return record;
@@ -54,7 +60,10 @@ router.get("/profiles/:profileId/records", handle(async (req, res) => {
 router.get("/workouts/:sessionId/structure-changes", handle(async (req, res) => { res.json(await workoutContext(id(req.params.sessionId))); }));
 router.put("/workouts/:sessionId/exercises/:workoutExerciseId/post-feedback", handle(async (req, res) => {
   const body = SaveExercisePostFeedbackBody.parse(req.body);
-  const { exercise, session } = await activeExercise(req);
+  const { exercise, session, exerciseCategory } = await activeExercise(req);
+  if (isMetricDrivenExercise(exerciseCategory, exercise.metricDefinitions)) {
+    throw new Error("Exercise feedback is only available for resistance exercises");
+  }
   const sets = await db.select().from(workoutSetsTable).where(and(eq(workoutSetsTable.workoutExerciseId, exercise.id), eq(workoutSetsTable.setType, "work"), eq(workoutSetsTable.removed, false)));
   if (!sets.length || !sets.every(s => s.completed) || exercise.skipped) throw new Error("Complete the final working set before recording feedback");
   const [feedback] = await db.insert(exerciseFeedbackTable).values({
@@ -93,7 +102,10 @@ router.post("/workouts/:sessionId/exercises/:workoutExerciseId/remove", handle(a
 }));
 router.post("/workouts/:sessionId/exercises/:workoutExerciseId/recovery", handle(async (req, res) => {
   const { action, persistentChoice } = AdjustExerciseRecoveryBody.parse(req.body);
-  const { exercise, session } = await activeExercise(req);
+  const { exercise, session, exerciseCategory } = await activeExercise(req);
+  if (isMetricDrivenExercise(exerciseCategory, exercise.metricDefinitions)) {
+    throw new Error("Recovery adjustments are only available for resistance exercises");
+  }
   const increment = await getProfileLoadIncrement(session.profileId, exercise.exerciseId, (await db.execute(sql`SELECT weight_unit FROM training_profiles WHERE id=${session.profileId}`)).rows[0].weight_unit as "kg" | "lb");
   await db.transaction(async tx => {
     const [locked] = await tx.select().from(workoutSessionsTable).where(eq(workoutSessionsTable.id, session.id)).for("update");

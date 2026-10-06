@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import test from "node:test";
 import { eq } from "drizzle-orm";
-import { db, profilesTable, workoutSessionsTable } from "@workspace/db";
+import { db, exercisesTable, profilesTable, workoutSessionsTable } from "@workspace/db";
 import { createApp } from "../app.ts";
 
 const QA_USER_PREFIX = "training-mode-qa-";
@@ -170,6 +170,149 @@ test("mode changes are queued during workouts and cancel only the active session
   } finally {
     try {
       if (profileId !== undefined) {
+        await db.delete(workoutSessionsTable).where(eq(workoutSessionsTable.profileId, profileId));
+        await db.delete(exercisesTable).where(eq(exercisesTable.profileId, profileId));
+        await db.delete(profilesTable).where(eq(profilesTable.id, profileId));
+      }
+    } finally {
+      if (server?.listening) {
+        await new Promise((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve())),
+        );
+      }
+    }
+  }
+});
+
+test("metric-driven activity sets are recorded without resistance progression in Basic and Pro", async () => {
+  const userId = `${QA_USER_PREFIX}metrics-${randomUUID()}`;
+  let server;
+  let profileId;
+  try {
+    server = createServer(createApp({
+      authMiddleware: (req, _res, next) => {
+        req.auth = { userId: req.get("x-qa-user-id") ?? null };
+        next();
+      },
+    }));
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const api = `http://127.0.0.1:${address.port}/api`;
+
+    const profileResponse = await requestAs(api, userId, "/profiles");
+    assert.equal(profileResponse.status, 200);
+    profileId = (await profileResponse.json())[0].id;
+    const exerciseResponse = await requestAs(api, userId, "/exercises", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        profileId,
+        name: `QA cardio ${randomUUID()}`,
+        muscleGroup: "Cardio",
+        equipment: "Treadmill",
+        category: "cardio",
+        metricDefinitions: [
+          { type: "distance", label: "Distance", unit: "mi", required: true },
+          { type: "time", label: "Time", unit: "min", required: true },
+        ],
+        isCompound: false,
+      }),
+    });
+    assert.equal(exerciseResponse.status, 201);
+    const exercise = await exerciseResponse.json();
+
+    for (const trainingMode of ["basic", "legendary_pro"]) {
+      const modeResponse = await requestAs(api, userId, `/profiles/${profileId}/training-mode`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ trainingMode }),
+      });
+      assert.equal(modeResponse.status, 200);
+      const startResponse = await requestAs(api, userId, "/workouts/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ profileId }),
+      });
+      assert.equal(startResponse.status, 201);
+      const session = await startResponse.json();
+      assert.equal(session.trainingMode, trainingMode);
+
+      const addResponse = await requestAs(api, userId, `/workouts/${session.id}/exercises`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ exerciseId: exercise.id, targetSets: 1, orderIndex: 0 }),
+      });
+      assert.equal(addResponse.status, 201);
+      const workoutResponse = await requestAs(api, userId, `/workouts/${session.id}`);
+      assert.equal(workoutResponse.status, 200);
+      const workout = await workoutResponse.json();
+      const workoutExercise = workout.exercises.find((item) => item.exerciseId === exercise.id);
+      assert.ok(workoutExercise);
+      assert.equal(workoutExercise.targetRir, null);
+      assert.equal(workoutExercise.recommendedWeight, null);
+      assert.equal(workoutExercise.sets.length, 1);
+      const set = workoutExercise.sets[0];
+
+      const recoveryResponse = await requestAs(
+        api,
+        userId,
+        `/workouts/${session.id}/exercises/${workoutExercise.id}/recovery`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "reduce_load" }),
+        },
+      );
+      assert.equal(recoveryResponse.status, 400);
+      assert.match((await recoveryResponse.json()).error, /only available for resistance exercises/i);
+
+      const completionResponse = await requestAs(api, userId, `/workouts/${session.id}/sets/${set.id}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ metricValues: [1.5, 20] }),
+      });
+      assert.equal(completionResponse.status, 200);
+      const completion = await completionResponse.json();
+      assert.ok(Math.abs(completion.set.metricValues[0] - 2414.016) < 0.001);
+      assert.equal(completion.set.metricValues[1], 1200);
+      assert.equal(completion.set.actualWeight, null);
+      assert.equal(completion.set.actualReps, null);
+      assert.equal(completion.set.actualRir, null);
+
+      const feedbackResponse = await requestAs(
+        api,
+        userId,
+        `/workouts/${session.id}/exercises/${workoutExercise.id}/post-feedback`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pump: "good", fatigue: "moderate", discomfort: "none" }),
+        },
+      );
+      assert.equal(feedbackResponse.status, 400);
+      assert.match((await feedbackResponse.json()).error, /only available for resistance exercises/i);
+
+      const finishResponse = await requestAs(api, userId, `/workouts/${session.id}/finish`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      assert.equal(finishResponse.status, 200);
+      const finishedResponse = await requestAs(api, userId, `/workouts/${session.id}`);
+      assert.equal(finishedResponse.status, 200);
+      const finished = await finishedResponse.json();
+      assert.equal(finished.status, "completed");
+      assert.deepEqual(finished.exercises[0].sets[0].metricValues, completion.set.metricValues);
+    }
+  } finally {
+    try {
+      if (profileId !== undefined) {
+        await db.delete(workoutSessionsTable).where(eq(workoutSessionsTable.profileId, profileId));
+        await db.delete(exercisesTable).where(eq(exercisesTable.profileId, profileId));
         await db.delete(profilesTable).where(eq(profilesTable.id, profileId));
       }
     } finally {

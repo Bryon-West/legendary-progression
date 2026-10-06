@@ -7,16 +7,28 @@
  */
 
 export interface WorkoutSetCompletionInput {
-  /** @minimum 0 */
-  actualWeight: number;
-  /** @minimum 0 */
-  actualReps: number;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  actualWeight?: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  actualReps?: number | null;
   /**
      * @minimum 0
      * @maximum 10
      * @nullable
      */
   actualRir?: number | null;
+  /**
+     * @maxItems 2
+     * @nullable
+     * @items.minimum 0
+     */
+  metricValues?: (number | null)[] | null;
   /** @nullable */
   notes?: string | null;
 }

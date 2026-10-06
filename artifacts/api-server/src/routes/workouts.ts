@@ -76,6 +76,13 @@ import {
   type CompletedWorkAnchor,
   type SetTargetReference,
 } from "../lib/workout-core";
+import {
+  isLegacyResistanceMetricModel,
+  isMetricDrivenExercise,
+  normalizeMetricValues,
+  normalizedMetricValuesAreComplete,
+  type MetricDefinition,
+} from "../lib/exercise-metrics";
 
 const router: IRouter = Router();
 
@@ -237,6 +244,8 @@ async function allowAutomaticIncrease(tx: any, sessionId: number, exercise: type
 async function addPlannedWorkingSets(exercise: {
   id: number;
   targetSets: number;
+  category?: string;
+  metricDefinitions?: unknown;
   targetWeight: number | null;
   targetRepsMin: number | null;
   targetRepsMax: number | null;
@@ -247,28 +256,32 @@ async function addPlannedWorkingSets(exercise: {
   targetRir?: number | null;
 }) {
   const basic = exercise.trainingMode === "basic";
+  const metricDriven = isMetricDrivenExercise(
+    exercise.category ?? "",
+    exercise.metricDefinitions,
+  );
   const values = Array.from({ length: exercise.targetSets }, (_, index) => ({
     workoutExerciseId: exercise.id,
     setNumber: index + 1,
     setType: "work" as const,
-    targetWeight: exercise.calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
-    targetRepsMin: exercise.calibrationMode ? null : exercise.targetRepsMin,
-    targetRepsMax: exercise.calibrationMode ? null : exercise.targetRepsMax,
-    referenceTargetWeight: basic || exercise.calibrationMode
+    targetWeight: metricDriven || exercise.calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
+    targetRepsMin: metricDriven || exercise.calibrationMode ? null : exercise.targetRepsMin,
+    targetRepsMax: metricDriven || exercise.calibrationMode ? null : exercise.targetRepsMax,
+    referenceTargetWeight: basic || metricDriven || exercise.calibrationMode
       ? null
       : exercise.recommendedWeight ?? exercise.targetWeight,
-    referenceTargetReps: basic || exercise.calibrationMode
+    referenceTargetReps: basic || metricDriven || exercise.calibrationMode
       ? null
       : exercise.recommendedReps ?? exercise.targetRepsMin,
-    referenceTargetRir: basic ? null : exercise.targetRir ?? 3,
-    referenceTargetRepsMin: basic || exercise.calibrationMode ? null : exercise.targetRepsMin,
-    referenceTargetRepsMax: basic || exercise.calibrationMode ? null : exercise.targetRepsMax,
-    adaptiveTargetWeight: basic || exercise.calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
-    adaptiveTargetReps: basic || exercise.calibrationMode
+    referenceTargetRir: basic || metricDriven ? null : exercise.targetRir ?? 3,
+    referenceTargetRepsMin: basic || metricDriven || exercise.calibrationMode ? null : exercise.targetRepsMin,
+    referenceTargetRepsMax: basic || metricDriven || exercise.calibrationMode ? null : exercise.targetRepsMax,
+    adaptiveTargetWeight: basic || metricDriven || exercise.calibrationMode ? null : exercise.recommendedWeight ?? exercise.targetWeight,
+    adaptiveTargetReps: basic || metricDriven || exercise.calibrationMode
       ? null
       : exercise.recommendedReps ?? exercise.targetRepsMin,
-    adaptiveTargetRir: basic ? null : exercise.targetRir ?? 2,
-    algorithmVersion: basic ? null : PROGRESSION_ALGORITHM_VERSION,
+    adaptiveTargetRir: basic || metricDriven ? null : exercise.targetRir ?? 2,
+    algorithmVersion: basic || metricDriven ? null : PROGRESSION_ALGORITHM_VERSION,
   }));
   if (values.length) await db.insert(workoutSetsTable).values(values);
 }
@@ -575,6 +588,10 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
         .limit(1);
       if (exercise) {
         if (profile.trainingMode === "basic") {
+          const metricDriven = isMetricDrivenExercise(
+            exercise.category,
+            exercise.metricDefinitions,
+          );
           sessionExercises.push({
             sessionId: session.id,
             exerciseId: exercise.id,
@@ -584,11 +601,39 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
             targetSets: prescription.targetSets,
             minimumWorkingSets: prescription.minimumWorkingSets,
             maximumWorkingSets: prescription.maximumWorkingSets,
-            targetRepsMin: prescription.targetRepsMin,
-            targetRepsMax: prescription.targetRepsMax,
-            targetWeight: prescription.targetWeight,
+            targetRepsMin: metricDriven ? null : prescription.targetRepsMin,
+            targetRepsMax: metricDriven ? null : prescription.targetRepsMax,
+            targetWeight: metricDriven ? null : prescription.targetWeight,
             orderIndex: prescription.orderIndex,
             category: exercise.category,
+            metricDefinitions: exercise.metricDefinitions ?? null,
+            isCompound: exercise.isCompound,
+            recommendedWeight: null,
+            recommendedReps: null,
+            recommendationOutcome: null,
+            recommendationRationale: null,
+            calibrationMode: false,
+            calibrationRir: null,
+            baselineStatus: null,
+          });
+          continue;
+        }
+        if (isMetricDrivenExercise(exercise.category, exercise.metricDefinitions)) {
+          sessionExercises.push({
+            sessionId: session.id,
+            exerciseId: exercise.id,
+            exerciseName: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            targetRir: null,
+            targetSets: prescription.targetSets,
+            minimumWorkingSets: prescription.minimumWorkingSets,
+            maximumWorkingSets: prescription.maximumWorkingSets,
+            targetRepsMin: null,
+            targetRepsMax: null,
+            targetWeight: null,
+            orderIndex: prescription.orderIndex,
+            category: exercise.category,
+            metricDefinitions: exercise.metricDefinitions,
             isCompound: exercise.isCompound,
             recommendedWeight: null,
             recommendedReps: null,
@@ -668,6 +713,7 @@ router.post("/workouts/start", async (req, res): Promise<void> => {
           targetWeight: calibrationMode ? null : prescription.targetWeight,
           orderIndex: prescription.orderIndex,
           category: exercise.category,
+          metricDefinitions: exercise.metricDefinitions ?? null,
           isCompound: exercise.isCompound,
           recommendedWeight,
           recommendedReps: recommendation.recommendedReps,
@@ -751,6 +797,10 @@ router.post(
     }
     let created: typeof workoutExercisesTable.$inferSelect;
     if (session.trainingMode === "basic") {
+      const metricDriven = isMetricDrivenExercise(
+        exercise.category,
+        exercise.metricDefinitions,
+      );
       [created] = await db.insert(workoutExercisesTable)
         .values({
           sessionId: session.id,
@@ -761,11 +811,37 @@ router.post(
           targetSets: body.data.targetSets,
           minimumWorkingSets: body.data.minimumWorkingSets ?? 1,
           maximumWorkingSets: body.data.maximumWorkingSets ?? 5,
-          targetRepsMin: body.data.targetRepsMin ?? exercise.defaultRepMin,
-          targetRepsMax: body.data.targetRepsMax ?? exercise.defaultRepMax,
-          targetWeight: body.data.targetWeight ?? null,
+          targetRepsMin: metricDriven ? null : body.data.targetRepsMin ?? exercise.defaultRepMin,
+          targetRepsMax: metricDriven ? null : body.data.targetRepsMax ?? exercise.defaultRepMax,
+          targetWeight: metricDriven ? null : body.data.targetWeight ?? null,
           orderIndex: body.data.orderIndex,
           category: exercise.category,
+          metricDefinitions: exercise.metricDefinitions ?? null,
+          isCompound: exercise.isCompound,
+          recommendedWeight: null,
+          recommendedReps: null,
+          recommendationOutcome: null,
+          recommendationRationale: null,
+          calibrationMode: false,
+          calibrationRir: null,
+          baselineStatus: null,
+        })
+        .returning();
+    } else if (isMetricDrivenExercise(exercise.category, exercise.metricDefinitions)) {
+      [created] = await db.insert(workoutExercisesTable)
+        .values({
+          ...body.data,
+          sessionId: session.id,
+          exerciseName: exercise.name,
+          muscleGroup: exercise.muscleGroup,
+          targetRir: null,
+          minimumWorkingSets: body.data.minimumWorkingSets ?? 1,
+          maximumWorkingSets: body.data.maximumWorkingSets ?? 5,
+          targetRepsMin: null,
+          targetRepsMax: null,
+          targetWeight: null,
+          category: exercise.category,
+          metricDefinitions: exercise.metricDefinitions,
           isCompound: exercise.isCompound,
           recommendedWeight: null,
           recommendedReps: null,
@@ -815,6 +891,7 @@ router.post(
           minimumWorkingSets: body.data.minimumWorkingSets ?? 1,
           maximumWorkingSets: body.data.maximumWorkingSets ?? 5,
           category: exercise.category,
+          metricDefinitions: exercise.metricDefinitions ?? null,
           isCompound: exercise.isCompound,
           targetRir,
           targetRepsMin: calibrationMode ? null : 6,
@@ -991,6 +1068,10 @@ router.patch(
       res.status(404).json({ error: "Workout exercise or replacement not found" });
       return;
     }
+    const replacementMetricDriven = isMetricDrivenExercise(
+      exercise.category,
+      exercise.metricDefinitions,
+    );
     if (session.trainingMode === "basic") {
       const targetRepsMin = current.targetRepsMin ?? 8;
       const targetRepsMax = current.targetRepsMax ?? 12;
@@ -999,7 +1080,7 @@ router.patch(
         .from(workoutSetsTable)
         .where(and(
           eq(workoutSetsTable.workoutExerciseId, current.id),
-          sql`(${workoutSetsTable.completed} = true OR ${workoutSetsTable.actualWeight} IS NOT NULL OR ${workoutSetsTable.actualReps} IS NOT NULL)`,
+          sql`(${workoutSetsTable.completed} = true OR ${workoutSetsTable.actualWeight} IS NOT NULL OR ${workoutSetsTable.actualReps} IS NOT NULL OR ${workoutSetsTable.metricValues} IS NOT NULL)`,
         ));
       let replacement;
       if ((loggedSetCount?.count ?? 0) > 0) {
@@ -1015,11 +1096,12 @@ router.patch(
           targetSets: current.targetSets,
           minimumWorkingSets: current.minimumWorkingSets,
           maximumWorkingSets: current.maximumWorkingSets,
-          targetRepsMin,
-          targetRepsMax,
-          targetWeight: current.targetWeight,
+          targetRepsMin: replacementMetricDriven ? null : targetRepsMin,
+          targetRepsMax: replacementMetricDriven ? null : targetRepsMax,
+          targetWeight: replacementMetricDriven ? null : current.targetWeight,
           orderIndex: current.orderIndex,
           category: exercise.category,
+          metricDefinitions: exercise.metricDefinitions ?? null,
           isCompound: exercise.isCompound,
           recommendedWeight: null,
           recommendedReps: null,
@@ -1041,6 +1123,7 @@ router.patch(
             exerciseName: exercise.name,
             muscleGroup: exercise.muscleGroup,
             category: exercise.category,
+            metricDefinitions: exercise.metricDefinitions ?? null,
             isCompound: exercise.isCompound,
             targetRepsMin,
             targetRepsMax,
@@ -1058,8 +1141,10 @@ router.patch(
           .returning();
         await db.update(workoutSetsTable)
           .set({
-            targetRepsMin,
-            targetRepsMax,
+            targetWeight: replacementMetricDriven ? null : current.targetWeight,
+            targetRepsMin: replacementMetricDriven ? null : targetRepsMin,
+            targetRepsMax: replacementMetricDriven ? null : targetRepsMax,
+            metricValues: null,
             referenceTargetWeight: null,
             referenceTargetReps: null,
             referenceTargetRir: null,
@@ -1085,6 +1170,91 @@ router.patch(
       .where(eq(profilesTable.id, session.profileId)).limit(1);
     if (!profile) {
       res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+    if (replacementMetricDriven) {
+      const [loggedSetCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(workoutSetsTable)
+        .where(and(
+          eq(workoutSetsTable.workoutExerciseId, current.id),
+          sql`(${workoutSetsTable.completed} = true OR ${workoutSetsTable.actualWeight} IS NOT NULL OR ${workoutSetsTable.actualReps} IS NOT NULL OR ${workoutSetsTable.actualRir} IS NOT NULL OR ${workoutSetsTable.metricValues} IS NOT NULL)`,
+        ));
+      let replacement;
+      const values = {
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        muscleGroup: exercise.muscleGroup,
+        category: exercise.category,
+        metricDefinitions: exercise.metricDefinitions ?? null,
+        isCompound: exercise.isCompound,
+        targetRir: null,
+        targetRepsMin: null,
+        targetRepsMax: null,
+        targetWeight: null,
+        recommendedWeight: null,
+        recommendedReps: null,
+        recommendationOutcome: null,
+        recommendationRationale: null,
+        calibrationMode: false,
+        calibrationRir: null,
+        baselineStatus: null,
+        substitutedFromExerciseId: current.exerciseId,
+      };
+      if ((loggedSetCount?.count ?? 0) > 0) {
+        await db.update(workoutExercisesTable)
+          .set({ superseded: true })
+          .where(eq(workoutExercisesTable.id, current.id));
+        [replacement] = await db.insert(workoutExercisesTable)
+          .values({
+            ...values,
+            sessionId: current.sessionId,
+            targetSets: current.targetSets,
+            minimumWorkingSets: current.minimumWorkingSets,
+            maximumWorkingSets: current.maximumWorkingSets,
+            orderIndex: current.orderIndex,
+          })
+          .returning();
+        await addPlannedWorkingSets({
+          ...replacement,
+          trainingMode: "legendary_pro",
+        });
+      } else {
+        [replacement] = await db.update(workoutExercisesTable)
+          .set({
+            ...values,
+            painReported: false,
+            painNote: null,
+          })
+          .where(eq(workoutExercisesTable.id, current.id))
+          .returning();
+        await db.update(workoutSetsTable)
+          .set({
+            metricValues: null,
+            targetWeight: null,
+            targetRepsMin: null,
+            targetRepsMax: null,
+            referenceTargetWeight: null,
+            referenceTargetReps: null,
+            referenceTargetRir: null,
+            referenceTargetRepsMin: null,
+            referenceTargetRepsMax: null,
+            adaptiveTargetWeight: null,
+            adaptiveTargetReps: null,
+            adaptiveTargetRir: null,
+            targetStatus: null,
+            targetExplanation: null,
+            algorithmVersion: null,
+          })
+          .where(and(
+            eq(workoutSetsTable.workoutExerciseId, current.id),
+            eq(workoutSetsTable.completed, false),
+            eq(workoutSetsTable.removed, false),
+          ));
+      }
+      const workout = await getWorkoutTree(session.id);
+      const result = workout?.exercises.find((item) => item.id === replacement.id);
+      res.json(SubstituteWorkoutExerciseResponse.parse(result));
       return;
     }
     const targetRir = session.targetRirSnapshot ?? current.targetRir;
@@ -1256,6 +1426,8 @@ router.post(
         maximumWorkingSets: workoutExercisesTable.maximumWorkingSets,
         targetRepsMin: workoutExercisesTable.targetRepsMin,
         targetRepsMax: workoutExercisesTable.targetRepsMax,
+        category: workoutExercisesTable.category,
+        metricDefinitions: workoutExercisesTable.metricDefinitions,
         weekKindSnapshot: workoutSessionsTable.weekKindSnapshot,
         trainingMode: workoutSessionsTable.trainingMode,
       })
@@ -1292,9 +1464,10 @@ router.post(
       }
     }
     const { workoutExerciseId, ...setValues } = body.data;
-    const targetWeight = body.data.targetWeight ?? row.recommendedWeight ?? row.targetWeight;
+    const metricDriven = isMetricDrivenExercise(row.category, row.metricDefinitions);
+    const targetWeight = metricDriven ? null : body.data.targetWeight ?? row.recommendedWeight ?? row.targetWeight;
     const basic = row.trainingMode === "basic";
-    const initialTarget = basic
+    const initialTarget = basic || metricDriven
       ? { reps: null, warning: null }
       : adaptiveRepsForWeight(
           body.data.actualWeight ?? targetWeight,
@@ -1304,11 +1477,11 @@ router.post(
           row.targetRepsMax ?? 12,
           row.targetRir!,
         );
-    const actualWeight = body.data.actualWeight ?? null;
-    const actualReps = body.data.actualReps ?? null;
-    const actualRir = basic ? null : body.data.actualRir ?? null;
+    const actualWeight = metricDriven ? null : body.data.actualWeight ?? null;
+    const actualReps = metricDriven ? null : body.data.actualReps ?? null;
+    const actualRir = basic || metricDriven ? null : body.data.actualRir ?? null;
     const completed = body.data.completed ?? false;
-    const calibration = !basic && (row.calibrationMode || row.weekKindSnapshot === "deload" ||
+    const calibration = !basic && !metricDriven && (row.calibrationMode || row.weekKindSnapshot === "deload" ||
       row.targetRepsMin === null || row.targetRepsMax === null);
     if (completed && body.data.setType === "work" && (actualWeight === null || actualReps === null)) {
       res.status(400).json({ error: "Completed working sets require actual weight and reps" });
@@ -1321,14 +1494,14 @@ router.post(
     const previousWork = existingSets.filter(s => s.setType === "work" && !s.removed).at(-1);
     const estimatedReps = Math.max(6, (previousWork?.adaptiveTargetReps ??
       previousWork?.actualReps ?? row.recommendedReps ?? 6) - 1);
-    const reference: SetTargetReference | null = basic ? null : {
+    const reference: SetTargetReference | null = basic || metricDriven ? null : {
       weight: row.calibrationMode ? null : row.recommendedWeight ?? row.targetWeight,
       reps: row.calibrationMode ? null : row.recommendedReps ?? row.targetRepsMin,
       rir: row.targetRir!,
       repsMin: row.calibrationMode ? null : row.targetRepsMin,
       repsMax: row.calibrationMode ? null : row.targetRepsMax,
     };
-    const performance = !basic && completed && body.data.setType === "work" && !calibration && !v23b && reference
+    const performance = !basic && !metricDriven && completed && body.data.setType === "work" && !calibration && !v23b && reference
       ? assessSet({
           reps: actualReps!,
           rir: actualRir ?? row.targetRir!,
@@ -1343,26 +1516,26 @@ router.post(
         ...setValues,
         workoutExerciseId,
         targetWeight: calibration ? null : targetWeight,
-        targetRepsMin: calibration ? null : body.data.targetRepsMin ?? row.targetRepsMin,
-        targetRepsMax: calibration ? null : body.data.targetRepsMax ?? row.targetRepsMax,
-         referenceTargetWeight: basic || v23b ? null : reference?.weight ?? null,
-         referenceTargetReps: basic || v23b ? null : reference?.reps ?? null,
-        referenceTargetRir: basic ? null : reference?.rir ?? null,
-         referenceTargetRepsMin: basic || v23b ? null : reference?.repsMin ?? null,
-         referenceTargetRepsMax: basic || v23b ? null : reference?.repsMax ?? null,
+        targetRepsMin: metricDriven || calibration ? null : body.data.targetRepsMin ?? row.targetRepsMin,
+        targetRepsMax: metricDriven || calibration ? null : body.data.targetRepsMax ?? row.targetRepsMax,
+        referenceTargetWeight: basic || metricDriven || v23b ? null : reference?.weight ?? null,
+        referenceTargetReps: basic || metricDriven || v23b ? null : reference?.reps ?? null,
+        referenceTargetRir: basic || metricDriven ? null : reference?.rir ?? null,
+        referenceTargetRepsMin: basic || metricDriven || v23b ? null : reference?.repsMin ?? null,
+        referenceTargetRepsMax: basic || metricDriven || v23b ? null : reference?.repsMax ?? null,
         actualWeight,
         actualReps,
         actualRir,
         completed,
         completedAt: completed ? new Date() : null,
-        adaptiveTargetWeight: basic || calibration || body.data.setType === "warmup" ? null : actualWeight ?? targetWeight,
-         adaptiveTargetReps: basic || calibration || body.data.setType === "warmup" ? null : v23b ? estimatedReps : initialTarget.reps,
-        adaptiveTargetRir: basic ? null : row.targetRir,
+        adaptiveTargetWeight: basic || metricDriven || calibration || body.data.setType === "warmup" ? null : actualWeight ?? targetWeight,
+        adaptiveTargetReps: basic || metricDriven || calibration || body.data.setType === "warmup" ? null : v23b ? estimatedReps : initialTarget.reps,
+        adaptiveTargetRir: basic || metricDriven ? null : row.targetRir,
         targetStatus: performance?.status ?? null,
-        targetExplanation: basic ? null : performance?.explanation ?? (calibration || body.data.setType === "warmup"
+        targetExplanation: basic || metricDriven ? null : performance?.explanation ?? (calibration || body.data.setType === "warmup"
           ? null
           : initialTarget.warning),
-         algorithmVersion: basic || calibration || body.data.setType === "warmup" ? null : PROGRESSION_ALGORITHM_VERSION,
+        algorithmVersion: basic || metricDriven || calibration || body.data.setType === "warmup" ? null : PROGRESSION_ALGORITHM_VERSION,
       })
       .returning();
     const siblingSets = await db.select().from(workoutSetsTable)
@@ -1386,6 +1559,8 @@ router.post(
     }
     const [candidate] = await db.select({
       exerciseId: workoutExercisesTable.exerciseId,
+      category: workoutExercisesTable.category,
+      metricDefinitions: workoutExercisesTable.metricDefinitions,
       profileId: workoutSessionsTable.profileId,
       trainingMode: workoutSessionsTable.trainingMode,
     }).from(workoutSetsTable)
@@ -1403,7 +1578,11 @@ router.post(
       res.status(404).json({ error: "Profile not found" });
       return;
     }
-    const loadIncrement = candidate.trainingMode === "basic" ? 0 : await getProfileLoadIncrement(
+    const candidateMetricDriven = isMetricDrivenExercise(
+      candidate.category,
+      candidate.metricDefinitions,
+    );
+    const loadIncrement = candidate.trainingMode === "basic" || candidateMetricDriven ? 0 : await getProfileLoadIncrement(
       candidate.profileId,
       candidate.exerciseId,
       profile.weightUnit,
@@ -1430,6 +1609,27 @@ router.post(
         if (current.sessionStatus !== "active") throw new Error("Workout is already complete");
         if (current.set.completed) throw new Error("Completed set cannot be edited without explicit edit intent");
         const basic = current.trainingMode === "basic";
+        const metricDriven = isMetricDrivenExercise(
+          current.exercise.category,
+          current.exercise.metricDefinitions,
+        );
+        const metricValues = metricDriven
+          ? normalizeMetricValues(
+              body.data.metricValues,
+              current.exercise.metricDefinitions as MetricDefinition[],
+              profile.weightUnit,
+              true,
+            )
+          : null;
+        const actualWeight = metricDriven ? null : body.data.actualWeight ?? null;
+        const actualReps = metricDriven ? null : body.data.actualReps ?? null;
+        const actualRir = basic || metricDriven ? null : body.data.actualRir ?? null;
+        if (!metricDriven && (actualWeight === null || actualReps === null)) {
+          throw new Error("Completed working sets require actual weight and reps");
+        }
+        if (!basic && !metricDriven && actualRir === null) {
+          throw new Error("Completed Legendary Pro working sets require RIR");
+        }
         if (current.set.setType === "work") {
           const rows = await tx.select().from(workoutSetsTable)
             .where(eq(workoutSetsTable.workoutExerciseId, current.exercise.id));
@@ -1437,9 +1637,9 @@ router.post(
             throw new Error("Complete the earlier working set before this set");
           }
         }
-        const calibration = !basic && (current.exercise.calibrationMode ||
+        const calibration = !basic && !metricDriven && (current.exercise.calibrationMode ||
           current.set.referenceTargetRepsMin === null || current.set.referenceTargetRepsMax === null);
-        const reference: SetTargetReference | null = basic ? null : {
+        const reference: SetTargetReference | null = basic || metricDriven ? null : {
           weight: calibration ? null : current.set.referenceTargetWeight ??
             current.exercise.recommendedWeight ?? current.exercise.targetWeight,
           reps: calibration ? null : current.set.referenceTargetReps ??
@@ -1450,46 +1650,47 @@ router.post(
           repsMax: calibration ? null : current.set.referenceTargetRepsMax ??
             current.set.targetRepsMax ?? current.exercise.targetRepsMax,
         };
-        const adaptive = basic || current.set.setType !== "work" || calibration || !reference ||
+        const adaptive = basic || metricDriven || current.set.setType !== "work" || calibration || !reference ||
           reference.weight === null || reference.reps === null ||
           reference.repsMin === null || reference.repsMax === null
           ? { reps: null, warning: null }
           : adaptiveRepsForWeight(
-              body.data.actualWeight,
+              actualWeight!,
               reference.weight,
               reference.reps,
               reference.repsMin,
               reference.repsMax,
               reference.rir,
             );
-        const performance = !basic && current.set.setType === "work" && adaptive.reps !== null && reference
+        const performance = !basic && !metricDriven && current.set.setType === "work" && adaptive.reps !== null && reference
           ? assessSet({
-              reps: body.data.actualReps,
-              rir: body.data.actualRir!,
-              actualWeight: body.data.actualWeight,
+              reps: actualReps!,
+              rir: actualRir!,
+              actualWeight: actualWeight!,
               reference,
               prescribedRir: current.exercise.targetRir!,
             })
           : null;
         const [updated] = await tx.update(workoutSetsTable).set({
-          actualWeight: body.data.actualWeight,
-          actualReps: body.data.actualReps,
-          actualRir: basic ? null : body.data.actualRir ?? null,
+          actualWeight,
+          actualReps,
+          actualRir,
+          metricValues,
           notes: body.data.notes === undefined ? current.set.notes : body.data.notes,
           completed: true,
           completedAt: new Date(),
-          adaptiveTargetWeight: !basic && current.set.setType === "work" && !current.exercise.calibrationMode
-            ? body.data.actualWeight
+          adaptiveTargetWeight: !basic && !metricDriven && current.set.setType === "work" && !current.exercise.calibrationMode
+            ? actualWeight
             : null,
-          adaptiveTargetReps: basic ? null : current.set.algorithmVersion === "legendary-v2.3b"
+          adaptiveTargetReps: basic || metricDriven ? null : current.set.algorithmVersion === "legendary-v2.3b"
             ? current.set.adaptiveTargetReps : adaptive.reps,
-          adaptiveTargetRir: basic ? null : current.exercise.targetRir,
+          adaptiveTargetRir: basic || metricDriven ? null : current.exercise.targetRir,
           targetStatus: performance?.status ?? null,
-          targetExplanation: basic ? null : performance?.explanation ?? null,
-          algorithmVersion: basic ? null : current.set.algorithmVersion ??
+          targetExplanation: basic || metricDriven ? null : performance?.explanation ?? null,
+          algorithmVersion: basic || metricDriven ? null : current.set.algorithmVersion ??
             (performance ? PROGRESSION_ALGORITHM_VERSION : null),
         }).where(eq(workoutSetsTable.id, current.set.id)).returning();
-        if (!basic && current.set.setType === "work") {
+        if (!basic && !metricDriven && current.set.setType === "work") {
           await recalculatePendingSetTargets(tx, current.exercise, {
             loadIncrement,
             allowIncrease: await allowAutomaticIncrease(
@@ -1540,6 +1741,8 @@ router.patch(
     }
     const [candidate] = await db.select({
       exerciseId: workoutExercisesTable.exerciseId,
+      category: workoutExercisesTable.category,
+      metricDefinitions: workoutExercisesTable.metricDefinitions,
       profileId: workoutSessionsTable.profileId,
       trainingMode: workoutSessionsTable.trainingMode,
     }).from(workoutSetsTable)
@@ -1556,7 +1759,11 @@ router.patch(
       res.status(404).json({ error: "Profile not found" });
       return;
     }
-    const loadIncrement = candidate.trainingMode === "basic"
+    const candidateMetricDriven = isMetricDrivenExercise(
+      candidate.category,
+      candidate.metricDefinitions,
+    );
+    const loadIncrement = candidate.trainingMode === "basic" || candidateMetricDriven
       ? 0
       : await getProfileLoadIncrement(profile.id, candidate.exerciseId, profile.weightUnit);
     try {
@@ -1578,6 +1785,60 @@ router.patch(
           throw new Error("Workout set not found");
         }
         if (current.status !== "active") throw new Error("Workout is already complete");
+        const metricDriven = isMetricDrivenExercise(
+          current.exercise.category,
+          current.exercise.metricDefinitions,
+        );
+        if (metricDriven) {
+          const definitions = current.exercise.metricDefinitions as MetricDefinition[];
+          const completed = body.data.completed ?? current.set.completed;
+          const requestedChanges = Object.keys(body.data).filter((key) => key !== "editIntent");
+          if (current.set.completed && requestedChanges.length > 0 &&
+            !canEditSet(current.set.completed, body.data.editIntent)) {
+            throw new Error("Explicit editIntent is required to modify a completed set");
+          }
+          if (current.set.completed && completed !== true) {
+            throw new Error("A completed set must remain completed when explicitly edited");
+          }
+          if (!current.set.completed && current.set.setType === "work") {
+            const siblings = await tx.select().from(workoutSetsTable)
+              .where(eq(workoutSetsTable.workoutExerciseId, current.exercise.id));
+            if (sequentialSetStates(siblings).get(current.set.id) === "locked") {
+              throw new Error("Complete the earlier working set before editing this set");
+            }
+          }
+          const metricValues = body.data.metricValues === undefined
+            ? current.set.metricValues
+            : normalizeMetricValues(
+                body.data.metricValues ?? definitions.map(() => null),
+                definitions,
+                profile.weightUnit,
+                false,
+              );
+          const valuesToCheck = metricValues ?? definitions.map(() => null);
+          if (completed && !normalizedMetricValuesAreComplete(valuesToCheck, definitions)) {
+            throw new Error("Complete all required exercise metrics before saving this set");
+          }
+          const { editIntent: _editIntent, ...updates } = body.data;
+          const [updated] = await tx.update(workoutSetsTable).set({
+            ...updates,
+            actualWeight: null,
+            actualReps: null,
+            actualRir: null,
+            metricValues,
+            adaptiveTargetWeight: null,
+            adaptiveTargetReps: null,
+            adaptiveTargetRir: null,
+            targetStatus: null,
+            targetExplanation: null,
+            algorithmVersion: null,
+            completed,
+            completedAt: completed ? current.set.completedAt ?? new Date() : null,
+          }).where(eq(workoutSetsTable.id, params.data.setId)).returning();
+          const siblings = await tx.select().from(workoutSetsTable)
+            .where(eq(workoutSetsTable.workoutExerciseId, current.exercise.id));
+          return { updated, workflow: sequentialSetStates(siblings) };
+        }
         if (current.trainingMode === "basic") {
           const completed = body.data.completed ?? current.set.completed;
           const requestedChanges = Object.keys(body.data).filter((key) => key !== "editIntent");
@@ -1875,6 +2136,13 @@ router.post(
           const set = row.set;
           const exercise = row.exercise;
           if (!set.completed || set.removed || set.setType !== "work" || exercise.skipped) continue;
+          if (isMetricDrivenExercise(exercise.category, exercise.metricDefinitions)) {
+            const definitions = exercise.metricDefinitions as MetricDefinition[];
+            if (!normalizedMetricValuesAreComplete(set.metricValues ?? definitions.map(() => null), definitions)) {
+              throw new Error(`Completed working set ${set.id} is missing a required exercise metric`);
+            }
+            continue;
+          }
           if (set.actualWeight === null || set.actualReps === null) {
             throw new Error(`Completed working set ${set.id} requires actual weight and reps`);
           }

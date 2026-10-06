@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ExerciseInputCategory } from './exerciseInputCategory';
+import type { ExerciseMetricDefinition } from './exerciseMetricDefinition';
 
 export interface ExerciseInput {
   profileId: number;
@@ -25,6 +26,11 @@ export interface ExerciseInput {
      */
   equipment: string;
   category?: ExerciseInputCategory;
+  /**
+     * @minItems 1
+     * @maxItems 2
+     */
+  metricDefinitions?: ExerciseMetricDefinition[];
   /** @nullable */
   instructions?: string | null;
   isCompound: boolean;

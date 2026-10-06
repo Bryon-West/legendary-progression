@@ -14,7 +14,7 @@ export function humanize(raw: string) {
   const t = raw.replace(/[_-]+/g, ' ').trim().toLowerCase();
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
-export const CATEGORIES = ['strength', 'bodyweight', 'conditioning', 'mobility', 'other'] as const;
+export const CATEGORIES = ['strength', 'bodyweight', 'calisthenics', 'cardio', 'plyometric', 'carry', 'sled', 'conditioning', 'mobility', 'other'] as const;
 export const EQUIPMENT = ['Barbell', 'Dumbbell', 'Cable', 'Selectorized machine', 'Plate-loaded machine', 'Machine', 'Smith machine', 'Bodyweight', 'Other'];
 export const MUSCLES = ['Chest', 'Back', 'Lats', 'Upper back', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Front delts', 'Side delts', 'Rear delts', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Abs', 'Core'];
 export const formatRir = (rir: number | null | undefined) =>

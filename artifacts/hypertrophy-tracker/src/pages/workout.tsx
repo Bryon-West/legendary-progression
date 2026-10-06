@@ -18,6 +18,7 @@ import { ExerciseCard } from '@/components/exercise-card';
 import { CompletedWorkout, SessionContext } from '@/components/completed-workout';
 import { MuscleTotals } from '@/components/muscle-totals';
 import { ExerciseTools, FeedbackSheet, RecoveryPrompt, recoveryPromptKind } from '@/components/v22-workout';
+import { isMetricDrivenExercise } from '@/lib/exercise-metrics';
 import { asChanges, type StructureChanges } from '@/lib/v22';
 import { WorkoutDraftsContext, useWorkoutDraftRegistry } from '@/lib/workout-drafts';
 
@@ -126,7 +127,7 @@ export default function WorkoutPage() {
   const recMap = new Map((changesQuery.data ? asChanges(changesQuery.data).recovery ?? [] : []).map((r) => [r.workoutExerciseId, r]));
   const savedFb = new Set((changesQuery.data ? asChanges(changesQuery.data).feedback : []).map((f) => f.workoutExerciseId));
   const feedbackFor = workout.status === 'active' && changesQuery.data ? workout.exercises.find((x) => {
-    if (x.skipped || x.superseded || savedFb.has(x.id) || skippedFb.includes(x.id)) return false;
+    if (x.skipped || x.superseded || isMetricDrivenExercise(String(x.category ?? ''), x.metricDefinitions) || savedFb.has(x.id) || skippedFb.includes(x.id)) return false;
     const w = x.sets.filter((q) => !q.removed && q.setType === 'work');
     return w.length > 0 && w.every((q) => q.completed);
   }) ?? null : null;
@@ -147,7 +148,7 @@ export default function WorkoutPage() {
     {!workout.exercises.length ? <Empty title="Your session is ready" detail="Add an exercise from your library to start logging sets." action={<button className="btn btn-primary" onClick={() => setModal('add')}><Plus size={17}/> Add exercise</button>}/> : null}
      <div style={{ display: 'grid', gap: 13 }}>
         {workout.exercises.filter((exercise) => !hiddenExerciseIds.includes(exercise.id)).map((exercise, i, all) => <div key={exercise.id}>
-          {isPro && recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
+           {isPro && !isMetricDrivenExercise(String(exercise.category ?? ''), exercise.metricDefinitions) && recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
             ? <RecoveryPrompt exercise={exercise} rec={recMap.get(exercise.id)} sessionId={id} onDone={invalidate} onChangeExercise={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
             : <ExerciseCard exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} trainingMode={workout.trainingMode} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>}
           {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} trainingMode={workout.trainingMode} first={i === 0} last={i === all.length - 1} onChanged={invalidate} onReplace={() => { setSwapTargetId(exercise.id); setModal('substitute'); }} onRemoved={() => { setSaveError(null); setHiddenExerciseIds((items) => items.includes(exercise.id) ? items : [...items, exercise.id]); }} onRemoveFailed={() => { setHiddenExerciseIds((items) => items.filter((x) => x !== exercise.id)); setSaveError('Could not remove this exercise. It has been restored to today’s list.'); }}/>}
