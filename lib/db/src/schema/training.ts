@@ -1,7 +1,9 @@
 import {
   boolean,
+  check,
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -9,6 +11,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -43,6 +46,18 @@ export const profilesTable = pgTable("training_profiles", {
   uniqueIndex("training_profiles_owner_user_unique")
     .on(table.ownerUserId)
     .where(sql`${table.ownerUserId} IS NOT NULL`),
+  check(
+    "training_profiles_experience_check",
+    sql`${table.trainingExperience} IS NULL OR ${table.trainingExperience} IN ('beginner', 'intermediate', 'advanced')`,
+  ),
+  check(
+    "training_profiles_training_mode_check",
+    sql`${table.trainingMode} IN ('basic', 'legendary_pro')`,
+  ),
+  check(
+    "training_profiles_pending_training_mode_check",
+    sql`${table.pendingTrainingMode} IS NULL OR ${table.pendingTrainingMode} IN ('basic', 'legendary_pro')`,
+  ),
 ]);
 
 export const exercisesTable = pgTable(
@@ -102,7 +117,23 @@ export const trainingSplitsTable = pgTable("training_splits", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  foreignKey({
+    name: "training_splits_restart_from_id_fkey",
+    columns: [table.restartFromId],
+    foreignColumns: [table.id],
+  }).onDelete("set null"),
+  check(
+    "training_splits_lifecycle_status_check",
+    sql`${table.lifecycleStatus} IN ('planned', 'active', 'paused', 'completed', 'ended_early', 'restarted')`,
+  ),
+  uniqueIndex("one_active_mesocycle_per_profile")
+    .on(table.profileId)
+    .where(sql`${table.lifecycleStatus} = 'active'`),
+  index("training_splits_visible_profile_idx")
+    .on(table.profileId, table.createdAt)
+    .where(sql`${table.deletedAt} IS NULL`),
+]);
 
 export const splitDaysTable = pgTable(
   "split_days",
@@ -152,9 +183,7 @@ export const mesocycleWeeksTable = pgTable(
   "mesocycle_weeks",
   {
     id: serial("id").primaryKey(),
-    splitId: integer("split_id")
-      .notNull()
-      .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
+    splitId: integer("split_id").notNull(),
     weekIndex: integer("week_index").notNull(),
     scheduleStartDate: date("schedule_start_date", { mode: "string" }),
     kind: text("kind", { enum: ["loading", "deload", "week_off"] }).notNull(),
@@ -164,16 +193,31 @@ export const mesocycleWeeksTable = pgTable(
       .default("future"),
     // Frozen program structure and source IDs make copied historical weeks auditable.
     programSnapshot: jsonb("program_snapshot").$type<Record<string, unknown>>(),
-    sourceSplitId: integer("source_split_id").references(
-      () => trainingSplitsTable.id,
-      { onDelete: "set null" },
-    ),
+    sourceSplitId: integer("source_split_id"),
     sourceWeekId: integer("source_week_id"),
     sourceDescription: text("source_description"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("mesocycle_weeks_split_index_unique").on(table.splitId, table.weekIndex),
+    foreignKey({
+      name: "mesocycle_weeks_split_id_fkey",
+      columns: [table.splitId],
+      foreignColumns: [trainingSplitsTable.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "mesocycle_weeks_source_split_id_fkey",
+      columns: [table.sourceSplitId],
+      foreignColumns: [trainingSplitsTable.id],
+    }).onDelete("set null"),
+    unique("mesocycle_weeks_split_index_unique").on(table.splitId, table.weekIndex),
+    check(
+      "mesocycle_weeks_kind_check",
+      sql`${table.kind} IN ('loading', 'deload', 'week_off')`,
+    ),
+    check(
+      "mesocycle_weeks_status_check",
+      sql`${table.status} IN ('future', 'in_progress', 'completed')`,
+    ),
     index("mesocycle_weeks_split_status_idx").on(table.splitId, table.status),
   ],
 );
@@ -182,15 +226,9 @@ export const plannedWorkoutsTable = pgTable(
   "planned_workouts",
   {
     id: serial("id").primaryKey(),
-    splitId: integer("split_id")
-      .notNull()
-      .references(() => trainingSplitsTable.id, { onDelete: "cascade" }),
-    weekId: integer("week_id")
-      .notNull()
-      .references(() => mesocycleWeeksTable.id, { onDelete: "restrict" }),
-    splitDayId: integer("split_day_id")
-      .notNull()
-      .references(() => splitDaysTable.id, { onDelete: "restrict" }),
+    splitId: integer("split_id").notNull(),
+    weekId: integer("week_id").notNull(),
+    splitDayId: integer("split_day_id").notNull(),
     scheduledDate: date("scheduled_date", { mode: "string" }).notNull(),
     originalScheduledDate: date("original_scheduled_date", { mode: "string" }).notNull(),
     status: text("status", { enum: ["scheduled", "completed", "cancelled"] })
@@ -199,6 +237,25 @@ export const plannedWorkoutsTable = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: "planned_workouts_split_id_fkey",
+      columns: [table.splitId],
+      foreignColumns: [trainingSplitsTable.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "planned_workouts_week_id_fkey",
+      columns: [table.weekId],
+      foreignColumns: [mesocycleWeeksTable.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "planned_workouts_split_day_id_fkey",
+      columns: [table.splitDayId],
+      foreignColumns: [splitDaysTable.id],
+    }).onDelete("restrict"),
+    check(
+      "planned_workouts_status_check",
+      sql`${table.status} IN ('scheduled', 'completed', 'cancelled')`,
+    ),
     index("planned_workouts_split_date_idx").on(table.splitId, table.scheduledDate),
     index("planned_workouts_week_idx").on(table.weekId),
   ],
@@ -232,13 +289,8 @@ export const workoutSessionsTable = pgTable(
     }),
     mesocycleStartDate: date("mesocycle_start_date", { mode: "string" }),
     mesocycleWeek: integer("mesocycle_week"),
-    weekId: integer("week_id").references(() => mesocycleWeeksTable.id, {
-      onDelete: "set null",
-    }),
-    plannedWorkoutId: integer("planned_workout_id").references(
-      () => plannedWorkoutsTable.id,
-      { onDelete: "set null" },
-    ),
+    weekId: integer("week_id"),
+    plannedWorkoutId: integer("planned_workout_id"),
     weekKindSnapshot: text("week_kind_snapshot", {
       enum: ["loading", "deload", "week_off"],
     }),
@@ -251,6 +303,28 @@ export const workoutSessionsTable = pgTable(
     structureDecision: text("structure_decision"),
   },
   (table) => [
+    foreignKey({
+      name: "workout_sessions_week_id_fkey",
+      columns: [table.weekId],
+      foreignColumns: [mesocycleWeeksTable.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "workout_sessions_planned_workout_id_fkey",
+      columns: [table.plannedWorkoutId],
+      foreignColumns: [plannedWorkoutsTable.id],
+    }).onDelete("set null"),
+    check(
+      "workout_sessions_week_kind_snapshot_check",
+      sql`${table.weekKindSnapshot} IN ('loading', 'deload', 'week_off')`,
+    ),
+    check(
+      "workout_sessions_recovery_mode_check",
+      sql`${table.recoveryMode} IN ('deload', 'week_off')`,
+    ),
+    check(
+      "workout_sessions_training_mode_check",
+      sql`${table.trainingMode} IN ('basic', 'legendary_pro')`,
+    ),
     index("workout_sessions_profile_started_idx").on(
       table.profileId,
       table.startedAt,
@@ -273,7 +347,7 @@ export const workoutExercisesTable = pgTable(
       .references(() => exercisesTable.id, { onDelete: "restrict" }),
     exerciseName: text("exercise_name").notNull(),
     muscleGroup: text("muscle_group").notNull(),
-    targetRir: doublePrecision("target_rir"),
+    targetRir: doublePrecision("target_rir").default(2),
     targetSets: integer("target_sets").notNull().default(3),
     minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
     maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),
@@ -317,6 +391,10 @@ export const workoutExercisesTable = pgTable(
     ),
   },
   (table) => [
+    check(
+      "workout_exercises_baseline_status_check",
+      sql`${table.baselineStatus} IN ('no_baseline', 'active', 'expired')`,
+    ),
     index("workout_exercises_session_order_idx").on(
       table.sessionId,
       table.orderIndex,
@@ -372,16 +450,9 @@ export const exerciseBaselinesTable = pgTable(
   "exercise_baselines",
   {
     id: serial("id").primaryKey(),
-    profileId: integer("profile_id")
-      .notNull()
-      .references(() => profilesTable.id, { onDelete: "cascade" }),
-    exerciseId: integer("exercise_id")
-      .notNull()
-      .references(() => exercisesTable.id, { onDelete: "cascade" }),
-    sourceSessionId: integer("source_session_id").references(
-      () => workoutSessionsTable.id,
-      { onDelete: "set null" },
-    ),
+    profileId: integer("profile_id").notNull(),
+    exerciseId: integer("exercise_id").notNull(),
+    sourceSessionId: integer("source_session_id"),
     sourceSetId: integer("source_set_id"),
     establishedAt: timestamp("established_at", { withTimezone: true }).notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -392,7 +463,22 @@ export const exerciseBaselinesTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("exercise_baselines_profile_exercise_unique").on(
+    foreignKey({
+      name: "exercise_baselines_profile_id_fkey",
+      columns: [table.profileId],
+      foreignColumns: [profilesTable.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "exercise_baselines_exercise_id_fkey",
+      columns: [table.exerciseId],
+      foreignColumns: [exercisesTable.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "exercise_baselines_source_session_id_fkey",
+      columns: [table.sourceSessionId],
+      foreignColumns: [workoutSessionsTable.id],
+    }).onDelete("set null"),
+    unique("exercise_baselines_profile_exercise_unique").on(
       table.profileId,
       table.exerciseId,
     ),
@@ -410,10 +496,7 @@ export const progressionRecommendationsTable = pgTable(
     exerciseId: integer("exercise_id")
       .notNull()
       .references(() => exercisesTable.id, { onDelete: "cascade" }),
-    sourceSessionId: integer("source_session_id").references(
-      () => workoutSessionsTable.id,
-      { onDelete: "set null" },
-    ),
+    sourceSessionId: integer("source_session_id"),
     suggestedWeight: doublePrecision("suggested_weight"),
     suggestedRepsMin: integer("suggested_reps_min"),
     suggestedRepsMax: integer("suggested_reps_max"),
@@ -439,6 +522,11 @@ export const progressionRecommendationsTable = pgTable(
       .defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: "progression_recommendations_source_session_id_workout_sessions_",
+      columns: [table.sourceSessionId],
+      foreignColumns: [workoutSessionsTable.id],
+    }).onDelete("set null"),
     index("progression_recommendations_profile_exercise_idx").on(
       table.profileId,
       table.exerciseId,
@@ -451,9 +539,7 @@ export const muscleRecoveryTable = pgTable(
   "workout_muscle_recovery",
   {
     id: serial("id").primaryKey(),
-    sessionId: integer("session_id")
-      .notNull()
-      .references(() => workoutSessionsTable.id, { onDelete: "cascade" }),
+    sessionId: integer("session_id").notNull(),
     muscleGroup: text("muscle_group").notNull(),
     status: text("status", {
       enum: [
@@ -468,6 +554,11 @@ export const muscleRecoveryTable = pgTable(
       .defaultNow(),
   },
   (table) => [
+    foreignKey({
+      name: "workout_muscle_recovery_session_id_fkey",
+      columns: [table.sessionId],
+      foreignColumns: [workoutSessionsTable.id],
+    }).onDelete("cascade"),
     index("workout_muscle_recovery_session_idx").on(table.sessionId),
   ],
 );
