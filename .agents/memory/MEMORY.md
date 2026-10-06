@@ -6,4 +6,4 @@
 - [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
 - [PWA startup icons](legendary-dragon-branding.md) — Android shares launcher/startup icons; use L before the full dragon and refresh old installs when the manifest changes.
-- [Development schema sync](database-schema-sync.md) — check for equivalent existing indexes before accepting any Drizzle prompt that offers to truncate populated data.
+- [Development schema sync](database-schema-sync.md) — represent migration-defined integrity rules in Drizzle; Publish diffs live dev/prod, and name drift can produce destructive prompts.
