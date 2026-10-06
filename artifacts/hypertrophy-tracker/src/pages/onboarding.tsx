@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Dumbbell, LayoutTemplate } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/react";
-import { getListProfilesQueryKey, useUpdateProfile } from "@workspace/api-client-react";
+import { getListProfilesQueryKey, useUpdateProfile, useUpdateProfileTrainingMode } from "@workspace/api-client-react";
 import type { Profile } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { useActiveProfile } from "@/lib/profile";
@@ -23,8 +23,10 @@ export default function OnboardingPage() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const update = useUpdateProfile();
+  const updateMode = useUpdateProfileTrainingMode();
   const [unit, setUnit] = useState<WeightUnit>("kg");
   const [experience, setExperience] = useState<TrainingExperience | null>(null);
+  const [trainingMode, setTrainingMode] = useState<"basic" | "legendary_pro">("legendary_pro");
   const [error, setError] = useState("");
   const [starting, setStarting] = useState<"template" | "build" | null>(null);
 
@@ -32,6 +34,7 @@ export default function OnboardingPage() {
     if (!profile) return;
     setUnit(profile.weightUnit === "lb" ? "lb" : "kg");
     setExperience(profile.trainingExperience ?? null);
+    setTrainingMode(profile.trainingMode ?? "legendary_pro");
   }, [profile?.id, profile?.weightUnit, profile?.trainingExperience]);
 
   if (profilesQuery.isLoading || !userLoaded) return <Loading />;
@@ -50,8 +53,7 @@ export default function OnboardingPage() {
     }
     const name = profile.name.trim() || user?.fullName?.trim() || "Athlete";
     setStarting(destination);
-    update.mutate(
-      {
+    void updateMode.mutateAsync({ profileId: profile.id, data: { trainingMode } }).then(() => update.mutateAsync({
         profileId: profile.id,
         data: {
           name,
@@ -59,18 +61,13 @@ export default function OnboardingPage() {
           trainingExperience: experience,
           onboardingComplete: true,
         },
-      },
-      {
-        onSuccess: (updated) => {
+      })).then((updated) => {
           queryClient.setQueryData<Profile[]>(getListProfilesQueryKey(), (current) =>
             (current ?? [profile]).map((item) => (item.id === updated.id ? updated : item)),
           );
           navigate(destination === "template" ? "/splits/new?start=template" : "/splits/new?start=build");
-        },
-        onError: () => setError("We couldn't save your setup. Please try again."),
-        onSettled: () => setStarting(null),
-      },
-    );
+        }).catch(() => setError("We couldn't save your setup. Please try again."))
+      .finally(() => setStarting(null));
   };
 
   return (
@@ -121,13 +118,28 @@ export default function OnboardingPage() {
         </div>
       </section>
 
+      <section className="panel" style={{ padding: 17, marginBottom: 20 }}>
+        <div className="eyebrow">Choose your training mode</div>
+        <p style={{ fontSize: 12, color: "hsl(var(--muted-foreground))", lineHeight: 1.5, margin: "7px 0 10px" }}>
+          Both modes are free during beta. You can change this later; each workout keeps the mode it started with.
+        </p>
+        <div className="seg" style={{ gridTemplateColumns: "1fr 1fr" }} role="group" aria-label="Choose your training mode">
+          <button type="button" aria-pressed={trainingMode === "basic"} onClick={() => setTrainingMode("basic")} data-testid="onboarding-mode-basic">
+            Basic <small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Manual weight and reps</small>
+          </button>
+          <button type="button" aria-pressed={trainingMode === "legendary_pro"} onClick={() => setTrainingMode("legendary_pro")} data-testid="onboarding-mode-pro">
+            Legendary Pro <small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Guided progression</small>
+          </button>
+        </div>
+      </section>
+
       <div className="eyebrow" style={{ marginBottom: 9 }}>How would you like to start?</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <button
           type="button"
           className="btn btn-primary"
           style={{ minHeight: 82, justifyContent: "space-between", textAlign: "left", padding: 14 }}
-          disabled={update.isPending || !userLoaded}
+          disabled={update.isPending || updateMode.isPending || !userLoaded}
           onClick={() => startTraining("template")}
           data-testid="onboarding-start-template"
         >
@@ -138,7 +150,7 @@ export default function OnboardingPage() {
           type="button"
           className="btn btn-secondary"
           style={{ minHeight: 82, justifyContent: "space-between", textAlign: "left", padding: 14 }}
-          disabled={update.isPending || !userLoaded}
+          disabled={update.isPending || updateMode.isPending || !userLoaded}
           onClick={() => startTraining("build")}
           data-testid="onboarding-build-own"
         >

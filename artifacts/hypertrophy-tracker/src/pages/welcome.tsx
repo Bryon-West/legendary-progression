@@ -1,9 +1,43 @@
+import { useEffect, useState } from "react";
+
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }> };
 type WelcomeProps = {
   onCreateAccount: () => void;
   onLogIn: () => void;
 };
 
 export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [installHelp, setInstallHelp] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setInstalled(standalone);
+    const capture = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const installedHandler = () => { setInstalled(true); setInstallPrompt(null); };
+    window.addEventListener("beforeinstallprompt", capture);
+    window.addEventListener("appinstalled", installedHandler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", capture);
+      window.removeEventListener("appinstalled", installedHandler);
+    };
+  }, []);
+  const install = async () => {
+    if (!installPrompt) { setInstallHelp(true); return; }
+    setInstalling(true);
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === "accepted") setInstalled(true);
+      setInstallPrompt(null);
+    } finally { setInstalling(false); }
+  };
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
   return (
     <main className="lp-welcome">
       <style>{`
@@ -226,6 +260,10 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
           text-transform: uppercase;
         }
         .lp-welcome__footer span:last-child { color: #b49a54; }
+        .lp-install-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 18px; background: rgba(0,0,0,.72); }
+        .lp-install-card { width: min(100%, 420px); padding: 24px; color: #f4f0e7; background: #151513; border: 1px solid rgba(231,189,75,.35); }
+        .lp-install-card h2 { margin: 0 0 10px; font: 700 30px/.95 var(--display-font, sans-serif); text-transform: uppercase; }
+        .lp-install-card p:not(.lp-welcome__overline) { color: #aaa8a0; line-height: 1.6; margin-bottom: 20px; }
         @keyframes lp-arrive {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
@@ -305,6 +343,9 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
             <button className="lp-welcome__button lp-welcome__button--quiet" type="button" onClick={onLogIn} data-testid="button-log-in">
               LOG IN
             </button>
+            {!installed && <button className="lp-welcome__button lp-welcome__button--quiet" type="button" onClick={() => void install()} disabled={installing} data-testid="button-install-app">
+              {installing ? "OPENING INSTALL…" : "INSTALL APP"}
+            </button>}
           </div>
         </div>
 
@@ -322,6 +363,14 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
           </figcaption>
         </figure>
       </section>
+      {installHelp && <div className="lp-install-backdrop" role="presentation" onClick={() => setInstallHelp(false)}>
+        <section className="lp-install-card" role="dialog" aria-modal="true" aria-labelledby="install-title" onClick={(event) => event.stopPropagation()}>
+          <p className="lp-welcome__overline">Install</p>
+          <h2 id="install-title">Keep your training log close.</h2>
+          <p>{isIos ? "In Safari, tap Share, then choose Add to Home Screen." : isAndroid ? "In Chrome, open the menu and choose Install app or Add to Home screen." : "In your browser menu, choose Install app or Add to Home screen."}</p>
+          <button className="lp-welcome__button" type="button" onClick={() => setInstallHelp(false)}>GOT IT</button>
+        </section>
+      </div>}
 
       <footer className="lp-welcome__footer">
         <span>Train with purpose</span>

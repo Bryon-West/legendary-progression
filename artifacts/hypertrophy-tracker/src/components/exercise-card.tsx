@@ -9,9 +9,10 @@ import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/compo
 import { formatRir, humanize } from '@/lib/labels';
 import { fmtWeight, type WeightUnit } from '@/lib/units';
 
-export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, onSubstitute }: {
-  exercise: WorkoutExercise; sessionId: number; profileId: number; unit: WeightUnit; onChanged: () => void; onSubstitute: () => void;
+export function ExerciseCard({ exercise, sessionId, profileId, unit, trainingMode, onChanged, onSubstitute }: {
+  exercise: WorkoutExercise; sessionId: number; profileId: number; unit: WeightUnit; trainingMode: "basic" | "legendary_pro"; onChanged: () => void; onSubstitute: () => void;
 }) {
+  const isPro = trainingMode === "legendary_pro";
   const history = useGetExerciseHistory(profileId, exercise.exerciseId, { query: { queryKey: getGetExerciseHistoryQueryKey(profileId, exercise.exerciseId), enabled: !!profileId } });
   const records = useGetPersonalRecords(profileId, { query: { queryKey: getGetPersonalRecordsQueryKey(profileId), enabled: !!profileId } });
   const updateExercise = useUpdateWorkoutExercise();
@@ -32,12 +33,13 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
   const maxSets = exercise.maximumWorkingSets ?? 20;
   const prior = history.data?.filter((h) => h.setType === 'work').slice(0, 4) ?? [];
   const record = records.data?.exercises.find((r) => r.exerciseId === exercise.exerciseId);
-  const newPr = record?.history.some((r) => r.sessionId === sessionId && (r.heaviestLoadRecord || r.legendaryPerformanceRecord)
+  const newPr = record?.history.some((r) => r.sessionId === sessionId && (r.heaviestLoadRecord || (isPro && r.legendaryPerformanceRecord))
     && exercise.sets.some((s) => s.id === r.setId && s.completed && s.setType === 'work' && !s.removed)) ?? false;
   const add = (setType: 'warmup' | 'work') => {
     const same = exercise.sets.filter((s) => s.setType === setType);
     const setNumber = same.length ? Math.max(...same.map((s) => s.setNumber)) + 1 : 1;
-    createSet.mutate({ sessionId, data: { workoutExerciseId: exercise.id, setNumber, setType, targetWeight: exercise.calibrationMode ? null : exercise.targetWeight ?? null, targetRepsMin: exercise.calibrationMode ? null : exercise.targetRepsMin, targetRepsMax: exercise.calibrationMode ? null : exercise.targetRepsMax } }, { onSuccess: onChanged });
+    const calibrationSet = isPro && exercise.calibrationMode;
+    createSet.mutate({ sessionId, data: { workoutExerciseId: exercise.id, setNumber, setType, targetWeight: calibrationSet ? null : exercise.targetWeight ?? null, targetRepsMin: calibrationSet ? null : exercise.targetRepsMin, targetRepsMax: calibrationSet ? null : exercise.targetRepsMax } }, { onSuccess: onChanged });
   };
   const doRemove = (set: WorkoutSet) => removeSet.mutate({ sessionId, setId: set.id }, { onSuccess: () => { setConfirmRemove(null); onChanged(); } });
   const [boundMsg, setBoundMsg] = useState('');
@@ -46,8 +48,8 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
     if (set.setType === 'work' && works.length <= minSets) { setBoundMsg(`This exercise needs at least ${minSets} working set${minSets === 1 ? '' : 's'}. Skip the exercise instead, or lower the minimum in the mesocycle.`); return; }
     if (needsConfirm) setConfirmRemove(set); else doRemove(set);
   };
-  const calibration = !!exercise.calibrationMode;
-  const baseline = exercise.baselineStatus ?? null;
+  const calibration = isPro && !!exercise.calibrationMode;
+  const baseline = isPro ? exercise.baselineStatus ?? null : null;
   const removeLast = () => {
     const target = [...works].reverse().find((s) => !s.completed) ?? works[works.length - 1];
     if (!target) return;
@@ -68,49 +70,56 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
           {baseline && <span className={`badge ${baseline === 'active' ? 'badge-red' : baseline === 'expired' ? 'badge-warning' : ''}`} data-testid={`badge-baseline-${exercise.id}`}>{baseline === 'active' ? 'Active baseline' : baseline === 'expired' ? 'Baseline expired' : 'No baseline'}</span>}
           {skipped && <span className="badge badge-warning">Skipped</span>}
           {superseded && <span className="badge">Replaced</span>}
-          {exercise.painReported && <span className="badge badge-warning">Discomfort noted</span>}
-          {exercise.recoveryAdjustment && !['train_as_planned', 'pending', 'repeat_limited'].includes(exercise.recoveryAdjustment) && <span className="badge badge-warning" data-testid={`badge-recovery-${exercise.id}`}>Recovery-adjusted</span>}
+          {isPro && exercise.painReported && <span className="badge badge-warning">Discomfort noted</span>}
+          {isPro && exercise.recoveryAdjustment && !['train_as_planned', 'pending', 'repeat_limited'].includes(exercise.recoveryAdjustment) && <span className="badge badge-warning" data-testid={`badge-recovery-${exercise.id}`}>Recovery-adjusted</span>}
         </div>
         <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 8 }}>
-          RIR <b style={{ color: 'hsl(var(--foreground))' }}>{formatRir(calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir)}</b>{calibration && ' (calibration)'} · Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
+          {isPro ? <>RIR <b style={{ color: 'hsl(var(--foreground))' }}>{formatRir(calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir)}</b>{calibration && ' (calibration)'} · </> : <>Manual targets · </>}Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
         </div>
       </div>
     </div>
     {superseded && <div className="notice-warn" style={{ marginBottom: 10 }}>Replaced during this session. Sets already logged stay in your history.</div>}
-    {skipped && !superseded && <div className="notice-warn" style={{ marginBottom: 10 }}>Skipped. It is recorded as skipped and does not count against progression.</div>}
-    {!readOnly && calibration && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-calibration-${exercise.id}`}>
+    {skipped && !superseded && <div className="notice-warn" style={{ marginBottom: 10 }}>{isPro ? "Skipped. It is recorded as skipped and does not count against progression." : "Skipped. It is recorded as skipped and is not counted in this workout."}</div>}
+    {!readOnly && isPro && calibration && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-calibration-${exercise.id}`}>
       <span className="badge badge-red">Calibration mode</span>
       <div style={{ fontSize: 13, marginTop: 8, lineHeight: 1.45 }}>Choose a weight you believe you can perform at approximately {formatRir(exercise.calibrationRir ?? exercise.targetRir)} RIR.</div>
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>{baseline === 'expired' ? 'Your last baseline for this exercise has expired. ' : ''}Record weight, reps and actual RIR. This sets your baseline; no target is shown until it exists.</div>
     </div>}
-    {!readOnly && !calibration && outcome && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-recommendation-${exercise.id}`}>
+    {!readOnly && isPro && !calibration && outcome && <div style={{ padding: '10px 12px', marginBottom: 12, borderRadius: 12, background: 'hsl(var(--primary) / .1)', border: '1px solid hsl(var(--primary) / .35)' }} data-testid={`text-recommendation-${exercise.id}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}><span className="badge badge-red">{outcome}</span>{exercise.recommendedWeight != null && <span className="metric" style={{ fontSize: 12, fontWeight: 700 }}>{fmtWeight(exercise.recommendedWeight, unit)}{exercise.recommendedReps ? ` × ${exercise.recommendedReps}` : ''}</span>}</div>
       {exercise.recommendationRationale && <div style={{ fontSize: 12, marginTop: 7, lineHeight: 1.45, color: 'hsl(var(--muted-foreground))' }}>{exercise.recommendationRationale}</div>}
     </div>}
     {(prior.length > 0 || record?.heaviestLoad || record?.bestPerformance) && <div className="pr-context" data-testid={`context-pr-${exercise.id}`}>
       {prior.length > 0 && <span><b style={{ color: 'hsl(var(--foreground))' }}>Last time</b> · {prior.map((p) => `${fmtWeight(p.actualWeight ?? p.targetWeight, unit, false)} × ${p.actualReps ?? p.targetRepsMin ?? '—'}`).join(' / ')} {unit}</span>}
       {record?.heaviestLoad && <span><b style={{ color: 'hsl(var(--foreground))' }}>Heaviest</b> · {fmtWeight(record.heaviestLoad.weight, unit, false)} × {record.heaviestLoad.reps}</span>}
-      {record?.bestPerformance && <span><b style={{ color: 'hsl(var(--foreground))' }}>Best</b> · {fmtWeight(record.bestPerformance.weight, unit, false)} × {record.bestPerformance.reps}{record.bestPerformance.rir != null ? ` @ ${record.bestPerformance.rir} RIR` : ''}</span>}
+      {record?.bestPerformance && <span><b style={{ color: 'hsl(var(--foreground))' }}>Best</b> · {fmtWeight(record.bestPerformance.weight, unit, false)} × {record.bestPerformance.reps}{isPro && record.bestPerformance.rir != null ? ` @ ${record.bestPerformance.rir} RIR` : ''}</span>}
       {newPr && <span className="badge badge-success" data-testid={`badge-new-pr-${exercise.id}`}>NEW PR</span>}
     </div>}
-    <div className="set-grid" style={{ marginBottom: 6 }}><span className="set-head">Set</span><span className="set-head">Weight ({unit})</span><span className="set-head">Reps</span><span className="set-head">RIR</span><span className="set-head"></span></div>
+    <div className={`set-grid ${isPro ? '' : 'set-grid-basic'}`} style={{ marginBottom: 6 }}><span className="set-head">Set</span><span className="set-head">Weight ({unit})</span><span className="set-head">Reps</span>{isPro && <span className="set-head">RIR</span>}<span className="set-head"></span></div>
     {live.length ? <>
-      {warmups.map((s, idx) => <SetRow key={s.id} set={s} label={idx + 1} exercise={exercise} sessionId={sessionId} unit={unit} readOnly={readOnly} locked={false} onSaved={onChanged} onStatus={setStatusSet} onError={setRowFailed} onRemove={requestRemove}/>)}
-      {works.map((s, idx) => <SetRow key={s.id} set={s} label={idx + 1} exercise={exercise} sessionId={sessionId} unit={unit} readOnly={readOnly} locked={!s.completed && (s.workflowState === 'locked' || works.slice(0, idx).some((p) => !p.completed))} onSaved={onChanged} onStatus={setStatusSet} onError={setRowFailed} onRemove={requestRemove}/>)}
+      {warmups.map((s, idx) => <SetRow key={s.id} set={s} label={idx + 1} exercise={exercise} sessionId={sessionId} unit={unit} readOnly={readOnly} locked={false} trainingMode={trainingMode} onSaved={onChanged} onStatus={setStatusSet} onError={setRowFailed} onRemove={requestRemove}/>)}
+      {works.map((s, idx) => <SetRow key={s.id} set={s} label={idx + 1} exercise={exercise} sessionId={sessionId} unit={unit} readOnly={readOnly} locked={!s.completed && (s.workflowState === 'locked' || works.slice(0, idx).some((p) => !p.completed))} trainingMode={trainingMode} onSaved={onChanged} onStatus={setStatusSet} onError={setRowFailed} onRemove={requestRemove}/>)}
     </> : <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: '6px 0 12px' }}>No sets yet.</div>}
     {boundMsg && <ErrorNote message={boundMsg}/>}
     {rowFailed && <ErrorNote message="A set value was not saved. Check the numbers and try again."/>}
     {(createSet.isError || removeSet.isError || updateExercise.isError) && <ErrorNote message="That change did not save. Try again."/>}
     {skipped && !superseded ? <button className="btn btn-secondary btn-sm" style={{ width: '100%', marginTop: 10 }} disabled={updateExercise.isPending} onClick={() => feedback({ skipped: false })} data-testid={`button-restore-${exercise.id}`}><Undo2 size={15}/> Restore exercise</button>
-    : !superseded && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 7, marginTop: 10 }}>
-      <button className="btn btn-outline btn-sm" onClick={() => add('warmup')} disabled={createSet.isPending} data-testid={`button-add-warmup-${exercise.id}`}><Plus size={14}/> Warm-up</button>
-      <button className="btn btn-primary btn-sm" onClick={() => add('work')} disabled={createSet.isPending || works.length >= maxSets} data-testid={`button-add-work-${exercise.id}`}><Plus size={14}/> Working</button>
-      <button className="btn btn-outline btn-sm" onClick={removeLast} disabled={removeSet.isPending || works.length <= minSets} data-testid={`button-remove-work-${exercise.id}`}><Minus size={14}/> Working</button>
-      <button className="btn btn-outline btn-sm" onClick={() => feedback({ skipped: true })} disabled={updateExercise.isPending} data-testid={`button-skip-${exercise.id}`}><SkipForward size={14}/> Skip</button>
-      <button className="btn btn-outline btn-sm" aria-label={`Substitute ${exercise.exerciseName}`} onClick={onSubstitute} data-testid={`button-swap-${exercise.id}`}><Edit3 size={14}/> Swap</button>
-      <button className="btn btn-outline btn-sm" onClick={() => setPain(true)} data-testid={`button-pain-${exercise.id}`}><TriangleAlert size={14}/> Discomfort</button>
-    </div>}
-    {statusSet && <Modal title={statusLabel(statusPicked)} close={() => setStatusSet(null)}>
+    : !superseded && <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 10 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => add('work')} disabled={createSet.isPending || works.length >= maxSets} data-testid={`button-add-work-${exercise.id}`}><Plus size={14}/> Add Set</button>
+        <button className="btn btn-outline btn-sm" onClick={removeLast} disabled={removeSet.isPending || works.length <= minSets} data-testid={`button-remove-work-${exercise.id}`}><Minus size={14}/> Remove Set</button>
+      </div>
+      <details style={{ marginTop: 8 }}>
+        <summary style={{ cursor: "pointer", color: "hsl(var(--muted-foreground))", fontSize: 12, minHeight: 38, display: "flex", alignItems: "center" }}>More actions</summary>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, paddingTop: 5 }}>
+          <button className="btn btn-outline btn-sm" onClick={() => add('warmup')} disabled={createSet.isPending} data-testid={`button-add-warmup-${exercise.id}`}><Plus size={14}/> Warm-up</button>
+          <button className="btn btn-outline btn-sm" onClick={() => feedback({ skipped: true })} disabled={updateExercise.isPending} data-testid={`button-skip-${exercise.id}`}><SkipForward size={14}/> Skip</button>
+          <button className="btn btn-outline btn-sm" aria-label={`Substitute ${exercise.exerciseName}`} onClick={onSubstitute} data-testid={`button-swap-${exercise.id}`}><Edit3 size={14}/> Swap</button>
+          {isPro && <button className="btn btn-outline btn-sm" onClick={() => setPain(true)} data-testid={`button-pain-${exercise.id}`}><TriangleAlert size={14}/> Discomfort</button>}
+        </div>
+      </details>
+    </>}
+    {isPro && statusSet && <Modal title={statusLabel(statusPicked)} close={() => setStatusSet(null)}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}><span className={`status-btn ${statusClass(statusPicked)}`}><StatusIcon status={statusPicked}/></span><span style={{ fontSize: 14, lineHeight: 1.5 }}>{statusSet.targetExplanation ?? 'This set was logged before target ratings existed, so it has no rating.'}</span></div>
       <div className="eyebrow">Target</div>
       <p style={{ margin: '4px 0 12px' }}>{statusSet.targetRepsMin != null && statusSet.targetRepsMax != null ? `Snapshot ${statusSet.targetRepsMin}–${statusSet.targetRepsMax} reps, ` : ''}RIR effort target {formatRir(statusSet.adaptiveTargetRir ?? exercise.targetRir)}{statusSet.adaptiveTargetWeight != null ? <><br/><span className="metric">Adjusted: {fmtWeight(statusSet.adaptiveTargetWeight, unit)}{statusSet.adaptiveTargetReps ? ` × ${Math.round(statusSet.adaptiveTargetReps)}` : ''}</span></> : null}</p>
@@ -120,10 +129,10 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, onChanged, 
       <button className="btn btn-secondary" style={{ width: '100%', marginTop: 16 }} onClick={() => setStatusSet(null)}>Got it</button>
     </Modal>}
     {confirmRemove && <Modal title="Remove this set?" close={() => setConfirmRemove(null)}>
-      <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginTop: 0 }}>This set has entered or completed numbers. It will be removed from totals, progression and ratings, and remaining working sets are renumbered.</p>
+      <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginTop: 0 }}>{isPro ? "This set has entered or completed numbers. It will be removed from totals, progression and ratings, and remaining working sets are renumbered." : "This set has entered or completed numbers. It will be removed from totals, and remaining working sets are renumbered."}</p>
       <div style={{ display: 'flex', gap: 9 }}><button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setConfirmRemove(null)}>Keep set</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={removeSet.isPending} onClick={() => doRemove(confirmRemove)}>Remove set</button></div>
     </Modal>}
-    {pain && <Modal title="Discomfort on this movement" close={() => setPain(false)}>
+    {isPro && pain && <Modal title="Discomfort on this movement" close={() => setPain(false)}>
       <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginTop: 0, fontSize: 14 }}>Joint or tendon discomfort is recorded separately from normal muscle soreness. This is a training note, not a diagnosis. While it is flagged, the app will not recommend adding load or sets for this movement.</p>
       <textarea className="field" style={{ minHeight: 86, padding: 12 }} maxLength={300} placeholder="Optional note, e.g. left elbow pinch on lockout" value={painNote} onChange={(e) => setPainNote(e.target.value)} aria-label="Discomfort note"/>
       <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>

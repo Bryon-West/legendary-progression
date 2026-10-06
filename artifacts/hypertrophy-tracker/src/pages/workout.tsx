@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Plus } from 'lucide-react'
 import { Link, useLocation, useParams } from 'wouter';
 import {
   getGetActiveWorkoutQueryKey, getGetOverviewQueryKey, getGetWorkoutStructureChangesQueryKey, getWorkoutStructureChanges, useGetWorkoutStructureChanges, getGetWorkoutQueryKey, getListExercisesQueryKey,
-  getListSplitsQueryKey, getListWorkoutsQueryKey, getGetPersonalRecordsQueryKey, useAddExerciseToWorkout, useFinishWorkout, useGetWorkout,
+  getListSplitsQueryKey, getListWorkoutsQueryKey, getGetPersonalRecordsQueryKey, getListProfilesQueryKey, useAddExerciseToWorkout, useFinishWorkout, useGetWorkout,
   useListExercises, useSubstituteWorkoutExercise,
 } from '@workspace/api-client-react';
 import type { Exercise, FinishWorkoutResult } from '@workspace/api-client-react';
@@ -42,8 +42,9 @@ export default function WorkoutPage() {
   const [decision, setDecision] = useState<StructureChanges | null>(null);
   const [hiddenExerciseIds, setHiddenExerciseIds] = useState<number[]>([]);
   const [skippedFb, setSkippedFb] = useState<number[]>([]);
-  const changesQuery = useGetWorkoutStructureChanges(id, { query: { enabled: Number.isFinite(id) && workoutQuery.data?.status === 'active', queryKey: getGetWorkoutStructureChangesQueryKey(id) } });
+  const changesQuery = useGetWorkoutStructureChanges(id, { query: { enabled: Number.isFinite(id) && workoutQuery.data?.status === 'active' && workoutQuery.data?.trainingMode === 'legendary_pro', queryKey: getGetWorkoutStructureChangesQueryKey(id) } });
   const workout = workoutQuery.data;
+  const isPro = workout?.trainingMode === "legendary_pro";
   const addExercise = useAddExerciseToWorkout();
   const substitute = useSubstituteWorkoutExercise();
   const finish = useFinishWorkout();
@@ -59,7 +60,7 @@ export default function WorkoutPage() {
       <div className="panel" style={{ padding: 20 }}>
         <div className="eyebrow">Total weight lifted</div>
         <div className="display metric" style={{ fontSize: 40, margin: '8px 0 14px' }} data-testid="text-summary-total">{fmtTotal(w.totalVolume, unit)}</div>
-        {(w.muscleTotals ?? []).length > 0 && <MuscleTotals totalKg={w.totalVolume} muscleTotals={w.muscleTotals ?? []} unit={unit}/>}
+         {w.trainingMode === "legendary_pro" && (w.muscleTotals ?? []).length > 0 && <MuscleTotals totalKg={w.totalVolume} muscleTotals={w.muscleTotals ?? []} unit={unit}/>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
           <div><div className="eyebrow">Exercises</div><div className="metric" style={{ fontWeight: 700, marginTop: 6 }} data-testid="text-summary-exercises">{summary.summary.exerciseCount}</div></div>
           <div><div className="eyebrow">Working sets</div><div className="metric" style={{ fontWeight: 700, marginTop: 6 }} data-testid="text-summary-working-sets">{summary.summary.workingSetCount}</div></div>
@@ -92,7 +93,7 @@ export default function WorkoutPage() {
     setSaveError(null);
     try { await settle(); }
     catch (error) { setSaveError(error instanceof Error ? error.message : 'Could not save all set entries.'); return; }
-    if (!structureDecision) {
+    if (isPro && !structureDecision) {
       try {
         const ch = asChanges(await qc.fetchQuery({ queryKey: getGetWorkoutStructureChangesQueryKey(id), queryFn: () => getWorkoutStructureChanges(id), staleTime: 0 }));
         if (ch.changes?.length) { setModal(null); setDecision(ch); return; }
@@ -107,10 +108,12 @@ export default function WorkoutPage() {
       void qc.invalidateQueries({ queryKey: getListSplitsQueryKey({ profileId: workout.profileId }) });
       void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith('/api/') && q.queryKey[0] !== getGetWorkoutQueryKey(id)[0] });
       setModal(null); setDecision(null);
+      void qc.invalidateQueries({ queryKey: getListProfilesQueryKey() });
+      window.dispatchEvent(new Event("legendary-workout-finished"));
     } });
   };
   const addWith = (exercise: Exercise) => {
-    addExercise.mutate({ sessionId: id, data: { exerciseId: exercise.id, targetRir: workout.targetRirSnapshot ?? 2, targetSets: 3, targetRepsMin: exercise.defaultRepMin, targetRepsMax: exercise.defaultRepMax, orderIndex: workout.exercises.length } }, { onSuccess: () => { invalidate(); setModal(null); } });
+    addExercise.mutate({ sessionId: id, data: { exerciseId: exercise.id, ...(isPro ? { targetRir: workout.targetRirSnapshot ?? 2 } : {}), targetSets: 3, targetRepsMin: exercise.defaultRepMin, targetRepsMax: exercise.defaultRepMax, orderIndex: workout.exercises.length } }, { onSuccess: () => { invalidate(); setModal(null); } });
   };
   const swapTarget = workout.exercises.find((x) => x.id === swapTargetId);
   const doSwap = (updateMesocycle: boolean) => {
@@ -135,24 +138,26 @@ export default function WorkoutPage() {
       <button className="btn btn-secondary" data-testid="button-finish-top" style={{ minHeight: 40, padding: '0 12px', fontSize: 12 }} disabled={finish.isPending} onClick={() => setModal('finish')}>Finish</button>
     </div>
     <div className="eyebrow">{workout.splitName || 'Open session'}</div><h1 className="display" style={{ fontSize: 43, margin: '6px 0 14px' }}>{workout.dayName || 'Training session'}</h1>
-    {(workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
+     {isPro && (workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
       <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '.04em' }}>{workout.weekKindSnapshot === 'deload' ? 'RECOVERY WEEK — DELOAD' : 'RECOVERY WEEK — WEEK OFF'}</div>
       <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${formatRir(workout.targetRirSnapshot)})` : ''} with reduced sets and load. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
     </div>}
      <SessionContext workout={workout}/>
      {saveError && modal === null && <ErrorNote message={saveError}/>}
     {!workout.exercises.length ? <Empty title="Your session is ready" detail="Add an exercise from your library to start logging sets." action={<button className="btn btn-primary" onClick={() => setModal('add')}><Plus size={17}/> Add exercise</button>}/> : null}
-    <div style={{ display: 'grid', gap: 13 }}>
-      {workout.exercises.filter((exercise) => !hiddenExerciseIds.includes(exercise.id)).map((exercise, i, all) => recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
-        ? <RecoveryPrompt key={exercise.id} exercise={exercise} rec={recMap.get(exercise.id)} sessionId={id} onDone={invalidate} onChangeExercise={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
-        : <div key={exercise.id}><ExerciseCard exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
-          {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} first={i === 0} last={i === all.length - 1} onChanged={invalidate} onRemoved={() => { setSaveError(null); setHiddenExerciseIds((items) => items.includes(exercise.id) ? items : [...items, exercise.id]); }} onRemoveFailed={() => { setHiddenExerciseIds((items) => items.filter((x) => x !== exercise.id)); setSaveError('Could not remove this exercise. It has been restored to today’s list.'); }}/>}</div>)}
-    </div>
+     <div style={{ display: 'grid', gap: 13 }}>
+        {workout.exercises.filter((exercise) => !hiddenExerciseIds.includes(exercise.id)).map((exercise, i, all) => <div key={exercise.id}>
+          {isPro && recoveryPromptKind(exercise, recMap.get(exercise.id)) !== 'none'
+            ? <RecoveryPrompt exercise={exercise} rec={recMap.get(exercise.id)} sessionId={id} onDone={invalidate} onChangeExercise={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>
+            : <ExerciseCard exercise={exercise} profileId={workout.profileId} sessionId={id} unit={unit} trainingMode={workout.trainingMode} onChanged={invalidate} onSubstitute={() => { setSwapTargetId(exercise.id); setModal('substitute'); }}/>}
+          {workout.status === 'active' && <ExerciseTools exercise={exercise} sessionId={id} trainingMode={workout.trainingMode} first={i === 0} last={i === all.length - 1} onChanged={invalidate} onReplace={() => { setSwapTargetId(exercise.id); setModal('substitute'); }} onRemoved={() => { setSaveError(null); setHiddenExerciseIds((items) => items.includes(exercise.id) ? items : [...items, exercise.id]); }} onRemoveFailed={() => { setHiddenExerciseIds((items) => items.filter((x) => x !== exercise.id)); setSaveError('Could not remove this exercise. It has been restored to today’s list.'); }}/>}
+        </div>)}
+     </div>
     <button className="btn btn-secondary" style={{ width: '100%', marginTop: 14 }} onClick={() => setModal('add')} data-testid="button-add-exercise"><Plus size={18}/> Add exercise</button>
     <button className="btn btn-primary" data-testid="button-finish-workout" style={{ width: '100%', marginTop: 10, minHeight: 56 }} disabled={finish.isPending} onClick={() => setModal('finish')}><CheckCircle2 size={19}/> Finish workout</button>
     {(addExercise.isError || substitute.isError) && <ErrorNote message="That change did not save. Check your connection and try again."/>}
     {modal === 'finish' && <Modal title="Finish this workout?" close={() => setModal(null)}>
-      <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginTop: 0 }}>Any value you are still typing will be saved first. Completed working sets are rated and totalled; warm-ups and skipped exercises are not counted.</p>
+       <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.5, marginTop: 0 }}>{isPro ? "Any value you are still typing will be saved first. Completed working sets are rated and totalled; warm-ups and skipped exercises are not counted." : "Any value you are still typing will be saved first. Completed working sets are totalled; warm-ups and skipped exercises are not counted."}</p>
       <div style={{ display: 'flex', gap: 9, marginTop: 20 }}><button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setModal(null)}>Keep training</button><button className="btn btn-primary" data-testid="button-confirm-finish" style={{ flex: 1 }} disabled={busy} onClick={() => void finishSession()}>{finish.isPending ? 'Finishing…' : busy ? 'Saving sets…' : 'Finish workout'}</button></div>
       {finish.isError && <ErrorNote message="Could not finish this workout. Your session is still saved as active."/>}
       {saveError && <ErrorNote message={saveError}/>}
@@ -163,12 +168,12 @@ export default function WorkoutPage() {
       <p style={{ lineHeight: 1.5, marginTop: 0 }}>Replace <b>{swapTarget.exerciseName}</b> with <b>{swapChoice.name}</b>. Anything already logged stays in your history.</p>
       <div style={{ display: 'grid', gap: 8 }}>
         <button className="btn btn-primary" disabled={substitute.isPending} onClick={() => doSwap(false)} data-testid="button-swap-once">Replace in today's workout</button>
-        {workout.splitDayId != null && <p style={{ margin: 0, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>At Finish Workout, choose once whether to keep all changes for the rest of the mesocycle.</p>}
+        {isPro && workout.splitDayId != null && <p style={{ margin: 0, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>At Finish Workout, choose once whether to keep all changes for the rest of the mesocycle.</p>}
         <button className="btn btn-ghost" onClick={() => { setSwapChoice(null); setSwapTargetId(null); }}>Cancel</button>
       </div>
       {substitute.isError && <ErrorNote message="Could not replace the exercise."/>}
     </Modal>}
-    {feedbackFor && <FeedbackSheet exercise={feedbackFor} sessionId={id} onDone={invalidate} onSkip={() => setSkippedFb((v) => [...v, feedbackFor.id])}/>}
+     {isPro && feedbackFor && <FeedbackSheet exercise={feedbackFor} sessionId={id} onDone={invalidate} onSkip={() => setSkippedFb((v) => [...v, feedbackFor.id])}/>}
      {decision && <Modal title="You changed today's workout" close={() => setDecision(null)}>
        <p style={{ margin: '0 0 12px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Your completed session will always record exactly what you performed. Choose whether these structure changes carry forward to uncompleted workouts.</p>
        <ul style={{ margin: '0 0 14px', paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }} data-testid="list-structure-changes">{decision.changes.map((c, i) => <li key={`${i}-${c}`}>{c}</li>)}</ul>

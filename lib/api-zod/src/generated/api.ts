@@ -121,6 +121,7 @@ export const AdjustExerciseRecoveryResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(adjustExerciseRecoveryResponseMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -138,7 +139,7 @@ export const AdjustExerciseRecoveryResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -241,6 +242,7 @@ export const ReorderWorkoutExerciseResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(reorderWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -258,7 +260,7 @@ export const ReorderWorkoutExerciseResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -347,6 +349,7 @@ export const RemoveWorkoutExerciseResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(removeWorkoutExerciseResponseMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -364,7 +367,7 @@ export const RemoveWorkoutExerciseResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -435,6 +438,8 @@ export const ListProfilesResponseItem = zod.object({
   "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
   "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "pendingTrainingMode": zod.union([zod.literal('basic'),zod.literal('legendary_pro'),zod.literal(null)]).nullable(),
   "createdAt": zod.coerce.date()
 })
 export const ListProfilesResponse = zod.array(ListProfilesResponseItem)
@@ -457,6 +462,8 @@ export const CreateProfileResponse = zod.object({
   "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
   "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "pendingTrainingMode": zod.union([zod.literal('basic'),zod.literal('legendary_pro'),zod.literal(null)]).nullable(),
   "createdAt": zod.coerce.date()
 })
 
@@ -485,7 +492,37 @@ export const UpdateProfileResponse = zod.object({
   "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
   "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "pendingTrainingMode": zod.union([zod.literal('basic'),zod.literal('legendary_pro'),zod.literal(null)]).nullable(),
   "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Change the account's mode without altering an active session snapshot
+ */
+export const UpdateProfileTrainingModeParams = zod.object({
+  "profileId": zod.coerce.number().int()
+})
+
+export const UpdateProfileTrainingModeBody = zod.object({
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "activeSessionAction": zod.enum(['finish_current', 'cancel_today', 'keep_current']).optional()
+})
+
+export const UpdateProfileTrainingModeResponse = zod.object({
+  "profile": zod.object({
+  "id": zod.number().int(),
+  "name": zod.string(),
+  "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
+  "onboardingComplete": zod.boolean(),
+  "weightUnit": zod.enum(['kg', 'lb']),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "pendingTrainingMode": zod.union([zod.literal('basic'),zod.literal('legendary_pro'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date()
+}),
+  "activeWorkoutId": zod.number().int().nullable(),
+  "pending": zod.boolean()
 })
 
 
@@ -511,6 +548,8 @@ export const GetOverviewResponse = zod.object({
   "trainingExperience": zod.union([zod.literal('beginner'),zod.literal('intermediate'),zod.literal('advanced'),zod.literal(null)]).nullable(),
   "onboardingComplete": zod.boolean(),
   "weightUnit": zod.enum(['kg', 'lb']),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
+  "pendingTrainingMode": zod.union([zod.literal('basic'),zod.literal('legendary_pro'),zod.literal(null)]).nullable(),
   "createdAt": zod.coerce.date()
 }),
   "activeWorkout": zod.union([zod.object({
@@ -532,6 +571,7 @@ export const GetOverviewResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(getOverviewResponseActiveWorkoutOneMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -549,7 +589,7 @@ export const GetOverviewResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2236,6 +2276,7 @@ export const GetActiveWorkoutResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(getActiveWorkoutResponseWorkoutOneMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -2253,7 +2294,7 @@ export const GetActiveWorkoutResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2352,6 +2393,7 @@ export const StartWorkoutResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(startWorkoutResponseMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -2369,7 +2411,7 @@ export const StartWorkoutResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2456,6 +2498,7 @@ export const GetWorkoutResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(getWorkoutResponseMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -2473,7 +2516,7 @@ export const GetWorkoutResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2552,7 +2595,7 @@ export const addExerciseToWorkoutBodyOrderIndexMin = 0;
 
 export const AddExerciseToWorkoutBody = zod.object({
   "exerciseId": zod.number().int(),
-  "targetRir": zod.number().min(addExerciseToWorkoutBodyTargetRirMin).max(addExerciseToWorkoutBodyTargetRirMax),
+  "targetRir": zod.number().min(addExerciseToWorkoutBodyTargetRirMin).max(addExerciseToWorkoutBodyTargetRirMax).nullish(),
   "targetSets": zod.number().int().min(1).max(addExerciseToWorkoutBodyTargetSetsMax),
   "minimumWorkingSets": zod.number().int().min(1).max(addExerciseToWorkoutBodyMinimumWorkingSetsMax).optional(),
   "maximumWorkingSets": zod.number().int().min(1).max(addExerciseToWorkoutBodyMaximumWorkingSetsMax).optional(),
@@ -2576,7 +2619,7 @@ export const AddExerciseToWorkoutResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2657,7 +2700,7 @@ export const SubstituteWorkoutExerciseResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2737,7 +2780,7 @@ export const UpdateWorkoutExerciseResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),
@@ -2938,7 +2981,7 @@ export const completeWorkoutSetBodyActualRirMax = 10;
 export const CompleteWorkoutSetBody = zod.object({
   "actualWeight": zod.number().min(completeWorkoutSetBodyActualWeightMin),
   "actualReps": zod.number().int().min(completeWorkoutSetBodyActualRepsMin),
-  "actualRir": zod.number().min(completeWorkoutSetBodyActualRirMin).max(completeWorkoutSetBodyActualRirMax),
+  "actualRir": zod.number().min(completeWorkoutSetBodyActualRirMin).max(completeWorkoutSetBodyActualRirMax).nullish(),
   "notes": zod.string().nullish()
 })
 
@@ -3050,6 +3093,7 @@ export const FinishWorkoutResponse = zod.object({
   "weekKindSnapshot": zod.union([zod.literal('loading'),zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
   "targetRirSnapshot": zod.number().nullable(),
   "recoveryMode": zod.union([zod.literal('deload'),zod.literal('week_off'),zod.literal(null)]).nullable(),
+  "trainingMode": zod.enum(['basic', 'legendary_pro']),
   "muscleRecovery": zod.array(zod.object({
   "muscleGroup": zod.string().min(1).max(finishWorkoutResponseWorkoutMuscleRecoveryItemOneMuscleGroupMax),
   "status": zod.enum(['fully_recovered', 'slightly_fatigued', 'still_sore', 'very_sore'])
@@ -3067,7 +3111,7 @@ export const FinishWorkoutResponse = zod.object({
   "exerciseId": zod.number().int(),
   "exerciseName": zod.string(),
   "muscleGroup": zod.string(),
-  "targetRir": zod.number(),
+  "targetRir": zod.number().nullable(),
   "targetSets": zod.number().int(),
   "minimumWorkingSets": zod.number().int(),
   "maximumWorkingSets": zod.number().int(),

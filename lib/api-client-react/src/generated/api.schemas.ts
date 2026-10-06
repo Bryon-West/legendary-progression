@@ -156,6 +156,25 @@ export const ProfileWeightUnit = {
   lb: 'lb',
 } as const;
 
+export type ProfileTrainingMode = typeof ProfileTrainingMode[keyof typeof ProfileTrainingMode];
+
+
+export const ProfileTrainingMode = {
+  basic: 'basic',
+  legendary_pro: 'legendary_pro',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ProfilePendingTrainingMode = typeof ProfilePendingTrainingMode[keyof typeof ProfilePendingTrainingMode] | null;
+
+
+export const ProfilePendingTrainingMode = {
+  basic: 'basic',
+  legendary_pro: 'legendary_pro',
+} as const;
+
 export interface Profile {
   id: number;
   name: string;
@@ -163,7 +182,39 @@ export interface Profile {
   trainingExperience: ProfileTrainingExperience;
   onboardingComplete: boolean;
   weightUnit: ProfileWeightUnit;
+  trainingMode: ProfileTrainingMode;
+  /** @nullable */
+  pendingTrainingMode: ProfilePendingTrainingMode;
   createdAt: string;
+}
+
+export type TrainingModeUpdateTrainingMode = typeof TrainingModeUpdateTrainingMode[keyof typeof TrainingModeUpdateTrainingMode];
+
+
+export const TrainingModeUpdateTrainingMode = {
+  basic: 'basic',
+  legendary_pro: 'legendary_pro',
+} as const;
+
+export type TrainingModeUpdateActiveSessionAction = typeof TrainingModeUpdateActiveSessionAction[keyof typeof TrainingModeUpdateActiveSessionAction];
+
+
+export const TrainingModeUpdateActiveSessionAction = {
+  finish_current: 'finish_current',
+  cancel_today: 'cancel_today',
+  keep_current: 'keep_current',
+} as const;
+
+export interface TrainingModeUpdate {
+  trainingMode: TrainingModeUpdateTrainingMode;
+  activeSessionAction?: TrainingModeUpdateActiveSessionAction;
+}
+
+export interface TrainingModeUpdateResult {
+  profile: Profile;
+  /** @nullable */
+  activeWorkoutId: number | null;
+  pending: boolean;
 }
 
 export interface ProfileInput {
@@ -680,7 +731,8 @@ export interface WorkoutExercise {
   exerciseId: number;
   exerciseName: string;
   muscleGroup: string;
-  targetRir: number;
+  /** @nullable */
+  targetRir: number | null;
   targetSets: number;
   minimumWorkingSets: number;
   maximumWorkingSets: number;
@@ -726,8 +778,9 @@ export interface WorkoutExerciseInput {
   /**
      * @minimum 0
      * @maximum 10
+     * @nullable
      */
-  targetRir: number;
+  targetRir?: number | null;
   /**
      * @minimum 1
      * @maximum 20
@@ -881,8 +934,9 @@ export interface WorkoutSetCompletionInput {
   /**
      * @minimum 0
      * @maximum 10
+     * @nullable
      */
-  actualRir: number;
+  actualRir?: number | null;
   /** @nullable */
   notes?: string | null;
 }
@@ -934,6 +988,14 @@ export type WorkoutSessionRecoveryMode = typeof WorkoutSessionRecoveryMode[keyof
 export const WorkoutSessionRecoveryMode = {
   deload: 'deload',
   week_off: 'week_off',
+} as const;
+
+export type WorkoutSessionTrainingMode = typeof WorkoutSessionTrainingMode[keyof typeof WorkoutSessionTrainingMode];
+
+
+export const WorkoutSessionTrainingMode = {
+  basic: 'basic',
+  legendary_pro: 'legendary_pro',
 } as const;
 
 export type MuscleRecoveryInputStatus = typeof MuscleRecoveryInputStatus[keyof typeof MuscleRecoveryInputStatus];
@@ -997,6 +1059,7 @@ export interface WorkoutSession {
   targetRirSnapshot: number | null;
   /** @nullable */
   recoveryMode: WorkoutSessionRecoveryMode;
+  trainingMode: WorkoutSessionTrainingMode;
   muscleRecovery: MuscleRecovery[];
   muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];

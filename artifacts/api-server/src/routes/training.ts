@@ -28,6 +28,9 @@ import {
   UpdateProfileBody,
   UpdateProfileParams,
   UpdateProfileResponse,
+  UpdateProfileTrainingModeBody,
+  UpdateProfileTrainingModeParams,
+  UpdateProfileTrainingModeResponse,
   UpdateSplitBody,
   UpdateSplitParams,
   UpdateSplitResponse,
@@ -46,6 +49,7 @@ import {
   splitDayExercisesTable,
   splitDaysTable,
   trainingSplitsTable,
+  workoutSessionsTable,
 } from "@workspace/db";
 import {
   getExerciseById,
@@ -107,6 +111,92 @@ router.patch("/profiles/:profileId", async (req, res): Promise<void> => {
     return;
   }
   res.json(UpdateProfileResponse.parse(profile));
+});
+
+router.patch("/profiles/:profileId/training-mode", async (req, res): Promise<void> => {
+  const accountUserId = (req as typeof req & { accountUserId?: string }).accountUserId;
+  if (!accountUserId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const params = UpdateProfileTrainingModeParams.safeParse(req.params);
+  const body = UpdateProfileTrainingModeBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({
+      error: !params.success ? params.error.message : !body.success ? body.error.message : "Invalid request",
+    });
+    return;
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [profile] = await tx.select().from(profilesTable)
+      .where(and(
+        eq(profilesTable.id, params.data.profileId),
+        eq(profilesTable.ownerUserId, accountUserId),
+      ))
+      .for("update")
+      .limit(1);
+    if (!profile) return { kind: "not_found" as const };
+
+    const [session] = await tx.select({ id: workoutSessionsTable.id })
+      .from(workoutSessionsTable)
+      .where(and(
+        eq(workoutSessionsTable.profileId, profile.id),
+        eq(workoutSessionsTable.status, "active"),
+      ))
+      .for("update")
+      .limit(1);
+    const activeWorkoutId = session?.id ?? null;
+    if (activeWorkoutId !== null) {
+      const action = body.data.activeSessionAction;
+      if (!action) return { kind: "active_requires_choice" as const, activeWorkoutId };
+      if (action === "keep_current") {
+        const [updated] = await tx.update(profilesTable)
+          .set({ pendingTrainingMode: null })
+          .where(eq(profilesTable.id, profile.id))
+          .returning();
+        return { kind: "ok" as const, profile: updated, activeWorkoutId, pending: false };
+      }
+      if (action === "finish_current") {
+        const [updated] = await tx.update(profilesTable)
+          .set({ pendingTrainingMode: body.data.trainingMode })
+          .where(eq(profilesTable.id, profile.id))
+          .returning();
+        return { kind: "ok" as const, profile: updated, activeWorkoutId, pending: true };
+      }
+      await tx.delete(workoutSessionsTable)
+        .where(and(
+          eq(workoutSessionsTable.id, activeWorkoutId),
+          eq(workoutSessionsTable.profileId, profile.id),
+          eq(workoutSessionsTable.status, "active"),
+        ));
+      const [updated] = await tx.update(profilesTable)
+        .set({ trainingMode: body.data.trainingMode, pendingTrainingMode: null })
+        .where(eq(profilesTable.id, profile.id))
+        .returning();
+      return { kind: "ok" as const, profile: updated, activeWorkoutId: null, pending: false };
+    }
+
+    const [updated] = await tx.update(profilesTable)
+      .set({ trainingMode: body.data.trainingMode, pendingTrainingMode: null })
+      .where(eq(profilesTable.id, profile.id))
+      .returning();
+    return { kind: "ok" as const, profile: updated, activeWorkoutId: null, pending: false };
+  });
+
+  if (result.kind === "not_found") {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
+  if (result.kind === "active_requires_choice") {
+    res.status(409).json({ error: "Choose how to handle the active workout before changing modes." });
+    return;
+  }
+  res.json(UpdateProfileTrainingModeResponse.parse({
+    profile: result.profile,
+    activeWorkoutId: result.activeWorkoutId,
+    pending: result.pending,
+  }));
 });
 
 router.get("/overview", async (req, res): Promise<void> => {

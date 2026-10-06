@@ -1,5 +1,5 @@
-@layer clerk;
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
+@layer clerk;
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -104,6 +104,7 @@ button { cursor: pointer; }
 .nav-item.active { color: hsl(var(--primary)); }
 .metric { font-family: var(--app-font-mono); font-variant-numeric: tabular-nums; }
 .set-grid { display:grid; grid-template-columns: 34px minmax(56px,1fr) minmax(46px,.8fr) minmax(40px,.6fr) 38px; gap: 5px; align-items: center; }
+.set-grid-basic { grid-template-columns: 34px minmax(56px,1fr) minmax(46px,.8fr) 38px; }
 .set-input { width: 100%; height: 44px; border-radius: 11px; text-align: center; padding: 0 3px; background: hsl(var(--background)); border: 1px solid hsl(var(--border)); font: 700 14px var(--app-font-mono); color: hsl(var(--foreground)); outline: none; }
 .set-input:focus { border-color: hsl(var(--primary)); }
 .set-head { font: 700 9px var(--app-font-mono); text-transform: uppercase; letter-spacing: .05em; color: hsl(var(--muted-foreground)); text-align: center; }
@@ -153,6 +154,7 @@ button { cursor: pointer; }
 @media(max-width:360px) {
   .page-wrap { padding-left:13px; padding-right:13px; }
   .set-grid { grid-template-columns:30px minmax(48px,1fr) minmax(38px,.8fr) minmax(34px,.6fr) 32px; gap:4px; }
+  .set-grid-basic { grid-template-columns:30px minmax(48px,1fr) minmax(38px,.8fr) 32px; }
   .set-num { width:30px; }
   .set-input { height:42px; font-size:12px; }
   .set-head { font-size:8px; }

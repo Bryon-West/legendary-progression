@@ -1,7 +1,6 @@
-const CACHE_NAME = 'legendary-progression-shell-v31';
+const CACHE_NAME = 'legendary-progression-shell-v33';
 const SHELL = [
   '/',
-  '/manifest.webmanifest?v=6',
   '/favicon.svg',
   '/legendary-dragon.png',
   '/brand/legendary-launcher-v6-192.png',
@@ -13,7 +12,11 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'APPLY_UPDATE') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {

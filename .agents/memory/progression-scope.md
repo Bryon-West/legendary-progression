@@ -1,6 +1,6 @@
 ---
 name: Progression scope
-description: User-requested boundary for recommendation features in the hypertrophy tracker.
+description: User-requested boundaries for training progression, modes, and historical data in the hypertrophy tracker.
 ---
 
 The user explicitly requires “THIS IS AN UPDATE, NOT A REBUILD,” “Completed workout data is historical truth,” and “COMPLETED PERFORMANCE != FUTURE PRESCRIPTION.” Preserve existing users, exercise history, completed performance, mesocycles, and the Create Mesocycle layout.
@@ -32,3 +32,11 @@ Use the 5 lb ≈ 1 rep heuristic only to compare completed performances and prot
 **Why:** the V2.3B specification explicitly separates evaluation from prescription; using equivalence to reduce a prescribed rep benchmark erases earned progress.
 
 **How to apply:** keep the rule in any future prescription-generation, in-session set update, or target-status change. Verify database rows and the started workout, including the 225 × 8 → 230 × 8 regression.
+
+## Basic and Legendary Pro mode isolation
+
+Basic is manual logging, not a data reset: it must omit RIR, readiness, recovery, feedback, and progression calculations while retaining history and personal records. Keep the selected mode on the profile and snapshot it onto each workout. A mode change during an active workout must keep the current mode, queue the change until a successful finish, or cancel only that active workout and apply the new mode atomically. Failed finish or cancellation must leave both the current mode and workout intact.
+
+**Why:** the user's beta specification requires a simpler manual mode without eroding Legendary Pro behavior or historical workout data.
+
+**How to apply:** use the workout's stored mode for all active and historical session behavior; do not infer it from the profile's current mode. Keep Basic paths out of Pro engine calculations and verify that completed history survives switching and cancellation.

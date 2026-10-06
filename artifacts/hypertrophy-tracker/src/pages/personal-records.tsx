@@ -11,12 +11,13 @@ function achievedDate(value: string) {
   const date = value.slice(0, 10);
   return fmtDate(date, { month: 'short', day: 'numeric', year: 'numeric' });
 }
-function performance(set: PersonalRecordSet, unit: 'kg' | 'lb') {
-  return `${fmtWeight(set.weight, unit, false)} ${unit} × ${set.reps}${set.rir != null ? ` @ ${set.rir} RIR` : ''}`;
+function performance(set: PersonalRecordSet, unit: 'kg' | 'lb', showRir: boolean) {
+  return `${fmtWeight(set.weight, unit, false)} ${unit} × ${set.reps}${showRir && set.rir != null ? ` @ ${set.rir} RIR` : ''}`;
 }
 
 export function PersonalRecordsPage() {
   const { profile, unit } = useActiveProfile();
+  const showRir = profile?.trainingMode === 'legendary_pro';
   const profileId = profile?.id ?? 0;
   const query = useGetPersonalRecords(profileId, { query: { enabled: !!profileId, queryKey: getGetPersonalRecordsQueryKey(profileId) } });
   if (query.isLoading) return <Loading label="Loading personal records"/>;
@@ -30,12 +31,12 @@ export function PersonalRecordsPage() {
       <Link href="/history/prs" className="log-tab active" data-testid="link-log-prs">PRs</Link>
     </div>
     <p style={{ margin: '0 0 16px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Completed working sets only. Records keep their original workout dates.</p>
-    {exercises.length ? <div style={{ display: 'grid', gap: 10 }}>{exercises.map((exercise) => <RecordCard key={exercise.exerciseId} exercise={exercise} unit={unit}/>)}</div>
+    {exercises.length ? <div style={{ display: 'grid', gap: 10 }}>{exercises.map((exercise) => <RecordCard key={exercise.exerciseId} exercise={exercise} unit={unit} showRir={showRir}/>)}</div>
       : <Empty title="No records yet" detail="Completed working sets that establish a record will appear here. Warm-ups and planned work never qualify."/>}
   </main>;
 }
 
-function RecordCard({ exercise, unit }: { exercise: PersonalRecordExercise; unit: 'kg' | 'lb' }) {
+function RecordCard({ exercise, unit, showRir }: { exercise: PersonalRecordExercise; unit: 'kg' | 'lb'; showRir: boolean }) {
   const best = exercise.bestPerformance;
   const heaviest = exercise.heaviestLoad;
   return <Link href={`/history/prs/${exercise.exerciseId}`} data-testid={`link-pr-exercise-${exercise.exerciseId}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -46,11 +47,11 @@ function RecordCard({ exercise, unit }: { exercise: PersonalRecordExercise; unit
       </div>
       {best && <div style={{ padding: '10px 11px', borderRadius: 12, background: 'hsl(var(--primary) / .09)', border: '1px solid hsl(var(--primary) / .24)' }}>
         <div className="eyebrow" style={{ color: 'hsl(var(--primary))' }}>BEST PERFORMANCE / LEGENDARY PR</div>
-        <div className="metric" style={{ fontWeight: 700, marginTop: 5 }}>{performance(best, unit)}</div>
+        <div className="metric" style={{ fontWeight: 700, marginTop: 5 }}>{performance(best, unit, showRir)}</div>
         <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(best.sessionDate)}</div>
       </div>}
       {heaviest && <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
-        <span className="badge">HEAVIEST LOAD</span><span className="metric" style={{ textAlign: 'right' }}>{performance(heaviest, unit)}</span>
+        <span className="badge">HEAVIEST LOAD</span><span className="metric" style={{ textAlign: 'right' }}>{performance(heaviest, unit, showRir)}</span>
       </div>}
     </article>
   </Link>;
@@ -60,6 +61,7 @@ export function PersonalRecordDetailPage() {
   const params = useParams<{ exerciseId: string }>();
   const exerciseId = Number(params.exerciseId);
   const { profile, unit } = useActiveProfile();
+  const showRir = profile?.trainingMode === 'legendary_pro';
   const profileId = profile?.id ?? 0;
   const query = useGetPersonalRecords(profileId, { query: { enabled: !!profileId, queryKey: getGetPersonalRecordsQueryKey(profileId) } });
   if (query.isLoading) return <Loading label="Loading record history"/>;
@@ -72,7 +74,7 @@ export function PersonalRecordDetailPage() {
     <div className="eyebrow" style={{ marginTop: 18 }}>Chronological record history</div>
     <h1 className="display" style={{ fontSize: 43, margin: '7px 0 16px' }}>{exercise.exerciseName}</h1>
     {exercise.heaviestLoad && <div className="panel" style={{ padding: 14, marginBottom: 12 }}>
-      <div className="eyebrow">Heaviest load</div><div className="metric" style={{ marginTop: 5, fontWeight: 700 }}>{performance(exercise.heaviestLoad, unit)}</div>
+      <div className="eyebrow">Heaviest load</div><div className="metric" style={{ marginTop: 5, fontWeight: 700 }}>{performance(exercise.heaviestLoad, unit, showRir)}</div>
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(exercise.heaviestLoad.sessionDate)}</div>
     </div>}
     {history.length ? <div style={{ display: 'grid', gap: 8 }}>{history.map((entry, index) => <article key={`${entry.sessionId}-${entry.setId}`} className="panel" style={{ padding: 13, display: 'grid', gridTemplateColumns: '30px minmax(0,1fr)', gap: 10, alignItems: 'start' }} data-testid={`record-entry-${entry.setId}`}>
@@ -82,7 +84,7 @@ export function PersonalRecordDetailPage() {
           {entry.legendaryPerformanceRecord && <span className="badge badge-red">BEST PERFORMANCE / LEGENDARY PR</span>}
           {entry.heaviestLoadRecord && <span className="badge">HEAVIEST LOAD</span>}
         </div>
-        <div className="metric" style={{ fontWeight: 700 }}>{performance(entry, unit)}</div>
+        <div className="metric" style={{ fontWeight: 700 }}>{performance(entry, unit, showRir)}</div>
         <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>Date achieved · {achievedDate(entry.sessionDate)}</div>
       </div>
     </article>)}</div> : <Empty title="No record history" detail="Completed performance records will appear here in workout-date order."/>}

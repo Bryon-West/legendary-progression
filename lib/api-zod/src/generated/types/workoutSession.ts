@@ -11,6 +11,7 @@ import type { WorkoutExercise } from './workoutExercise';
 import type { WorkoutSessionReadiness } from './workoutSessionReadiness';
 import type { WorkoutSessionRecoveryMode } from './workoutSessionRecoveryMode';
 import type { WorkoutSessionStatus } from './workoutSessionStatus';
+import type { WorkoutSessionTrainingMode } from './workoutSessionTrainingMode';
 import type { WorkoutSessionWeekKindSnapshot } from './workoutSessionWeekKindSnapshot';
 
 export interface WorkoutSession {
@@ -48,6 +49,7 @@ export interface WorkoutSession {
   targetRirSnapshot: number | null;
   /** @nullable */
   recoveryMode: WorkoutSessionRecoveryMode;
+  trainingMode: WorkoutSessionTrainingMode;
   muscleRecovery: MuscleRecovery[];
   muscleTotals: MuscleTotal[];
   exercises: WorkoutExercise[];

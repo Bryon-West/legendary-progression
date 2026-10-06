@@ -69,6 +69,8 @@ import type {
   SplitInput,
   SplitUpdate,
   StartWorkoutInput,
+  TrainingModeUpdate,
+  TrainingModeUpdateResult,
   TrainingSplit,
   V22Document,
   WorkoutExercise,
@@ -1308,6 +1310,95 @@ export const useUpdateProfile = <TError = ErrorType<NotFoundResponse>,
         TContext
       > => {
       return useMutation(getUpdateProfileMutationOptions(options));
+    }
+
+export const getUpdateProfileTrainingModeUrl = (profileId: number,) => {
+
+
+
+
+  return `/api/profiles/${profileId}/training-mode`
+}
+
+/**
+ * @summary Change the account's mode without altering an active session snapshot
+ */
+export const updateProfileTrainingMode = async (profileId: number,
+    trainingModeUpdate: TrainingModeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<TrainingModeUpdateResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TrainingModeUpdateResult>(getUpdateProfileTrainingModeUrl(profileId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(trainingModeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateProfileTrainingModeMutationKey = () => ['updateProfileTrainingMode'] as const;
+
+export const getUpdateProfileTrainingModeMutationOptions = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfileTrainingMode>>, TError,UpdateProfileTrainingModeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProfileTrainingMode>>, TError,UpdateProfileTrainingModeMutationVariables, TContext> => {
+
+const mutationKey = getUpdateProfileTrainingModeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProfileTrainingMode>>, UpdateProfileTrainingModeMutationVariables> = (props) => {
+          const {profileId,data} = props ?? {};
+
+          return  updateProfileTrainingMode(profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProfileTrainingModeMutationResult = NonNullable<Awaited<ReturnType<typeof updateProfileTrainingMode>>>
+    export type UpdateProfileTrainingModeMutationBody = BodyType<TrainingModeUpdate>
+    export type UpdateProfileTrainingModeMutationError = ErrorType<NotFoundResponse | Error>
+    export type UpdateProfileTrainingModeMutationVariables = {profileId: number;data: BodyType<TrainingModeUpdate>}
+
+    /**
+ * @summary Change the account's mode without altering an active session snapshot
+ */
+export const useUpdateProfileTrainingMode = <TError = ErrorType<NotFoundResponse | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfileTrainingMode>>, TError,UpdateProfileTrainingModeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProfileTrainingMode>>,
+        TError,
+        UpdateProfileTrainingModeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateProfileTrainingModeMutationOptions(options));
     }
 
 export const getGetOverviewUrl = (params: GetOverviewParams,) => {

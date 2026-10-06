@@ -2,7 +2,7 @@ import { pgTable, serial, integer, jsonb, timestamp, text, index, doublePrecisio
 import { plannedWorkoutsTable, workoutSessionsTable, workoutExercisesTable, profilesTable, exercisesTable, trainingSplitsTable, mesocycleWeeksTable } from "./training";
 export const plannedPrescriptionsTable = pgTable("planned_prescriptions", {
   id: serial("id").primaryKey(),
-  plannedWorkoutId: integer("planned_workout_id").notNull().unique().references(() => plannedWorkoutsTable.id, { onDelete: "cascade" }),
+  plannedWorkoutId: integer("planned_workout_id").notNull().unique("planned_prescriptions_planned_workout_id_key").references(() => plannedWorkoutsTable.id, { onDelete: "cascade" }),
   sourceSessionId: integer("source_session_id").references(() => workoutSessionsTable.id, { onDelete: "set null" }),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
   generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),

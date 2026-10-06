@@ -20,6 +20,7 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const basePath = process.env.BASE_PATH;
+const buildId = process.env.GIT_COMMIT_SHA || `build-${new Date().toISOString()}`;
 
 if (!basePath) {
   throw new Error(
@@ -29,6 +30,9 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [
     react(),
     tailwindcss({ optimize: false }),

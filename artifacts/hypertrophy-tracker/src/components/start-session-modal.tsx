@@ -7,15 +7,15 @@ import { Modal } from '@/components/modal';
 import { ErrorNote } from '@/components/ui-bits';
 import { READINESS, RECOVERY, type Readiness, type RecoveryStatus } from '@/lib/labels';
 
-export function StartSessionModal({ profileId, splitDayId, scheduledWorkoutId, muscles, onClose }: { profileId: number; splitDayId: number | null; scheduledWorkoutId?: number; muscles: string[]; onClose: () => void }) {
+export function StartSessionModal({ profileId, trainingMode, splitDayId, scheduledWorkoutId, muscles, onClose }: { profileId: number; trainingMode: "basic" | "legendary_pro"; splitDayId: number | null; scheduledWorkoutId?: number; muscles: string[]; onClose: () => void }) {
   const [readiness, setReadiness] = useState<Readiness>('normal');
   const [recovery, setRecovery] = useState<Record<string, RecoveryStatus>>({});
   const start = useStartWorkout();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
   const go = () => {
-    const muscleRecovery = muscles.filter((m) => recovery[m]).map((m) => ({ muscleGroup: m, status: recovery[m] }));
-    start.mutate({ data: { profileId, splitDayId, ...(scheduledWorkoutId ? { scheduledWorkoutId } : {}), readiness, ...(muscleRecovery.length ? { muscleRecovery } : {}) } }, {
+    const muscleRecovery = trainingMode === "legendary_pro" ? muscles.filter((m) => recovery[m]).map((m) => ({ muscleGroup: m, status: recovery[m] })) : [];
+    start.mutate({ data: { profileId, splitDayId, ...(scheduledWorkoutId ? { scheduledWorkoutId } : {}), ...(trainingMode === "legendary_pro" ? { readiness, ...(muscleRecovery.length ? { muscleRecovery } : {}) } : {}) } }, {
       onSuccess: (w) => {
         void qc.invalidateQueries({ queryKey: getGetActiveWorkoutQueryKey({ profileId }) });
         void qc.invalidateQueries({ queryKey: getGetOverviewQueryKey({ profileId }) });
@@ -24,6 +24,12 @@ export function StartSessionModal({ profileId, splitDayId, scheduledWorkoutId, m
       },
     });
   };
+  if (trainingMode === "basic") return <Modal title="Start a Basic workout" close={onClose}>
+    <p style={{ color: "hsl(var(--muted-foreground))", lineHeight: 1.55, marginTop: 0 }}>Log the weight and reps you perform. Your training history and personal records stay with you.</p>
+    <button className="btn btn-primary" style={{ width: "100%", marginTop: 12 }} disabled={start.isPending} onClick={go} data-testid="button-confirm-start">{start.isPending ? "Starting…" : "Start workout"}<ArrowRight size={18}/></button>
+    {start.isError && <ErrorNote message="Could not start this session. Try again."/>}
+  </Modal>;
+
   return <Modal title="How ready do you feel?" close={onClose}>
     <div className="seg" style={{ gridTemplateColumns: '1fr 1fr' }} role="group" aria-label="Readiness to train today">
       {READINESS.map((r) => <button key={r.value} type="button" aria-pressed={readiness === r.value} onClick={() => setReadiness(r.value)} data-testid={`button-readiness-${r.value}`}>{r.label}</button>)}

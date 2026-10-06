@@ -1,4 +1,4 @@
-- [Progression scope](progression-scope.md) — V2.2/V2.3 updates preserve history; performance equivalence never discounts prescribed reps, and set history stays distinct.
+- [Progression scope](progression-scope.md) — preserve history and separate Basic manual logging from per-session Pro progression snapshots.
 - [Workout substitution history](workout-substitution-history.md) — preserve logged sets under the exercise actually performed when substitutions happen mid-session.
 - [Calendar-date contracts](calendar-date-contracts.md) — keep date strings and stable planned occurrence IDs; dates must not determine week/RIR identity.
 - [Verification isolation](verification-isolation.md) — verify the selected QA profile, not just workout ownership; preservation checks must include profile preferences.
@@ -6,3 +6,4 @@
 - [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
 - [PWA startup icons](legendary-dragon-branding.md) — Android shares launcher/startup icons; use L before the full dragon and refresh old installs when the manifest changes.
+- [Development schema sync](database-schema-sync.md) — check for equivalent existing indexes before accepting any Drizzle prompt that offers to truncate populated data.

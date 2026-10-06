@@ -21,7 +21,8 @@ export interface WorkoutExercise {
   exerciseId: number;
   exerciseName: string;
   muscleGroup: string;
-  targetRir: number;
+  /** @nullable */
+  targetRir: number | null;
   targetSets: number;
   minimumWorkingSets: number;
   maximumWorkingSets: number;

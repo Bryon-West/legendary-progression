@@ -11,8 +11,9 @@ export interface WorkoutExerciseInput {
   /**
      * @minimum 0
      * @maximum 10
+     * @nullable
      */
-  targetRir: number;
+  targetRir?: number | null;
   /**
      * @minimum 1
      * @maximum 20

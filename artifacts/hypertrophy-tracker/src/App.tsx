@@ -1,12 +1,15 @@
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClerkProvider, useAuth, useClerk } from "@clerk/react";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { Link, Redirect, Route, Router as WouterRouter, Switch, useLocation } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Shell } from "@/components/shell";
 import { clerkAppearance, clerkPubKey, clerkProxyUrl, basePath, stripBase } from "@/lib/clerk";
+import { getGetActiveWorkoutQueryKey, getListProfilesQueryKey, useGetActiveWorkout, useListProfiles } from "@workspace/api-client-react";
+import { hasPendingWorkoutDrafts } from "@/lib/workout-drafts";
 import { useActiveProfile } from "@/lib/profile";
 import { Loading, QueryError } from "@/components/ui-bits";
 import Welcome from "@/pages/welcome";
@@ -45,6 +48,26 @@ function NotFound() {
   );
 }
 
+function PlansModeGate({ children }: { children: ReactNode }) {
+  const { profile, profilesQuery } = useActiveProfile();
+  const [, setLocation] = useLocation();
+  if (profilesQuery.isLoading) return <Loading />;
+  if (profilesQuery.isError) {
+    return <main className="page-wrap"><QueryError retry={() => void profilesQuery.refetch()} /></main>;
+  }
+  if (profile?.trainingMode === "basic") {
+    return <main className="page-wrap enter">
+      <div className="eyebrow">Basic mode</div>
+      <h1 className="display" style={{ fontSize: 42, margin: "8px 0" }}>Manual training.</h1>
+      <p style={{ color: "hsl(var(--muted-foreground))", lineHeight: 1.55 }}>
+        Basic workouts are built as you train. Switch to Legendary Pro in Profile settings to manage progression plans.
+      </p>
+      <button className="btn btn-secondary" type="button" onClick={() => setLocation("/profiles")}>Profile settings</button>
+    </main>;
+  }
+  return <>{children}</>;
+}
+
 function ProtectedRouter() {
   return (
     <ErrorBoundary resetKey={window.location.pathname}>
@@ -57,10 +80,10 @@ function ProtectedRouter() {
           <Route path="/history/prs/:exerciseId" component={PersonalRecordDetailPage} />
           <Route path="/history/:sessionId" component={HistoryDetailPage} />
           <Route path="/exercises" component={ExercisesPage} />
-          <Route path="/splits" component={MesocyclesPage} />
-          <Route path="/splits/new" component={MesocycleNewPage} />
+          <Route path="/splits" component={() => <PlansModeGate><MesocyclesPage /></PlansModeGate>} />
+          <Route path="/splits/new" component={() => <PlansModeGate><MesocycleNewPage /></PlansModeGate>} />
           <Route path="/calendar" component={CalendarPage} />
-          <Route path="/splits/:splitId" component={MesocycleEditorPage} />
+          <Route path="/splits/:splitId" component={() => <PlansModeGate><MesocycleEditorPage /></PlansModeGate>} />
           <Route path="/planned/:plannedId" component={PlannedPage} />
           <Route path="/profiles" component={ProfileSettingsPage} />
           <Route path="/account/*?" component={AccountPage} />
@@ -157,6 +180,89 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function ServiceWorkerUpdates() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const profilesQuery = useListProfiles({ query: { enabled: !!isSignedIn, queryKey: getListProfilesQueryKey() } });
+  const profile = profilesQuery.data?.[0] ?? null;
+  const profileId = profile?.id ?? 0;
+  const activeQuery = useGetActiveWorkout(
+    { profileId },
+    { query: { enabled: !!profile, queryKey: getGetActiveWorkoutQueryKey({ profileId }) } },
+  );
+  const mutating = useIsMutating();
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [registrationRevision, setRegistrationRevision] = useState(0);
+  const [draftRevision, setDraftRevision] = useState(0);
+  const applyRequested = useRef(false);
+  const safeToReload = useRef(false);
+  safeToReload.current = (!isLoaded ? false : !isSignedIn ? true : profile ? !activeQuery.isLoading && !activeQuery.isError && !activeQuery.data?.workout : !profilesQuery.isLoading && !profilesQuery.isError)
+    && mutating === 0 && !hasPendingWorkoutDrafts();
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    let timer: number | undefined;
+    let disposed = false;
+    const findRegistration = async () => {
+      const current = await navigator.serviceWorker.getRegistration();
+      if (disposed) return;
+      if (current) {
+        setRegistration(current);
+        current.addEventListener("updatefound", () => {
+          current.installing?.addEventListener("statechange", () => setRegistrationRevision((value) => value + 1));
+          setRegistrationRevision((value) => value + 1);
+        });
+        window.clearInterval(timer);
+      }
+    };
+    void findRegistration();
+    timer = window.setInterval(() => void findRegistration(), 1000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    if (!registration) return;
+    const checkForUpdate = () => {
+      if (document.visibilityState === "visible") void registration.update().catch(() => undefined);
+    };
+    window.addEventListener("focus", checkForUpdate);
+    document.addEventListener("visibilitychange", checkForUpdate);
+    return () => {
+      window.removeEventListener("focus", checkForUpdate);
+      document.removeEventListener("visibilitychange", checkForUpdate);
+    };
+  }, [registration]);
+
+  useEffect(() => {
+    const draftsChanged = () => setDraftRevision((value) => value + 1);
+    window.addEventListener("legendary-drafts-changed", draftsChanged);
+    return () => window.removeEventListener("legendary-drafts-changed", draftsChanged);
+  }, []);
+
+  useEffect(() => {
+    if (!registration?.waiting || !safeToReload.current || applyRequested.current) return;
+    applyRequested.current = true;
+    registration.waiting.postMessage({ type: "APPLY_UPDATE" });
+  }, [registration, registrationRevision, draftRevision, activeQuery.data, activeQuery.isLoading, activeQuery.isError, mutating, profile, profilesQuery.isLoading, profilesQuery.isError]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (profile) void activeQuery.refetch();
+    };
+    const controllerChanged = () => {
+      if (applyRequested.current && safeToReload.current) window.location.reload();
+    };
+    navigator.serviceWorker?.addEventListener("controllerchange", controllerChanged);
+    window.addEventListener("legendary-workout-finished", refresh);
+    window.addEventListener("legendary-workout-cancelled", refresh);
+    return () => {
+      navigator.serviceWorker?.removeEventListener("controllerchange", controllerChanged);
+      window.removeEventListener("legendary-workout-finished", refresh);
+      window.removeEventListener("legendary-workout-cancelled", refresh);
+    };
+  }, [profile, activeQuery.refetch]);
+  return null;
+}
+
 function IdentityBoundary() {
   const { isLoaded, isSignedIn, userId } = useAuth();
   const identity = isLoaded ? (isSignedIn ? userId ?? null : null) : undefined;
@@ -206,6 +312,7 @@ function IdentityBoundary() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ClerkQueryClientCacheInvalidator />
+        <ServiceWorkerUpdates />
         <AppRoutes />
         <Toaster />
       </TooltipProvider>

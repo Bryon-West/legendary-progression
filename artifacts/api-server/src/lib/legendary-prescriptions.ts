@@ -119,7 +119,12 @@ export async function getPrescription(plannedId: number, refresh = false): Promi
        .orderBy(asc(workoutExercisesTable.orderIndex), asc(workoutSetsTable.setNumber), asc(workoutSetsTable.id)) : [];
      const references: Array<PerformanceReference | null> = [];
      for (const s of historical) if (s.weight !== null && s.reps !== null && s.rir !== null) {
-       references[s.setNumber - 1] = { weight: s.weight, reps: s.reps, rir: s.rir, prescribedRir: s.prescribedRir };
+       references[s.setNumber - 1] = {
+         weight: s.weight,
+         reps: s.reps,
+         rir: s.rir,
+         prescribedRir: s.prescribedRir ?? s.rir,
+       };
      }
      if (!references.some(Boolean) && reference) references[0] = reference;
      const compound = exercise.progressionType === "load_first" || (exercise.progressionType === null && exercise.isCompound);

@@ -13,7 +13,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { href: '/calendar', label: 'Calendar', icon: CalendarDays },
     { href: '/history', label: 'Log', icon: History },
     { href: '/exercises', label: 'Library', icon: Dumbbell },
-    { href: '/splits', label: 'Plans', icon: BarChart3 },
+    ...(profile?.trainingMode === 'basic' ? [] : [{ href: '/splits', label: 'Plans', icon: BarChart3 }]),
     { href: '/profiles', label: 'Profile', icon: UserRound },
   ];
   return <div className="app-shell">

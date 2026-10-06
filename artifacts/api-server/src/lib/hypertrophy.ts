@@ -99,17 +99,18 @@ export async function getWorkoutTree(
       sets: sets.map((set) => ({
         ...set,
         workflowState: workflow.get(set.id) ?? "unlocked",
-        adaptiveWarning: set.setType === "work" && !set.completed && !row.calibrationMode &&
+        adaptiveWarning: session.trainingMode === "legendary_pro" &&
+          set.setType === "work" && !set.completed && !row.calibrationMode &&
           set.actualWeight !== null && set.referenceTargetRepsMin !== null && set.referenceTargetRepsMax !== null
-          ? (set.referenceTargetRepsMin === 6 && set.referenceTargetRepsMax === 30 && set.referenceTargetWeight !== null && set.referenceTargetReps !== null
-            ? equivalence(set.actualWeight, { weight: set.referenceTargetWeight, reps: set.referenceTargetReps, rir: set.referenceTargetRir ?? row.targetRir }, row.targetRir).warning
+            ? (set.referenceTargetRepsMin === 6 && set.referenceTargetRepsMax === 30 && set.referenceTargetWeight !== null && set.referenceTargetReps !== null
+            ? equivalence(set.actualWeight, { weight: set.referenceTargetWeight, reps: set.referenceTargetReps, rir: set.referenceTargetRir ?? row.targetRir! }, row.targetRir!).warning
             : adaptiveRepsForWeight(
               set.actualWeight,
               set.referenceTargetWeight,
               set.referenceTargetReps ?? set.referenceTargetRepsMin,
               set.referenceTargetRepsMin,
               set.referenceTargetRepsMax,
-              set.referenceTargetRir ?? row.targetRir,
+              set.referenceTargetRir ?? row.targetRir!,
             ).warning) ?? set.targetExplanation
           : null,
       })),
@@ -182,6 +183,7 @@ export async function getWorkoutTree(
     weekKindSnapshot: session.weekKindSnapshot,
     targetRirSnapshot: session.targetRirSnapshot,
     recoveryMode: session.recoveryMode,
+    trainingMode: session.trainingMode,
     muscleRecovery,
     muscleTotals,
     exercises,

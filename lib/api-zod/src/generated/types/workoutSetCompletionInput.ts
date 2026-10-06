@@ -14,8 +14,9 @@ export interface WorkoutSetCompletionInput {
   /**
      * @minimum 0
      * @maximum 10
+     * @nullable
      */
-  actualRir: number;
+  actualRir?: number | null;
   /** @nullable */
   notes?: string | null;
 }

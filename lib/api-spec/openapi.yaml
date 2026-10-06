@@ -261,6 +261,34 @@ paths:
                 $ref: "#/components/schemas/Profile"
         "404":
           $ref: "#/components/responses/NotFound"
+  /profiles/{profileId}/training-mode:
+    patch:
+      operationId: updateProfileTrainingMode
+      tags: [profiles]
+      summary: Change the account's mode without altering an active session snapshot
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingModeUpdate" }
+      responses:
+        "200":
+          description: Updated mode or a pending mode change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingModeUpdateResult" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Active workout requires an explicit mode-change action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /overview:
     get:
       operationId: getOverview
@@ -1087,7 +1115,7 @@ components:
         - status
     Profile:
       type: object
-      required: [id, name, trainingExperience, onboardingComplete, weightUnit, createdAt]
+      required: [id, name, trainingExperience, onboardingComplete, weightUnit, trainingMode, pendingTrainingMode, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -1096,7 +1124,22 @@ components:
           enum: [beginner, intermediate, advanced, null]
         onboardingComplete: { type: boolean }
         weightUnit: { type: string, enum: [kg, lb] }
+        trainingMode: { type: string, enum: [basic, legendary_pro] }
+        pendingTrainingMode: { type: ["string", "null"], enum: [basic, legendary_pro, null] }
         createdAt: { type: string, format: date-time }
+    TrainingModeUpdate:
+      type: object
+      required: [trainingMode]
+      properties:
+        trainingMode: { type: string, enum: [basic, legendary_pro] }
+        activeSessionAction: { type: string, enum: [finish_current, cancel_today, keep_current] }
+    TrainingModeUpdateResult:
+      type: object
+      required: [profile, activeWorkoutId, pending]
+      properties:
+        profile: { $ref: "#/components/schemas/Profile" }
+        activeWorkoutId: { type: ["integer", "null"] }
+        pending: { type: boolean }
     ProfileInput:
       type: object
       required: [name]
@@ -1318,7 +1361,7 @@ components:
         exerciseId: { type: integer }
         exerciseName: { type: string }
         muscleGroup: { type: string }
-        targetRir: { type: number }
+        targetRir: { type: ["number", "null"] }
         targetSets: { type: integer }
         minimumWorkingSets: { type: integer }
         maximumWorkingSets: { type: integer }
@@ -1345,10 +1388,10 @@ components:
           items: { $ref: "#/components/schemas/WorkoutSet" }
     WorkoutExerciseInput:
       type: object
-      required: [exerciseId, targetRir, targetSets, orderIndex]
+      required: [exerciseId, targetSets, orderIndex]
       properties:
         exerciseId: { type: integer }
-        targetRir: { type: number, minimum: 0, maximum: 10 }
+        targetRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
         targetSets: { type: integer, minimum: 1, maximum: 20 }
         minimumWorkingSets: { type: integer, minimum: 1, maximum: 20 }
         maximumWorkingSets: { type: integer, minimum: 1, maximum: 20 }
@@ -1401,11 +1444,11 @@ components:
         notes: { type: ["string", "null"] }
     WorkoutSetCompletionInput:
       type: object
-      required: [actualWeight, actualReps, actualRir]
+      required: [actualWeight, actualReps]
       properties:
         actualWeight: { type: number, minimum: 0 }
         actualReps: { type: integer, minimum: 0 }
-        actualRir: { type: number, minimum: 0, maximum: 10 }
+        actualRir: { type: ["number", "null"], minimum: 0, maximum: 10 }
         notes: { type: ["string", "null"] }
     WorkoutSetWorkflowResult:
       type: object
@@ -1418,7 +1461,7 @@ components:
             - type: "null"
     WorkoutSession:
       type: object
-      required: [id, profileId, splitId, splitDayId, splitName, dayName, status, startedAt, endedAt, totalVolume, readiness, mesocycleStartDate, mesocycleWeek, muscleRecovery, muscleTotals, exercises, weekId, plannedWorkoutId, weekKindSnapshot, targetRirSnapshot, recoveryMode]
+      required: [id, profileId, splitId, splitDayId, splitName, dayName, status, startedAt, endedAt, totalVolume, readiness, mesocycleStartDate, mesocycleWeek, muscleRecovery, muscleTotals, exercises, weekId, plannedWorkoutId, weekKindSnapshot, targetRirSnapshot, recoveryMode, trainingMode]
       properties:
         id: { type: integer }
         profileId: { type: integer }
@@ -1438,6 +1481,7 @@ components:
         weekKindSnapshot: { type: ["string", "null"], enum: [loading, deload, week_off, null] }
         targetRirSnapshot: { type: ["number", "null"] }
         recoveryMode: { type: ["string", "null"], enum: [deload, week_off, null] }
+        trainingMode: { type: string, enum: [basic, legendary_pro] }
         muscleRecovery:
           type: array
           items: { $ref: "#/components/schemas/MuscleRecovery" }

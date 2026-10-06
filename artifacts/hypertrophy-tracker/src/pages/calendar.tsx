@@ -48,7 +48,7 @@ export default function CalendarPage() {
       <div style={{ display: 'grid', gridTemplateColumns: `64px repeat(${weeks.length}, minmax(132px, 1fr))`, minWidth: 64 + weeks.length * 132 }}>
         <div style={{ position: 'sticky', left: 0, zIndex: 3, background: 'hsl(var(--card))', borderBottom: '1px solid hsl(var(--border))' }}/>
         {weeks.map((week) => <div key={week.weekId} data-testid={`calendar-week-${week.weekIndex}`} style={{ padding: '10px 10px', borderBottom: '1px solid hsl(var(--border))', borderLeft: '1px solid hsl(var(--border))', background: week.kind === 'loading' ? undefined : 'hsl(var(--secondary))' }}>
-          <div style={{ fontWeight: 800, fontSize: 12 }}>{weekLabel(week.kind, week.weekIndex, week.targetRir)}</div>
+          <div style={{ fontWeight: 800, fontSize: 12 }}>{profile?.trainingMode === "legendary_pro" ? weekLabel(week.kind, week.weekIndex, week.targetRir) : `Week ${week.weekIndex}`}</div>
           <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>{fmtDate(week.startDate, { month: 'short', day: 'numeric' })} to {fmtDate(week.endDate, { month: 'short', day: 'numeric' })}</div>
         </div>)}
         {DAYS.map((label, d) => <div key={label} style={{ display: 'contents' }}>
@@ -75,12 +75,12 @@ export default function CalendarPage() {
         </div>)}
       </div>
     </div>}
-    {resched && <RescheduleModal week={resched.week} w={resched.w} pid={pid} splitId={splitId} onClose={() => setResched(null)}/>}
-    {start && profile && <StartSessionModal profileId={profile.id} splitDayId={dayIdFor(start)} scheduledWorkoutId={start.id} muscles={[...new Set(meso.data?.days.find(d => d.id === dayIdFor(start))?.exercises.map(e => e.exercise.muscleGroup) ?? [])]} onClose={() => setStart(null)}/>}
+    {resched && <RescheduleModal week={resched.week} w={resched.w} pid={pid} splitId={splitId} basic={profile?.trainingMode === "basic"} onClose={() => setResched(null)}/>}
+    {start && profile && <StartSessionModal profileId={profile.id} trainingMode={profile.trainingMode} splitDayId={dayIdFor(start)} scheduledWorkoutId={start.id} muscles={[...new Set(meso.data?.days.find(d => d.id === dayIdFor(start))?.exercises.map(e => e.exercise.muscleGroup) ?? [])]} onClose={() => setStart(null)}/>}
   </main>;
 }
 
-function RescheduleModal({ week, w, pid, splitId, onClose }: { week: CalendarWeek; w: CalendarWorkout; pid: number; splitId: number; onClose: () => void }) {
+function RescheduleModal({ week, w, pid, splitId, basic, onClose }: { week: CalendarWeek; w: CalendarWorkout; pid: number; splitId: number; basic: boolean; onClose: () => void }) {
   const [date, setDate] = useState(w.scheduledDate); const [shift, setShift] = useState(false);
   const [warning, setWarning] = useState('');
   const m = useReschedulePlannedWorkout(); const qc = useQueryClient();
@@ -92,11 +92,11 @@ function RescheduleModal({ week, w, pid, splitId, onClose }: { week: CalendarWee
   };
   return <Modal title={`Reschedule ${w.dayName}`} close={() => { if (warning) refresh(); onClose(); }}>
     {warning ? <><div className="notice-warn" style={{ marginBottom: 14 }} data-testid="text-recovery-warning">{warning}</div><button className="btn btn-primary" style={{ width: '100%' }} onClick={() => { refresh(); onClose(); }}>Done</button></> : <>
-      <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 0 }}>Stays within this week ({fmtDate(week.startDate)} to {fmtDate(week.endDate)}). The week and its RIR do not change.</p>
+      <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 0 }}>Stays within this week ({fmtDate(week.startDate)} to {fmtDate(week.endDate)}). {!basic && "The week and its RIR do not change."}</p>
       <input className="field" type="date" min={week.startDate} max={week.endDate} value={date} onChange={(e) => setDate(e.target.value)} data-testid="input-reschedule-date"/>
       <label style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13, margin: '14px 0' }}><input type="checkbox" checked={shift} onChange={(e) => setShift(e.target.checked)}/> Move following workouts by the same amount</label>
       {m.isError && <ErrorNote message="Could not reschedule. Completed workouts cannot move, and dates must stay in the same week."/>}
-      <button className="btn btn-primary" style={{ width: '100%' }} disabled={m.isPending || !date || date === w.scheduledDate} data-testid="button-confirm-reschedule" onClick={() => m.mutate({ plannedWorkoutId: w.id, data: { scheduledDate: date, shiftFollowing: shift } }, { onSuccess: (r) => { if (r.recoveryWarning) setWarning(r.warningMessage ?? 'This is close to another session for the same muscles. You can still train, just consider recovery.'); else { refresh(); onClose(); } } })}>{m.isPending ? 'Moving…' : 'Move workout'}</button>
+      <button className="btn btn-primary" style={{ width: '100%' }} disabled={m.isPending || !date || date === w.scheduledDate} data-testid="button-confirm-reschedule" onClick={() => m.mutate({ plannedWorkoutId: w.id, data: { scheduledDate: date, shiftFollowing: shift } }, { onSuccess: (r) => { if (r.recoveryWarning && !basic) setWarning(r.warningMessage ?? 'This is close to another session for the same muscles. You can still train, just consider recovery.'); else { refresh(); onClose(); } } })}>{m.isPending ? 'Moving…' : 'Move workout'}</button>
     </>}
   </Modal>;
 }

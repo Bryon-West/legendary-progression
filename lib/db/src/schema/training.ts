@@ -17,6 +17,12 @@ export const profilesTable = pgTable("training_profiles", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   ownerUserId: text("owner_user_id"),
+  trainingMode: text("training_mode", {
+    enum: ["basic", "legendary_pro"],
+  }).notNull().default("legendary_pro"),
+  pendingTrainingMode: text("pending_training_mode", {
+    enum: ["basic", "legendary_pro"],
+  }),
   trainingExperience: text("training_experience", {
     enum: ["beginner", "intermediate", "advanced"],
   }),
@@ -238,6 +244,9 @@ export const workoutSessionsTable = pgTable(
     }),
     targetRirSnapshot: doublePrecision("target_rir_snapshot"),
     recoveryMode: text("recovery_mode", { enum: ["deload", "week_off"] }),
+    trainingMode: text("training_mode", {
+      enum: ["basic", "legendary_pro"],
+    }).notNull().default("legendary_pro"),
     structureSnapshot: jsonb("structure_snapshot").$type<Record<string, unknown>>(),
     structureDecision: text("structure_decision"),
   },
@@ -264,7 +273,7 @@ export const workoutExercisesTable = pgTable(
       .references(() => exercisesTable.id, { onDelete: "restrict" }),
     exerciseName: text("exercise_name").notNull(),
     muscleGroup: text("muscle_group").notNull(),
-    targetRir: doublePrecision("target_rir").notNull().default(2),
+    targetRir: doublePrecision("target_rir"),
     targetSets: integer("target_sets").notNull().default(3),
     minimumWorkingSets: integer("minimum_working_sets").notNull().default(1),
     maximumWorkingSets: integer("maximum_working_sets").notNull().default(5),

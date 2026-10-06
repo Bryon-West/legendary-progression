@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowDown, ArrowLeftRight, ArrowUp, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useAdjustExerciseRecovery, useReorderWorkoutExercise, useRemoveWorkoutExercise, useSaveExercisePostFeedback } from '@workspace/api-client-react';
 import type { WorkoutExercise } from '@workspace/api-client-react';
 import { Modal } from '@/components/modal';
@@ -64,18 +64,55 @@ export function FeedbackSheet({ exercise, sessionId, onDone, onSkip }: { exercis
   </Modal>;
 }
 
-export function ExerciseTools({ exercise, sessionId, first, last, onChanged, onRemoved, onRemoveFailed }: { exercise: WorkoutExercise; sessionId: number; first: boolean; last: boolean; onChanged: () => void; onRemoved?: () => void; onRemoveFailed?: () => void }) {
+export function ExerciseTools({ exercise, sessionId, trainingMode, first, last, onChanged, onRemoved, onRemoveFailed, onReplace }: { exercise: WorkoutExercise; sessionId: number; trainingMode: "basic" | "legendary_pro"; first: boolean; last: boolean; onChanged: () => void; onRemoved?: () => void; onRemoveFailed?: () => void; onReplace?: () => void }) {
+  const isPro = trainingMode === "legendary_pro";
   const reorder = useReorderWorkoutExercise();
   const remove = useRemoveWorkoutExercise();
   const [ask, setAsk] = useState(false);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const firstItemRef = useRef<HTMLButtonElement>(null);
   const mv = (direction: 'up' | 'down') => reorder.mutate({ sessionId, workoutExerciseId: exercise.id, data: { direction } }, { onSuccess: onChanged });
   const hasLogged = exercise.sets.some((s) => !s.removed && s.completed);
-  return <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 2, marginTop: 4 }}>
-    <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Move ${exercise.exerciseName} up`} disabled={first || reorder.isPending} onClick={() => mv('up')} data-testid={`button-move-up-${exercise.id}`}><ArrowUp size={14}/></button>
-    <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Move ${exercise.exerciseName} down`} disabled={last || reorder.isPending} onClick={() => mv('down')} data-testid={`button-move-down-${exercise.id}`}><ArrowDown size={14}/></button>
-    <button className="btn btn-ghost" style={{ minHeight: 34, padding: 6 }} aria-label={`Remove ${exercise.exerciseName}`} onClick={() => setAsk(true)} data-testid={`button-remove-exercise-${exercise.id}`}><Trash2 size={14}/></button>
+  useEffect(() => {
+    if (!open) return;
+    firstItemRef.current?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
+  const closeMenu = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeMenu();
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+    const items = Array.from(rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? []);
+    if (!items.length) return;
+    event.preventDefault();
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : index < 0 ? (event.key === 'ArrowDown' ? 0 : items.length - 1) : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
+  const itemStyle = { width: '100%', justifyContent: 'flex-start', minHeight: 38, padding: '0 10px', fontSize: 12 } as const;
+  return <div ref={rootRef} style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4, position: 'relative' }}>
+    <button ref={triggerRef} type="button" className="btn btn-ghost" style={{ minHeight: 36, padding: '0 10px' }} aria-label={`Exercise actions for ${exercise.exerciseName}`} aria-haspopup="menu" aria-expanded={open} aria-controls={`exercise-menu-${exercise.id}`} disabled={reorder.isPending || remove.isPending} onClick={() => setOpen((value) => !value)} data-testid={`button-exercise-actions-${exercise.id}`}><MoreHorizontal size={17}/><span style={{ fontSize: 11 }}>Actions</span></button>
+    {open && <div id={`exercise-menu-${exercise.id}`} role="menu" aria-label={`${exercise.exerciseName} actions`} onKeyDown={onMenuKeyDown} style={{ position: 'absolute', zIndex: 30, top: 'calc(100% + 4px)', right: 0, width: 188, padding: 5, display: 'grid', gap: 2, background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, boxShadow: '0 12px 28px hsl(var(--background) / .5)' }}>
+      <button ref={!first ? firstItemRef : undefined} type="button" role="menuitem" className="btn btn-ghost" style={itemStyle} disabled={first || reorder.isPending} onClick={() => { closeMenu(); mv('up'); }} data-testid={`button-move-up-${exercise.id}`}><ArrowUp size={14}/> Move up</button>
+      <button ref={first ? firstItemRef : undefined} type="button" role="menuitem" className="btn btn-ghost" style={itemStyle} disabled={last || reorder.isPending} onClick={() => { closeMenu(); mv('down'); }} data-testid={`button-move-down-${exercise.id}`}><ArrowDown size={14}/> Move down</button>
+      {onReplace && <button ref={first && last ? firstItemRef : undefined} type="button" role="menuitem" className="btn btn-ghost" style={itemStyle} onClick={() => { closeMenu(); onReplace(); }} data-testid={`button-replace-exercise-${exercise.id}`}><ArrowLeftRight size={14}/> Replace exercise</button>}
+      <button ref={first && last && !onReplace ? firstItemRef : undefined} type="button" role="menuitem" className="btn btn-ghost" style={{ ...itemStyle, color: 'hsl(var(--destructive))' }} onClick={() => { closeMenu(); setAsk(true); }} data-testid={`button-remove-exercise-${exercise.id}`}><Trash2 size={14}/> Remove exercise</button>
+    </div>}
     {ask && <Modal title="Remove this exercise?" close={() => setAsk(false)}>
-     <p style={{ marginTop: 0, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>Remove it from today's visible workout now. {hasLogged && 'Completed sets remain in your history and total weight lifted. '}Unperformed sets will not count. You can decide at Finish Workout whether the change carries forward.</p>
+      <p style={{ marginTop: 0, lineHeight: 1.5, color: 'hsl(var(--muted-foreground))' }}>{isPro ? <>Remove it from today's visible workout now. {hasLogged && 'Completed sets remain in your history and total weight lifted. '}Unperformed sets will not count. You can decide at Finish Workout whether the change carries forward.</> : <>Remove it from today's workout. {hasLogged && 'Completed sets remain in your history and total weight lifted. '}Unperformed sets will not count.</>}</p>
       <div style={{ display: 'grid', gap: 8 }}>
        <button className="btn btn-primary" disabled={remove.isPending} onClick={() => { onRemoved?.(); remove.mutate({ sessionId, workoutExerciseId: exercise.id, data: { scope: 'today_only' } }, { onSuccess: () => { setAsk(false); onChanged(); }, onError: () => onRemoveFailed?.() }); }} data-testid="button-remove-today">Remove exercise</button>
         <button className="btn btn-ghost" onClick={() => setAsk(false)}>Cancel</button>
