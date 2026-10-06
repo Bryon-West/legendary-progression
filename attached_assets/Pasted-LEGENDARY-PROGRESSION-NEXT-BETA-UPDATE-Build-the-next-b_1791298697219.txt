@@ -1,0 +1,679 @@
+LEGENDARY PROGRESSION — NEXT BETA UPDATE
+
+Build the next beta update based on user/tester feedback.
+
+This is an expansion of the existing application, NOT a rewrite.
+
+Preserve all existing working functionality, including:
+
+- Authentication/account isolation
+- Basic and Legendary Pro modes
+- Existing progression mathematics
+- Existing RIR behavior
+- Existing mesocycles
+- Workout history
+- Existing exercise/history data
+- Existing PR/history data
+- Calendar
+- PWA install/update behavior
+- Current splash/launcher behavior
+- Existing database data
+
+DO NOT reset either database.
+DO NOT delete existing user data.
+DO NOT fabricate historical data.
+Use safe additive migrations only.
+Do not publish automatically.
+
+==================================================
+1. EXPAND THE EXERCISE LIBRARY
+==================================================
+
+The current exercise library is missing many common exercises.
+
+Significantly expand the built-in library with common exercises across:
+
+- Chest
+- Back
+- Shoulders
+- Biceps
+- Triceps
+- Quadriceps
+- Hamstrings
+- Glutes
+- Calves
+- Core
+- Forearms/grip
+
+Include common equipment variations:
+
+- Barbell
+- Dumbbell
+- Cable
+- Machine
+- Smith machine
+- Bodyweight
+
+Also expand the library beyond traditional resistance training:
+
+- Calisthenics
+- Cardio
+- Plyometrics
+- Carries
+- Sled work
+
+Examples include, but are NOT limited to:
+
+Strength:
+- Flat/incline/decline bench variations
+- Dumbbell presses
+- Machine chest press
+- Cable fly variations
+- Pull-ups/chin-ups
+- Lat pulldown variations
+- Barbell/dumbbell/cable/machine rows
+- Deadlift/RDL variations
+- Squat variations
+- Hack squat
+- Leg press
+- Leg extension
+- Seated/lying leg curl
+- Hip thrust
+- Glute bridge
+- Calf raise variations
+- Overhead press variations
+- Lateral raise variations
+- Rear-delt movements
+- Face pulls
+- Shrugs
+- Common biceps curl variations
+- Common triceps extension/pushdown variations
+- Common abdominal/core movements
+
+Calisthenics:
+- Push-up variations
+- Pull-ups
+- Chin-ups
+- Dips
+- Inverted rows
+- Bodyweight squats
+- Lunges
+- Hanging leg raises
+- Planks
+- Burpees
+
+Cardio:
+- Walking
+- Running
+- Treadmill
+- Stationary bike
+- Outdoor cycling
+- Elliptical
+- Stair climber
+- Rowing machine
+
+Plyometrics:
+- Box jumps
+- Broad jumps
+- Vertical jumps
+- Jump squats
+- Bounds
+- Medicine-ball throws where appropriate
+
+Carries/sled:
+- Farmer's carry
+- Suitcase carry
+- Sled push
+- Sled pull
+
+Do not blindly create duplicates of existing exercises.
+
+Preserve existing exercise IDs and historical references.
+
+Use aliases/search terms where useful so users can find common exercises
+under different names.
+
+Continue storing the metadata needed by Legendary, including where relevant:
+
+- primary muscle
+- secondary muscles
+- equipment
+- compound/isolation classification
+- aliases
+- default increment
+- exercise/activity category
+
+==================================================
+2. GENERALIZED TWO-METRIC LOGGING SYSTEM
+==================================================
+
+IMPORTANT DESIGN RULE:
+
+KEEP THE CURRENT SIMPLE TWO-INPUT WORKOUT FORMAT.
+
+Do NOT build separate workout interfaces for cardio, plyometrics,
+calisthenics, etc.
+
+Every exercise/activity may define up to TWO trackable metrics.
+
+Each exercise should define:
+
+METRIC 1:
+- metric type
+- display label
+- unit
+- required or optional
+
+METRIC 2:
+- metric type
+- display label
+- unit
+- required or optional
+
+Support useful metric types such as:
+
+- Weight
+- Reps
+- Distance
+- Time
+- Height
+
+Design this extensibly so another metric type could be added later without
+redesigning the workout system.
+
+Examples:
+
+Barbell Bench Press
+Metric 1 = Weight
+Metric 2 = Reps
+
+Running
+Metric 1 = Distance
+Metric 2 = Time
+
+Treadmill
+Metric 1 = Distance
+Metric 2 = Time
+
+Box Jump
+Metric 1 = Reps
+Metric 2 = Height
+
+Broad Jump
+Metric 1 = Reps
+Metric 2 = Distance
+
+Vertical Jump
+Metric 1 = Reps
+Metric 2 = Height
+
+Jump Squat
+Metric 1 = Weight
+Metric 2 = Reps
+
+Medicine Ball Throw
+Metric 1 = Weight
+Metric 2 = Distance
+
+Farmer's Carry
+Metric 1 = Weight
+Metric 2 = Distance
+
+Sled Push
+Metric 1 = Weight
+Metric 2 = Distance
+
+Push-Up
+Metric 1 = Reps
+Metric 2 = optional added weight if supported by the exercise definition
+
+Do NOT force users to enter an irrelevant second metric.
+
+If a metric is optional, the set/activity must be valid without it.
+
+==================================================
+3. UNITS AND DATA STORAGE
+==================================================
+
+Preserve the user's existing lb/kg preference for weight.
+
+Support appropriate units for the new metrics.
+
+Examples:
+
+Weight:
+- lb
+- kg
+
+Distance:
+- mi / km for cardio
+- ft / m or other sensible units for shorter activities
+
+Height:
+- in / cm or another appropriate paired unit
+
+Time:
+- duration, displayed naturally such as:
+  18:30
+  32:15
+  etc.
+
+Do NOT store formatted strings if a normalized numeric representation is more
+appropriate.
+
+Store values in a way that allows future comparison/progression without
+requiring a destructive migration later.
+
+Existing Weight + Reps workout history MUST continue working.
+
+Backward compatibility with existing sets is critical.
+
+==================================================
+4. BASIC VS LEGENDARY PRO
+==================================================
+
+BASIC:
+
+Basic users should be able to manually log all supported activity types.
+
+Examples:
+- Weight + Reps
+- Distance + Time
+- Reps + Height
+- Reps + Distance
+- Weight + Distance
+
+Basic remains:
+
+LOG → FINISH → DONE
+
+Do not introduce progression/recovery questions into Basic.
+
+LEGENDARY PRO:
+
+Preserve the CURRENT resistance-training progression engine exactly.
+
+Do NOT alter:
+
+- RIR progression
+- load-first compound progression
+- rep-first isolation behavior
+- 5 lb ≈ 1 rep equivalence
+- ±20 lb comparison boundary
+- 6–30 rep guardrails
+- set-specific targets
+- recovery logic
+- deload logic
+
+Do NOT attempt to invent intelligent cardio or plyometric progression in this
+update.
+
+For activity types the current progression engine does not understand:
+
+LOG THEM CORRECTLY AND SAVE THEIR HISTORY,
+but do not fabricate progression prescriptions.
+
+We can add specialized progression for those categories later.
+
+==================================================
+5. TOTAL WEIGHT LIFTED / SUMMARIES
+==================================================
+
+Do not corrupt the existing Total Weight Lifted metric.
+
+Only activities where Weight × Reps meaningfully represents resistance
+training should contribute to the existing Total Weight Lifted calculation.
+
+Examples:
+
+Running Distance × Time must NOT be interpreted as weight volume.
+
+Box Jump Reps × Height must NOT contribute to Total Weight Lifted.
+
+Sled/carry metrics should not automatically be included in Total Weight Lifted
+unless they legitimately match the existing definition.
+
+Existing resistance-training calculations must remain unchanged.
+
+==================================================
+6. PR SYSTEM — ESTIMATED 1RM
+==================================================
+
+Improve resistance-training PRs so the PRIMARY performance PR is based on
+estimated one-rep max (e1RM), rather than simply the heaviest weight ever used.
+
+Use a documented, centralized e1RM calculation.
+
+Recommended initial formula:
+
+Epley:
+
+e1RM = weight × (1 + reps / 30)
+
+Example:
+
+225 × 8 ≈ 285 lb e1RM
+
+230 × 5 ≈ 268 lb e1RM
+
+Therefore 225 × 8 represents the stronger performance even though 230 is a
+heavier absolute load.
+
+IMPORTANT:
+
+Do not use e1RM blindly for very high-rep sets where the estimate becomes
+unreliable.
+
+Choose and document a sensible qualifying rep range for e1RM PR comparison.
+
+Do not change Legendary's existing 5 lb ≈ 1 rep progression logic.
+
+These systems serve different purposes:
+
+5 lb ≈ 1 rep:
+WORKOUT-TO-WORKOUT PROGRESSION
+
+e1RM:
+PR / PERFORMANCE HISTORY
+
+Preserve useful secondary records such as:
+
+- heaviest weight lifted
+- actual set that produced the e1RM
+- reps
+- date
+- RIR when available
+
+Existing historical sets should be eligible for calculated e1RM PRs where
+sufficient valid data exists.
+
+Do not fabricate data that was never recorded.
+
+For non-strength metric combinations, do NOT force an e1RM concept.
+
+Their specialized PR systems can be expanded later.
+
+==================================================
+7. MORE PREMADE LEGENDARY MESOCYCLES
+==================================================
+
+Expand the premade Legendary program/template selection.
+
+Keep existing templates.
+
+Add useful hypertrophy-oriented options rather than dozens of nearly identical
+templates.
+
+Include at minimum a:
+
+12-WEEK SIZE PROGRAM
+
+Structure:
+
+Weeks 1–3:
+Loading/progressive training
+
+Week 4:
+Deload/recovery
+
+Weeks 5–7:
+Loading/progressive training
+
+Week 8:
+Deload/recovery
+
+Weeks 9–11:
+Loading/progressive training
+
+Week 12:
+Deload/recovery
+
+This should be THREE distinct 3-week loading blocks separated by recovery
+weeks.
+
+Legendary's progression engine should still determine the appropriate
+weight/reps/sets within the loading blocks.
+
+Do not turn this into a static PDF-style workout.
+
+Also add a small useful selection of premade hypertrophy structures such as:
+
+- 8-Week Hypertrophy
+- 12-Week Size
+- Upper/Lower Size
+- Push/Pull/Legs
+- Full-Body Hypertrophy
+
+Choose sensible training frequencies and schedules.
+
+Avoid overwhelming the user with redundant templates.
+
+Premade programs must integrate with the existing calendar, mesocycle,
+progression, deload, history, and account-isolation systems.
+
+==================================================
+8. PROFILE INITIALS BUG
+==================================================
+
+Fix the account/profile badge in the upper-right corner.
+
+It currently displayed:
+
+LB
+
+for an account whose displayed athlete/profile name is:
+
+Bryon West
+
+The badge should derive initials from the actual current profile/display name.
+
+Example:
+
+Bryon West → BW
+
+Do not hard-code BW.
+
+Handle:
+
+- single-word names
+- multi-word names
+- changed profile names
+- missing names with a sensible fallback
+
+==================================================
+9. EXERCISE LIBRARY / ADD MOVEMENT UX
+==================================================
+
+Because the library is becoming substantially larger:
+
+Make search useful.
+
+Users should be able to find exercises using:
+
+- exercise name
+- common aliases
+- equipment
+- primary muscle
+- category where appropriate
+
+Do not make the user scroll through hundreds of movements.
+
+Preserve the existing ability to add a missing/custom movement.
+
+When creating a custom exercise, allow its two metric definitions to be
+selected where appropriate.
+
+Keep the workflow simple on mobile.
+
+==================================================
+10. DATA MIGRATION / BACKWARD COMPATIBILITY
+==================================================
+
+This update must preserve existing data.
+
+Before applying schema changes:
+
+- inspect current Production-compatible schema
+- use safe additive migrations
+- preflight existing rows
+- preserve existing exercise IDs
+- preserve workout history
+- preserve PR history
+- preserve mesocycles
+- preserve accounts
+- preserve feedback
+- preserve baselines
+
+Existing Weight + Reps exercises should automatically behave as:
+
+Metric 1 = Weight
+Metric 2 = Reps
+
+without rewriting or fabricating historical workout data unnecessarily.
+
+DO NOT repeat the previous schema-drift problem.
+
+The corrected Drizzle schema and legitimate historical Production constraints
+must remain represented.
+
+Do not remove existing legitimate constraints simply to make a migration pass.
+
+If Publishing would require:
+
+- deleting rows
+- truncating tables
+- dropping legitimate constraints
+- resetting data
+- destructive migration
+
+STOP and report it instead.
+
+==================================================
+11. MOBILE UI
+==================================================
+
+The application remains mobile-first.
+
+Test at:
+
+- 320px
+- 360px
+- 390px
+- 412px
+
+The generalized metrics must NOT make workout cards wider or substantially
+more cluttered.
+
+Preserve the current two-input concept.
+
+Examples should visually remain approximately:
+
+[ WEIGHT ] [ REPS ]
+
+or
+
+[ DISTANCE ] [ TIME ]
+
+or
+
+[ REPS ] [ HEIGHT ]
+
+Do not add a third primary metric field.
+
+Preserve the recently added exercise hamburger menu and:
+
+ADD SET
+REMOVE SET
+
+wording.
+
+==================================================
+12. TESTING
+==================================================
+
+Add/extend tests for:
+
+EXERCISE LIBRARY
+- common exercise availability
+- aliases/search
+- metadata
+- no accidental duplicate exercises
+
+METRIC SYSTEM
+- Weight + Reps
+- Distance + Time
+- Reps + Height
+- Reps + Distance
+- Weight + Distance
+- optional second metric
+- unit conversion
+- historical Weight + Reps compatibility
+
+BASIC
+- can log new activity types
+- no RIR/progression/recovery UI
+- finish/save/history work
+
+LEGENDARY PRO
+- existing resistance progression remains unchanged
+- non-strength activity saves without fabricated progression
+- existing RIR logic unchanged
+
+PR
+- e1RM calculation
+- 225×8 beats 230×5 using Epley
+- heaviest-load record remains available
+- invalid/high-rep handling
+- historical set calculation
+- no e1RM for incompatible activity types
+
+MESOCYCLES
+- 12-week Size structure
+- recovery weeks at 4, 8, 12
+- loading blocks at 1–3, 5–7, 9–11
+- other templates
+- calendar integration
+
+PROFILE
+- Bryon West → BW
+- single-word name
+- changed name
+- fallback
+
+REGRESSION
+- existing progression tests
+- account isolation
+- auth
+- Training Mode
+- mode switching
+- history
+- PR persistence
+- Total Weight Lifted
+- calendar
+- PWA install/update behavior
+
+==================================================
+13. STOP BEFORE PUBLISHING
+==================================================
+
+Do NOT publish automatically.
+
+When complete, report:
+
+1. Files changed.
+2. Schema changes.
+3. Exercise-library additions and total built-in exercise count.
+4. Metric model implemented.
+5. How existing Weight + Reps history remains compatible.
+6. Basic behavior for new activity types.
+7. Legendary Pro behavior for new activity types.
+8. e1RM formula and qualifying rep range chosen.
+9. New premade mesocycles and their structures.
+10. Profile-initial fix.
+11. Test results.
+12. Any migration warnings.
+13. Any security/dependency changes.
+14. Manual Android/mobile tests still recommended.
+15. Exact Production migration that Publishing will propose.
+
+STOP and wait for approval before publishing.
