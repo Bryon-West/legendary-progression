@@ -7,3 +7,4 @@
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
 - [PWA startup icons](legendary-dragon-branding.md) — Android shares launcher/startup icons; use L before the full dragon and refresh old installs when the manifest changes.
 - [Development schema sync](database-schema-sync.md) — represent migration-defined integrity rules in Drizzle; Publish diffs live dev/prod, and name drift can produce destructive prompts.
+- [GitHub checkpoint auth](github-checkpoint-auth.md) — verify actual GitHub refs and push results; a provider connection notice may not mean the CLI can authenticate.
