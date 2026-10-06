@@ -3,8 +3,8 @@ name: pnpm workspace updates
 description: Dependency-update behavior and lockfile hygiene in this pnpm monorepo.
 ---
 
-In this pnpm monorepo, the generic package-install callback runs `pnpm add` at the workspace root and fails with `ERR_PNPM_ADDING_TO_ROOT`. Filter package updates to the target artifact, then inspect the lockfile for unrelated transitive updates.
+In this pnpm monorepo, a recursive update targeting an exact transitive version may leave that package unchanged while relocking an unrelated peer dependency. If so, use a narrowly parent-scoped override rather than broad resolution.
 
-**Why:** A Clerk SDK version check left Clerk unchanged but updated a transitive `tsx` version in the lockfile.
+**Why:** Repeated dependency updates left the intended package unchanged but introduced unrelated `tsx` lockfile churn.
 
-**How to apply:** Use the workspace filter for dependency updates, respect the workspace release-age policy, and retain only lockfile changes required by the requested dependency update.
+**How to apply:** Respect the workspace release-age policy, inspect the full lockfile diff, use a scoped override only when normal resolution cannot select the fix, then verify the active installed tree and keep only requested package changes.
