@@ -1,39 +1,52 @@
 import { useEffect, useState } from "react";
+import {
+  consumeDeferredInstallPrompt,
+  hasDeferredInstallPrompt,
+  isPwaInstalled,
+  PWA_INSTALL_STATE_EVENT,
+  shouldShowManualInstallInstructions,
+} from "@/lib/pwa-install";
 
-type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }> };
 type WelcomeProps = {
   onCreateAccount: () => void;
   onLogIn: () => void;
 };
 
 export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
+  const [installed, setInstalled] = useState(() => isPwaInstalled());
   const [installHelp, setInstallHelp] = useState(false);
+  const [installStatus, setInstallStatus] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   useEffect(() => {
-    const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setInstalled(standalone);
-    const capture = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
+    const syncInstallState = () => {
+      setInstalled(isPwaInstalled());
+      if (hasDeferredInstallPrompt()) setInstallStatus(null);
     };
-    const installedHandler = () => { setInstalled(true); setInstallPrompt(null); };
-    window.addEventListener("beforeinstallprompt", capture);
-    window.addEventListener("appinstalled", installedHandler);
+    window.addEventListener(PWA_INSTALL_STATE_EVENT, syncInstallState);
+    syncInstallState();
     return () => {
-      window.removeEventListener("beforeinstallprompt", capture);
-      window.removeEventListener("appinstalled", installedHandler);
+      window.removeEventListener(PWA_INSTALL_STATE_EVENT, syncInstallState);
     };
   }, []);
   const install = async () => {
-    if (!installPrompt) { setInstallHelp(true); return; }
+    const installPrompt = consumeDeferredInstallPrompt();
+    if (!installPrompt) {
+      if (shouldShowManualInstallInstructions(navigator.userAgent)) {
+        setInstallHelp(true);
+      } else {
+        setInstallStatus("Your browser has not offered the native install prompt yet. Keep this page open for a little longer, then tap INSTALL APP again.");
+      }
+      return;
+    }
+    setInstallStatus(null);
     setInstalling(true);
     try {
       await installPrompt.prompt();
       const choice = await installPrompt.userChoice;
       if (choice.outcome === "accepted") setInstalled(true);
-      setInstallPrompt(null);
+    } catch (error) {
+      console.error("Unable to open the native PWA install prompt", error);
+      setInstallStatus("The native install prompt could not be opened. Please try again.");
     } finally { setInstalling(false); }
   };
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -173,6 +186,13 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
           flex-wrap: wrap;
           gap: 12px;
           margin-top: 34px;
+        }
+        .lp-welcome__install-status {
+          max-width: 390px;
+          margin: 12px 0 0;
+          color: var(--lp-muted);
+          font-size: 13px;
+          line-height: 1.5;
         }
         .lp-welcome__button {
           min-height: 54px;
@@ -347,6 +367,7 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
               {installing ? "OPENING INSTALL…" : "INSTALL APP"}
             </button>}
           </div>
+          {installStatus && <p className="lp-welcome__install-status" role="status" aria-live="polite">{installStatus}</p>}
         </div>
 
         <figure className="lp-welcome__visual">
@@ -367,7 +388,7 @@ export default function Welcome({ onCreateAccount, onLogIn }: WelcomeProps) {
         <section className="lp-install-card" role="dialog" aria-modal="true" aria-labelledby="install-title" onClick={(event) => event.stopPropagation()}>
           <p className="lp-welcome__overline">Install</p>
           <h2 id="install-title">Keep your training log close.</h2>
-          <p>{isIos ? "In Safari, tap Share, then choose Add to Home Screen." : isAndroid ? "In Chrome, open the menu and choose Install app or Add to Home screen." : "In your browser menu, choose Install app or Add to Home screen."}</p>
+          <p>{isIos ? "On iPhone or iPad, open this page in Safari, tap Share, then choose Add to Home Screen." : isAndroid ? "Open this page in a browser that supports app installation, then use its menu to choose Install app or Add to Home screen." : "In your browser menu, choose Install app or Add to Home screen."}</p>
           <button className="lp-welcome__button" type="button" onClick={() => setInstallHelp(false)}>GOT IT</button>
         </section>
       </div>}

@@ -8,6 +8,38 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.webmanifest?v=7" />
+    <script>
+      (() => {
+        const installWindow = window;
+        const standaloneMode = window.matchMedia("(display-mode: standalone)");
+        installWindow.__legendaryPwaInstalled =
+          standaloneMode.matches || navigator.standalone === true;
+        installWindow.__legendaryDeferredInstallPrompt = null;
+
+        const notifyInstallState = () => {
+          window.dispatchEvent(new Event("legendary:pwa-install-state"));
+        };
+
+        window.addEventListener("beforeinstallprompt", (event) => {
+          event.preventDefault();
+          installWindow.__legendaryDeferredInstallPrompt = event;
+          notifyInstallState();
+        });
+
+        window.addEventListener("appinstalled", () => {
+          installWindow.__legendaryDeferredInstallPrompt = null;
+          installWindow.__legendaryPwaInstalled = true;
+          notifyInstallState();
+        });
+
+        standaloneMode.addEventListener?.("change", (event) => {
+          if (event.matches || navigator.standalone === true) {
+            installWindow.__legendaryPwaInstalled = true;
+            notifyInstallState();
+          }
+        });
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/brand/legendary-launcher-v6-192.png" />
     <title>Legendary Progression</title>
