@@ -6,6 +6,7 @@ import { useActiveProfile } from '@/lib/profile';
 import { fmtWeight } from '@/lib/units';
 import { fmtDate } from '@/lib/dates';
 import { Empty, Loading, QueryError } from '@/components/ui-bits';
+import { EducationInfo } from '@/components/education-info';
 
 function achievedDate(value: string) {
   const date = value.slice(0, 10);
@@ -30,7 +31,9 @@ export function PersonalRecordsPage() {
       <Link href="/history" className="log-tab" data-testid="link-log-history">HISTORY</Link>
       <Link href="/history/prs" className="log-tab active" data-testid="link-log-prs">PRs</Link>
     </div>
-    <p style={{ margin: '0 0 16px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>Strength e1RM records use the Epley estimate from completed sets of 1–10 reps. Heaviest load is tracked separately.</p>
+    <p style={{ margin: '0 0 16px', color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.5 }}>
+      Best recorded performances for each exercise. <span className="inline-term">PR <EducationInfo term="pr" testId="info-pr-list" /></span> · <span className="inline-term">e1RM <EducationInfo term="e1rm" testId="info-e1rm-list" /></span>
+    </p>
     {exercises.length ? <div style={{ display: 'grid', gap: 10 }}>{exercises.map((exercise) => <RecordCard key={exercise.exerciseId} exercise={exercise} unit={unit} showRir={showRir}/>)}</div>
       : <Empty title="No records yet" detail="Completed working sets that establish a record will appear here. Warm-ups and planned work never qualify."/>}
   </main>;
@@ -74,6 +77,9 @@ export function PersonalRecordDetailPage() {
     <Link href="/history/prs" className="btn btn-ghost" style={{ padding: 0, textDecoration: 'none' }}><ArrowLeft size={17}/> All PRs</Link>
     <div className="eyebrow" style={{ marginTop: 18 }}>Chronological record history</div>
     <h1 className="display" style={{ fontSize: 43, margin: '7px 0 16px' }}>{exercise.exerciseName}</h1>
+    <p style={{ margin: '10px 0 14px', color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.5 }}>
+      <span className="inline-term">PR <EducationInfo term="pr" testId="info-pr-detail" /></span> · <span className="inline-term">e1RM <EducationInfo term="e1rm" testId="info-e1rm-detail" /></span>
+    </p>
     {exercise.bestPerformance?.estimatedOneRepMax != null && <div className="panel" style={{ padding: 14, marginBottom: 12 }}>
       <div className="eyebrow">Estimated 1RM PR · Epley</div>
       <div className="metric" style={{ marginTop: 5, fontWeight: 700 }}>{fmtWeight(exercise.bestPerformance.estimatedOneRepMax, unit, false)} {unit}</div>

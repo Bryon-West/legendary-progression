@@ -17,6 +17,8 @@ import {
   GetActiveWorkoutResponse,
   GetWorkoutParams,
   GetWorkoutResponse,
+  ListWorkoutCalendarHistoryQueryParams,
+  ListWorkoutCalendarHistoryResponse,
   ListWorkoutsQueryParams,
   ListWorkoutsResponse,
   RemoveWorkoutSetParams,
@@ -323,6 +325,27 @@ router.get("/workouts", async (req, res): Promise<void> => {
     return;
   }
   res.json(ListWorkoutsResponse.parse(await listWorkoutSummaries(parsed.data.profileId)));
+});
+
+router.get("/workouts/calendar-history", async (req, res): Promise<void> => {
+  const parsed = ListWorkoutCalendarHistoryQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const sessions = await db
+    .select({
+      id: workoutSessionsTable.id,
+      dayName: workoutSessionsTable.dayName,
+      startedAt: workoutSessionsTable.startedAt,
+    })
+    .from(workoutSessionsTable)
+    .where(and(
+      eq(workoutSessionsTable.profileId, parsed.data.profileId),
+      eq(workoutSessionsTable.status, "completed"),
+    ))
+    .orderBy(asc(workoutSessionsTable.startedAt), asc(workoutSessionsTable.id));
+  res.json(ListWorkoutCalendarHistoryResponse.parse(sessions));
 });
 
 router.get("/workouts/active", async (req, res): Promise<void> => {

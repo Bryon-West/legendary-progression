@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ClerkProvider, useAuth, useClerk } from "@clerk/react";
 import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +27,8 @@ import MesocycleEditorPage from "@/pages/mesocycle-editor";
 import CalendarPage from "@/pages/calendar";
 import MesocycleNewPage from "@/pages/mesocycle-new";
 import PlannedPage from "@/pages/planned";
+import BetaFeedbackPage from "@/pages/beta-feedback";
+import BetaFeedbackManagersPage from "@/pages/beta-feedback-managers";
 
 function createQueryClient() {
   return new QueryClient({
@@ -48,26 +49,6 @@ function NotFound() {
   );
 }
 
-function PlansModeGate({ children }: { children: ReactNode }) {
-  const { profile, profilesQuery } = useActiveProfile();
-  const [, setLocation] = useLocation();
-  if (profilesQuery.isLoading) return <Loading />;
-  if (profilesQuery.isError) {
-    return <main className="page-wrap"><QueryError retry={() => void profilesQuery.refetch()} /></main>;
-  }
-  if (profile?.trainingMode === "basic") {
-    return <main className="page-wrap enter">
-      <div className="eyebrow">Basic mode</div>
-      <h1 className="display" style={{ fontSize: 42, margin: "8px 0" }}>Manual training.</h1>
-      <p style={{ color: "hsl(var(--muted-foreground))", lineHeight: 1.55 }}>
-        Basic workouts are built as you train. Switch to Legendary Pro in Profile settings to manage progression plans.
-      </p>
-      <button className="btn btn-secondary" type="button" onClick={() => setLocation("/profiles")}>Profile settings</button>
-    </main>;
-  }
-  return <>{children}</>;
-}
-
 function ProtectedRouter() {
   return (
     <ErrorBoundary resetKey={window.location.pathname}>
@@ -80,11 +61,13 @@ function ProtectedRouter() {
           <Route path="/history/prs/:exerciseId" component={PersonalRecordDetailPage} />
           <Route path="/history/:sessionId" component={HistoryDetailPage} />
           <Route path="/exercises" component={ExercisesPage} />
-          <Route path="/splits" component={() => <PlansModeGate><MesocyclesPage /></PlansModeGate>} />
-          <Route path="/splits/new" component={() => <PlansModeGate><MesocycleNewPage /></PlansModeGate>} />
+          <Route path="/splits" component={MesocyclesPage} />
+          <Route path="/splits/new" component={MesocycleNewPage} />
           <Route path="/calendar" component={CalendarPage} />
-          <Route path="/splits/:splitId" component={() => <PlansModeGate><MesocycleEditorPage /></PlansModeGate>} />
+          <Route path="/splits/:splitId" component={MesocycleEditorPage} />
           <Route path="/planned/:plannedId" component={PlannedPage} />
+          <Route path="/feedback/managers" component={BetaFeedbackManagersPage} />
+          <Route path="/feedback" component={BetaFeedbackPage} />
           <Route path="/profiles" component={ProfileSettingsPage} />
           <Route path="/account/*?" component={AccountPage} />
           <Route component={NotFound} />

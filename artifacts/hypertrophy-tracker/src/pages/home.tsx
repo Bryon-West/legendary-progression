@@ -13,6 +13,8 @@ import { Empty, Loading, QueryError } from '@/components/ui-bits';
 import { StartSessionModal } from '@/components/start-session-modal';
 import { SessionContext } from '@/components/completed-workout';
 import { WorkoutSummaryCard } from '@/components/workout-summary-card';
+import { TrainingModeControl } from '@/components/training-mode-control';
+import { EducationInfo } from '@/components/education-info';
 
 export default function HomePage() {
   const { profile, profilesQuery, unit } = useActiveProfile();
@@ -47,6 +49,7 @@ export default function HomePage() {
       <h1 className="display" style={{ fontSize: 48, margin: '9px 0 5px' }}>Earn it.<br/><span style={{ color: 'hsl(var(--primary))' }}>Log it right.</span></h1>
       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 14 }}>Good to see you, {profile.name}.</div>
     </section>
+    <TrainingModeControl />
     {activeWorkout ? <section className="panel" style={{ padding: 20, background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))', marginBottom: 18, borderColor: 'transparent' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}><div><div className="eyebrow" style={{ color: 'inherit', opacity: .8 }}>Session in progress{activeWorkout.mesocycleWeek != null ? ` · week ${activeWorkout.mesocycleWeek}` : ''}</div><h2 className="display" style={{ fontSize: 32, margin: '8px 0 5px' }}>{activeWorkout.dayName || 'Training session'}</h2><div style={{ opacity: .85, fontSize: 13 }}>{activeWorkout.splitName || 'Open workout'} · started {new Date(activeWorkout.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div><Activity size={22}/></div>
       <Link className="btn" href={`/workout/${activeWorkout.id}`} style={{ background: 'hsl(var(--background))', color: 'hsl(var(--foreground))', textDecoration: 'none', marginTop: 16, width: '100%' }} data-testid="link-resume-workout">Resume workout <ArrowRight size={17}/></Link>
@@ -61,7 +64,7 @@ export default function HomePage() {
     </section>}
     <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11, marginBottom: 18 }}>
       <div className="panel" style={{ padding: 16 }}><div className="eyebrow">This week</div><div className="display" style={{ fontSize: 38, marginTop: 8 }}>{data?.workoutsThisWeek ?? 0}<span style={{ fontSize: 17, marginLeft: 5 }}>sessions</span></div></div>
-      <div className="panel" style={{ padding: 16 }}><div className="eyebrow">Total weight lifted</div><div className="display metric" style={{ fontSize: 28, marginTop: 10 }} data-testid="text-week-total">{fmtTotal(data?.volumeThisWeek ?? 0, unit as WeightUnit)}</div><div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>working sets, this week</div></div>
+       <div className="panel" style={{ padding: 16 }}><div className="eyebrow"><span className="inline-term">Total Weight Lifted <EducationInfo term="total_weight_lifted" testId="info-total-weight-lifted-home" /></span></div><div className="display metric" style={{ fontSize: 28, marginTop: 10 }} data-testid="text-week-total">{fmtTotal(data?.volumeThisWeek ?? 0, unit as WeightUnit)}</div><div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>working sets, this week</div></div>
     </section>
     {weekly.length > 0 && <section className="panel" style={{ padding: 16, marginBottom: 25 }}>
       <div className="eyebrow" style={{ marginBottom: 10 }}>Working sets this week by muscle</div>

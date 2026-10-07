@@ -21,6 +21,7 @@ import { ExerciseTools, FeedbackSheet, RecoveryPrompt, recoveryPromptKind } from
 import { isMetricDrivenExercise } from '@/lib/exercise-metrics';
 import { asChanges, type StructureChanges } from '@/lib/v22';
 import { WorkoutDraftsContext, useWorkoutDraftRegistry } from '@/lib/workout-drafts';
+import { EducationInfo } from '@/components/education-info';
 
 const sleep = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
 function formatTime(seconds: number) { const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); const s = seconds % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`; }
@@ -59,7 +60,7 @@ export default function WorkoutPage() {
     return <main className="page-wrap enter">
         <div className="eyebrow">Workout complete{w.mesocycleWeek != null ? ` · mesocycle week ${w.mesocycleWeek}` : ''}</div><h1 className="display" style={{ fontSize: 52, margin: '10px 0 20px' }}>Work<br/>logged.</h1>
       <div className="panel" style={{ padding: 20 }}>
-        <div className="eyebrow">Total weight lifted</div>
+        <div className="eyebrow"><span className="inline-term">Total Weight Lifted <EducationInfo term="total_weight_lifted" testId="info-total-weight-lifted-complete" /></span></div>
         <div className="display metric" style={{ fontSize: 40, margin: '8px 0 14px' }} data-testid="text-summary-total">{fmtTotal(w.totalVolume, unit)}</div>
          {w.trainingMode === "legendary_pro" && (w.muscleTotals ?? []).length > 0 && <MuscleTotals totalKg={w.totalVolume} muscleTotals={w.muscleTotals ?? []} unit={unit}/>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
@@ -139,9 +140,9 @@ export default function WorkoutPage() {
       <button className="btn btn-secondary" data-testid="button-finish-top" style={{ minHeight: 40, padding: '0 12px', fontSize: 12 }} disabled={finish.isPending} onClick={() => setModal('finish')}>Finish</button>
     </div>
     <div className="eyebrow">{workout.splitName || 'Open session'}</div><h1 className="display" style={{ fontSize: 43, margin: '6px 0 14px' }}>{workout.dayName || 'Training session'}</h1>
-     {isPro && (workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
-      <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '.04em' }}>{workout.weekKindSnapshot === 'deload' ? 'RECOVERY WEEK — DELOAD' : 'RECOVERY WEEK — WEEK OFF'}</div>
-      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${formatRir(workout.targetRirSnapshot)})` : ''} with reduced sets and load. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
+      {isPro && (workout.weekKindSnapshot === 'deload' || workout.weekKindSnapshot === 'week_off') && <div className="panel" style={{ padding: '10px 13px', marginBottom: 12, borderColor: 'hsl(var(--primary) / .5)' }} data-testid="banner-recovery-week">
+       <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '.04em' }}>{workout.weekKindSnapshot === 'deload' ? <span className="inline-term">RECOVERY WEEK — DELOAD <EducationInfo term="deload" testId="info-deload-workout" /></span> : 'RECOVERY WEEK — WEEK OFF'}</div>
+      <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 4, lineHeight: 1.45 }}>{workout.weekKindSnapshot === 'deload' ? `Higher RIR${workout.targetRirSnapshot != null ? ` (${formatRir(workout.targetRirSnapshot)})` : ''} with set and load adjustments based on your deload settings. Planned recovery, not a setback.` : 'Planned rest. Anything you log here is optional and carries no penalty.'}</div>
     </div>}
      <SessionContext workout={workout}/>
      {saveError && modal === null && <ErrorNote message={saveError}/>}

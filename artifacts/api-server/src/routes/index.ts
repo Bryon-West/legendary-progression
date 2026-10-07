@@ -5,6 +5,7 @@ import trainingRouter from "./training";
 import workoutsRouter from "./workouts";
 import legendaryV22Router from "./legendary-v22";
 import trainingDataRouter from "./training-data";
+import betaFeedbackRouter from "./beta-feedback";
 import {
   authorizeAccountResources,
   requireAccountProfile,
@@ -19,6 +20,7 @@ router.use((_req, res, next) => {
 router.use(healthRouter);
 router.use(requireAccountProfile, authorizeAccountResources);
 router.use(trainingDataRouter);
+router.use(betaFeedbackRouter);
 router.use(legendaryV22Router);
 router.use(mesocyclesRouter);
 router.use(trainingRouter);

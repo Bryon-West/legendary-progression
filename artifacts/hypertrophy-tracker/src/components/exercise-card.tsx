@@ -10,6 +10,7 @@ import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/compo
 import { formatRir, humanize } from '@/lib/labels';
 import { fmtWeight, type WeightUnit } from '@/lib/units';
 import { formatMetricSummary, isMetricDrivenExercise, metricUnitLabel } from '@/lib/exercise-metrics';
+import { EducationInfo } from '@/components/education-info';
 
 export function ExerciseCard({ exercise, sessionId, profileId, unit, trainingMode, onChanged, onSubstitute }: {
   exercise: WorkoutExercise; sessionId: number; profileId: number; unit: WeightUnit; trainingMode: "basic" | "legendary_pro"; onChanged: () => void; onSubstitute: () => void;
@@ -81,7 +82,7 @@ export function ExerciseCard({ exercise, sessionId, profileId, unit, trainingMod
           {isPro && !metricDriven && exercise.recoveryAdjustment && !['train_as_planned', 'pending', 'repeat_limited'].includes(exercise.recoveryAdjustment) && <span className="badge badge-warning" data-testid={`badge-recovery-${exercise.id}`}>Recovery-adjusted</span>}
         </div>
         <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 8 }}>
-          {metricDriven ? <>Activity metrics · </> : isPro ? <>RIR <b style={{ color: 'hsl(var(--foreground))' }}>{formatRir(calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir)}</b>{calibration && ' (calibration)'} · </> : <>Manual targets · </>}Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
+          {metricDriven ? <>Activity metrics · </> : isPro ? <><span className="inline-term">RIR <EducationInfo term="rir" testId={`info-rir-${exercise.id}`} /></span> <b style={{ color: 'hsl(var(--foreground))' }}>{formatRir(calibration ? (exercise.calibrationRir ?? exercise.targetRir) : exercise.targetRir)}</b>{calibration && ' (calibration)'} · </> : <>Manual targets · </>}Working sets <b style={{ color: 'hsl(var(--foreground))' }}>{minSets}–{maxSets}</b> ({works.length} now)
         </div>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { MAX_E1RM_QUALIFYING_REPS } from "@workspace/api-zod/constants";
+
 export type PersonalRecordWeightUnit = "kg" | "lb";
 
 export type PersonalRecordCandidate = {
@@ -120,7 +122,7 @@ export function derivePersonalRecords(
       reps: candidate.actualReps!,
       rir: candidate.actualRir,
       estimatedOneRepMax: candidate.category === "strength" &&
-        candidate.actualReps! >= 1 && candidate.actualReps! <= 10
+        candidate.actualReps! >= 1 && candidate.actualReps! <= MAX_E1RM_QUALIFYING_REPS
         ? epleyOneRepMax(candidate.actualWeight!, candidate.actualReps!)
         : null,
       heaviestLoadRecord: false,

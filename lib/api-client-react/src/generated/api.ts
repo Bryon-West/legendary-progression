@@ -22,6 +22,15 @@ import type {
 import type {
   ActiveWorkoutState,
   AddWeekInput,
+  BetaFeedbackDeleteResult,
+  BetaFeedbackEntry,
+  BetaFeedbackInput,
+  BetaFeedbackList,
+  BetaFeedbackManager,
+  BetaFeedbackManagerInput,
+  BetaFeedbackManagerRevokeResult,
+  BetaFeedbackManagersList,
+  BetaFeedbackStatusUpdate,
   CalendarWeek,
   DeleteMesocyclePreservingHistoryParams,
   Error,
@@ -39,6 +48,7 @@ import type {
   LifecycleInput,
   ListExercisesParams,
   ListSplitsParams,
+  ListWorkoutCalendarHistoryParams,
   ListWorkoutsParams,
   Mesocycle,
   MesocycleCopyOptions,
@@ -73,6 +83,7 @@ import type {
   TrainingModeUpdateResult,
   TrainingSplit,
   V22Document,
+  WorkoutCalendarHistoryEntry,
   WorkoutExercise,
   WorkoutExerciseFeedback,
   WorkoutExerciseInput,
@@ -3657,6 +3668,90 @@ export function useListWorkouts<TData = Awaited<ReturnType<typeof listWorkouts>>
 
 
 
+export const getListWorkoutCalendarHistoryUrl = (params: ListWorkoutCalendarHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/workouts/calendar-history?${stringifiedParams}` : `/api/workouts/calendar-history`
+}
+
+/**
+ * @summary List all completed session dates for the account Calendar
+ */
+export const listWorkoutCalendarHistory = async (params: ListWorkoutCalendarHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<WorkoutCalendarHistoryEntry[]> => {
+
+  return customFetch<WorkoutCalendarHistoryEntry[]>(getListWorkoutCalendarHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWorkoutCalendarHistoryQueryKey = (params?: ListWorkoutCalendarHistoryParams,) => {
+    return [
+    `/api/workouts/calendar-history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWorkoutCalendarHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listWorkoutCalendarHistory>>, TError = ErrorType<unknown>>(params: ListWorkoutCalendarHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkoutCalendarHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWorkoutCalendarHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkoutCalendarHistory>>> = ({ signal }) => listWorkoutCalendarHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkoutCalendarHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWorkoutCalendarHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkoutCalendarHistory>>>
+export type ListWorkoutCalendarHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all completed session dates for the account Calendar
+ */
+
+export function useListWorkoutCalendarHistory<TData = Awaited<ReturnType<typeof listWorkoutCalendarHistory>>, TError = ErrorType<unknown>>(
+ params: ListWorkoutCalendarHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkoutCalendarHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWorkoutCalendarHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetActiveWorkoutUrl = (params: GetActiveWorkoutParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -4611,5 +4706,572 @@ export const useFinishWorkout = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getFinishWorkoutMutationOptions(options));
+    }
+
+export const getListBetaFeedbackUrl = () => {
+
+
+
+
+  return `/api/beta-feedback`
+}
+
+/**
+ * @summary List beta feedback visible to authenticated athletes
+ */
+export const listBetaFeedback = async ( options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackList> => {
+
+  return customFetch<BetaFeedbackList>(getListBetaFeedbackUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBetaFeedbackQueryKey = () => {
+    return [
+    `/api/beta-feedback`
+    ] as const;
+    }
+
+
+export const getListBetaFeedbackQueryOptions = <TData = Awaited<ReturnType<typeof listBetaFeedback>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBetaFeedbackQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBetaFeedback>>> = ({ signal }) => listBetaFeedback({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedback>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBetaFeedbackQueryResult = NonNullable<Awaited<ReturnType<typeof listBetaFeedback>>>
+export type ListBetaFeedbackQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List beta feedback visible to authenticated athletes
+ */
+
+export function useListBetaFeedback<TData = Awaited<ReturnType<typeof listBetaFeedback>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBetaFeedbackQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateBetaFeedbackUrl = () => {
+
+
+
+
+  return `/api/beta-feedback`
+}
+
+/**
+ * @summary Submit beta feedback for the authenticated athlete
+ */
+export const createBetaFeedback = async (betaFeedbackInput: BetaFeedbackInput, options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackEntry> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BetaFeedbackEntry>(getCreateBetaFeedbackUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(betaFeedbackInput)
+  }
+);}
+
+
+
+
+
+export const getCreateBetaFeedbackMutationKey = () => ['createBetaFeedback'] as const;
+
+export const getCreateBetaFeedbackMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBetaFeedback>>, TError,CreateBetaFeedbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createBetaFeedback>>, TError,CreateBetaFeedbackMutationVariables, TContext> => {
+
+const mutationKey = getCreateBetaFeedbackMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createBetaFeedback>>, CreateBetaFeedbackMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createBetaFeedback(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateBetaFeedbackMutationResult = NonNullable<Awaited<ReturnType<typeof createBetaFeedback>>>
+    export type CreateBetaFeedbackMutationBody = BodyType<BetaFeedbackInput>
+    export type CreateBetaFeedbackMutationError = ErrorType<void>
+    export type CreateBetaFeedbackMutationVariables = {data: BodyType<BetaFeedbackInput>}
+
+    /**
+ * @summary Submit beta feedback for the authenticated athlete
+ */
+export const useCreateBetaFeedback = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createBetaFeedback>>, TError,CreateBetaFeedbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createBetaFeedback>>,
+        TError,
+        CreateBetaFeedbackMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateBetaFeedbackMutationOptions(options));
+    }
+
+export const getUpdateBetaFeedbackStatusUrl = (feedbackId: number,) => {
+
+
+
+
+  return `/api/beta-feedback/${feedbackId}/status`
+}
+
+/**
+ * @summary Change a feedback status (feedback manager or owner only)
+ */
+export const updateBetaFeedbackStatus = async (feedbackId: number,
+    betaFeedbackStatusUpdate: BetaFeedbackStatusUpdate, options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackEntry> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BetaFeedbackEntry>(getUpdateBetaFeedbackStatusUrl(feedbackId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(betaFeedbackStatusUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateBetaFeedbackStatusMutationKey = () => ['updateBetaFeedbackStatus'] as const;
+
+export const getUpdateBetaFeedbackStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBetaFeedbackStatus>>, TError,UpdateBetaFeedbackStatusMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBetaFeedbackStatus>>, TError,UpdateBetaFeedbackStatusMutationVariables, TContext> => {
+
+const mutationKey = getUpdateBetaFeedbackStatusMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBetaFeedbackStatus>>, UpdateBetaFeedbackStatusMutationVariables> = (props) => {
+          const {feedbackId,data} = props ?? {};
+
+          return  updateBetaFeedbackStatus(feedbackId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBetaFeedbackStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateBetaFeedbackStatus>>>
+    export type UpdateBetaFeedbackStatusMutationBody = BodyType<BetaFeedbackStatusUpdate>
+    export type UpdateBetaFeedbackStatusMutationError = ErrorType<void>
+    export type UpdateBetaFeedbackStatusMutationVariables = {feedbackId: number;data: BodyType<BetaFeedbackStatusUpdate>}
+
+    /**
+ * @summary Change a feedback status (feedback manager or owner only)
+ */
+export const useUpdateBetaFeedbackStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBetaFeedbackStatus>>, TError,UpdateBetaFeedbackStatusMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBetaFeedbackStatus>>,
+        TError,
+        UpdateBetaFeedbackStatusMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateBetaFeedbackStatusMutationOptions(options));
+    }
+
+export const getDeleteBetaFeedbackUrl = (feedbackId: number,) => {
+
+
+
+
+  return `/api/beta-feedback/${feedbackId}`
+}
+
+/**
+ * @summary Remove beta feedback (feedback manager or owner only)
+ */
+export const deleteBetaFeedback = async (feedbackId: number, options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackDeleteResult> => {
+
+  return customFetch<BetaFeedbackDeleteResult>(getDeleteBetaFeedbackUrl(feedbackId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteBetaFeedbackMutationKey = () => ['deleteBetaFeedback'] as const;
+
+export const getDeleteBetaFeedbackMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBetaFeedback>>, TError,DeleteBetaFeedbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBetaFeedback>>, TError,DeleteBetaFeedbackMutationVariables, TContext> => {
+
+const mutationKey = getDeleteBetaFeedbackMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBetaFeedback>>, DeleteBetaFeedbackMutationVariables> = (props) => {
+          const {feedbackId} = props ?? {};
+
+          return  deleteBetaFeedback(feedbackId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBetaFeedbackMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBetaFeedback>>>
+
+    export type DeleteBetaFeedbackMutationError = ErrorType<void>
+    export type DeleteBetaFeedbackMutationVariables = {feedbackId: number}
+
+    /**
+ * @summary Remove beta feedback (feedback manager or owner only)
+ */
+export const useDeleteBetaFeedback = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBetaFeedback>>, TError,DeleteBetaFeedbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBetaFeedback>>,
+        TError,
+        DeleteBetaFeedbackMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteBetaFeedbackMutationOptions(options));
+    }
+
+export const getListBetaFeedbackManagersUrl = () => {
+
+
+
+
+  return `/api/beta-feedback/managers`
+}
+
+/**
+ * @summary List feedback managers and eligible accounts (owner only)
+ */
+export const listBetaFeedbackManagers = async ( options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackManagersList> => {
+
+  return customFetch<BetaFeedbackManagersList>(getListBetaFeedbackManagersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBetaFeedbackManagersQueryKey = () => {
+    return [
+    `/api/beta-feedback/managers`
+    ] as const;
+    }
+
+
+export const getListBetaFeedbackManagersQueryOptions = <TData = Awaited<ReturnType<typeof listBetaFeedbackManagers>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedbackManagers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBetaFeedbackManagersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBetaFeedbackManagers>>> = ({ signal }) => listBetaFeedbackManagers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedbackManagers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBetaFeedbackManagersQueryResult = NonNullable<Awaited<ReturnType<typeof listBetaFeedbackManagers>>>
+export type ListBetaFeedbackManagersQueryError = ErrorType<void>
+
+
+/**
+ * @summary List feedback managers and eligible accounts (owner only)
+ */
+
+export function useListBetaFeedbackManagers<TData = Awaited<ReturnType<typeof listBetaFeedbackManagers>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBetaFeedbackManagers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBetaFeedbackManagersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGrantBetaFeedbackManagerUrl = () => {
+
+
+
+
+  return `/api/beta-feedback/managers`
+}
+
+/**
+ * @summary Grant feedback manager permission (owner only)
+ */
+export const grantBetaFeedbackManager = async (betaFeedbackManagerInput: BetaFeedbackManagerInput, options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackManager> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<BetaFeedbackManager>(getGrantBetaFeedbackManagerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(betaFeedbackManagerInput)
+  }
+);}
+
+
+
+
+
+export const getGrantBetaFeedbackManagerMutationKey = () => ['grantBetaFeedbackManager'] as const;
+
+export const getGrantBetaFeedbackManagerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantBetaFeedbackManager>>, TError,GrantBetaFeedbackManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof grantBetaFeedbackManager>>, TError,GrantBetaFeedbackManagerMutationVariables, TContext> => {
+
+const mutationKey = getGrantBetaFeedbackManagerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof grantBetaFeedbackManager>>, GrantBetaFeedbackManagerMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  grantBetaFeedbackManager(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GrantBetaFeedbackManagerMutationResult = NonNullable<Awaited<ReturnType<typeof grantBetaFeedbackManager>>>
+    export type GrantBetaFeedbackManagerMutationBody = BodyType<BetaFeedbackManagerInput>
+    export type GrantBetaFeedbackManagerMutationError = ErrorType<void>
+    export type GrantBetaFeedbackManagerMutationVariables = {data: BodyType<BetaFeedbackManagerInput>}
+
+    /**
+ * @summary Grant feedback manager permission (owner only)
+ */
+export const useGrantBetaFeedbackManager = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof grantBetaFeedbackManager>>, TError,GrantBetaFeedbackManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof grantBetaFeedbackManager>>,
+        TError,
+        GrantBetaFeedbackManagerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getGrantBetaFeedbackManagerMutationOptions(options));
+    }
+
+export const getRevokeBetaFeedbackManagerUrl = (targetProfileId: number,) => {
+
+
+
+
+  return `/api/beta-feedback/managers/${targetProfileId}`
+}
+
+/**
+ * @summary Revoke feedback manager permission (owner only)
+ */
+export const revokeBetaFeedbackManager = async (targetProfileId: number, options?: Parameters<typeof customFetch>[1]): Promise<BetaFeedbackManagerRevokeResult> => {
+
+  return customFetch<BetaFeedbackManagerRevokeResult>(getRevokeBetaFeedbackManagerUrl(targetProfileId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeBetaFeedbackManagerMutationKey = () => ['revokeBetaFeedbackManager'] as const;
+
+export const getRevokeBetaFeedbackManagerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeBetaFeedbackManager>>, TError,RevokeBetaFeedbackManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeBetaFeedbackManager>>, TError,RevokeBetaFeedbackManagerMutationVariables, TContext> => {
+
+const mutationKey = getRevokeBetaFeedbackManagerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeBetaFeedbackManager>>, RevokeBetaFeedbackManagerMutationVariables> = (props) => {
+          const {targetProfileId} = props ?? {};
+
+          return  revokeBetaFeedbackManager(targetProfileId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeBetaFeedbackManagerMutationResult = NonNullable<Awaited<ReturnType<typeof revokeBetaFeedbackManager>>>
+
+    export type RevokeBetaFeedbackManagerMutationError = ErrorType<void>
+    export type RevokeBetaFeedbackManagerMutationVariables = {targetProfileId: number}
+
+    /**
+ * @summary Revoke feedback manager permission (owner only)
+ */
+export const useRevokeBetaFeedbackManager = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeBetaFeedbackManager>>, TError,RevokeBetaFeedbackManagerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeBetaFeedbackManager>>,
+        TError,
+        RevokeBetaFeedbackManagerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeBetaFeedbackManagerMutationOptions(options));
     }
 

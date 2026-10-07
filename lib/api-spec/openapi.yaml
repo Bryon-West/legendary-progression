@@ -18,6 +18,8 @@ tags:
     description: Active workouts and workout history
   - name: mesocycles
     description: Mesocycle planning, templates, weeks, and calendar
+  - name: beta-feedback
+    description: Beta feedback submitted by authenticated athletes
 paths:
   /profiles/{profileId}/reset-training:
     post:
@@ -813,6 +815,25 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/WorkoutSummary"
+  /workouts/calendar-history:
+    get:
+      operationId: listWorkoutCalendarHistory
+      tags: [workouts]
+      summary: List all completed session dates for the account Calendar
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Completed sessions ordered by their actual start date
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutCalendarHistoryEntry"
   /workouts/active:
     get:
       operationId: getActiveWorkout
@@ -1066,8 +1087,194 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinishWorkoutResult"
+  /beta-feedback:
+    get:
+      operationId: listBetaFeedback
+      tags: [beta-feedback]
+      summary: List beta feedback visible to authenticated athletes
+      responses:
+        "200":
+          description: Feedback entries and whether the current user can manage them
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackList" }
+    post:
+      operationId: createBetaFeedback
+      tags: [beta-feedback]
+      summary: Submit beta feedback for the authenticated athlete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BetaFeedbackInput" }
+      responses:
+        "201":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackEntry" }
+        "400": { description: Feedback input is invalid }
+  /beta-feedback/{feedbackId}/status:
+    patch:
+      operationId: updateBetaFeedbackStatus
+      tags: [beta-feedback]
+      summary: Change a feedback status (feedback manager or owner only)
+      parameters:
+        - { name: feedbackId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BetaFeedbackStatusUpdate" }
+      responses:
+        "200":
+          description: Updated feedback entry
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackEntry" }
+        "400": { description: Feedback status is invalid }
+        "403": { description: Feedback manager access required }
+        "404": { description: Feedback not found }
+  /beta-feedback/{feedbackId}:
+    delete:
+      operationId: deleteBetaFeedback
+      tags: [beta-feedback]
+      summary: Remove beta feedback (feedback manager or owner only)
+      parameters:
+        - { name: feedbackId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Feedback removed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackDeleteResult" }
+        "403": { description: Feedback manager access required }
+        "404": { description: Feedback not found }
+  /beta-feedback/managers:
+    get:
+      operationId: listBetaFeedbackManagers
+      tags: [beta-feedback]
+      summary: List feedback managers and eligible accounts (owner only)
+      responses:
+        "200":
+          description: Manager assignments and eligible existing accounts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackManagersList" }
+        "403": { description: Feedback owner access required }
+    post:
+      operationId: grantBetaFeedbackManager
+      tags: [beta-feedback]
+      summary: Grant feedback manager permission (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BetaFeedbackManagerInput" }
+      responses:
+        "201":
+          description: Feedback manager permission granted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackManager" }
+        "400": { description: Invalid target profile }
+        "403": { description: Feedback owner access required }
+        "404": { description: Existing account not found }
+        "409": { description: Account already has feedback permission }
+  /beta-feedback/managers/{targetProfileId}:
+    delete:
+      operationId: revokeBetaFeedbackManager
+      tags: [beta-feedback]
+      summary: Revoke feedback manager permission (owner only)
+      parameters:
+        - { name: targetProfileId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: Feedback manager permission revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BetaFeedbackManagerRevokeResult" }
+        "403": { description: Feedback owner access required }
+        "404": { description: Feedback manager not found }
 components:
   schemas:
+    BetaFeedbackCategory:
+      type: string
+      enum: [bug, missing, suggestion, confusing]
+    BetaFeedbackStatus:
+      type: string
+      enum: [reported, planned, fixed]
+    BetaFeedbackEntry:
+      type: object
+      required: [id, category, description, reporterName, status, createdAt]
+      properties:
+        id: { type: integer }
+        category: { $ref: "#/components/schemas/BetaFeedbackCategory" }
+        description: { type: string }
+        reporterName: { type: string }
+        status: { $ref: "#/components/schemas/BetaFeedbackStatus" }
+        createdAt: { type: string, format: date-time }
+    BetaFeedbackList:
+      type: object
+      required: [entries, canManage, canManageManagers]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/BetaFeedbackEntry" }
+        canManage: { type: boolean }
+        canManageManagers: { type: boolean }
+    BetaFeedbackInput:
+      type: object
+      required: [category, description]
+      properties:
+        category: { $ref: "#/components/schemas/BetaFeedbackCategory" }
+        description: { type: string, minLength: 5, maxLength: 2000 }
+      additionalProperties: false
+    BetaFeedbackStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: "#/components/schemas/BetaFeedbackStatus" }
+      additionalProperties: false
+    BetaFeedbackDeleteResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted: { type: boolean, enum: [true] }
+    BetaFeedbackManager:
+      type: object
+      required: [profileId, name, grantedAt]
+      properties:
+        profileId: { type: integer }
+        name: { type: string }
+        grantedAt: { type: string, format: date-time }
+    BetaFeedbackManagerCandidate:
+      type: object
+      required: [profileId, name]
+      properties:
+        profileId: { type: integer }
+        name: { type: string }
+    BetaFeedbackManagersList:
+      type: object
+      required: [managers, candidates]
+      properties:
+        managers:
+          type: array
+          items: { $ref: "#/components/schemas/BetaFeedbackManager" }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/BetaFeedbackManagerCandidate" }
+    BetaFeedbackManagerInput:
+      type: object
+      required: [targetProfileId]
+      properties:
+        targetProfileId: { type: integer, minimum: 1 }
+      additionalProperties: false
+    BetaFeedbackManagerRevokeResult:
+      type: object
+      required: [revoked]
+      properties:
+        revoked: { type: boolean, enum: [true] }
     V22Document:
       type: object
       additionalProperties: true
@@ -1585,6 +1792,13 @@ components:
           items: { $ref: "#/components/schemas/MuscleTotal" }
         mesocycleWeek: { type: ["integer", "null"] }
         readiness: { type: ["string", "null"], enum: [great, normal, below_normal, poor, null] }
+    WorkoutCalendarHistoryEntry:
+      type: object
+      required: [id, dayName, startedAt]
+      properties:
+        id: { type: integer }
+        dayName: { type: ["string", "null"] }
+        startedAt: { type: string, format: date-time }
     ExerciseHistoryEntry:
       type: object
       required: [sessionId, sessionDate, dayName, setNumber, setType, targetWeight, targetRepsMin, targetRepsMax, actualWeight, actualReps, actualRir, metricDefinitions, metricValues]

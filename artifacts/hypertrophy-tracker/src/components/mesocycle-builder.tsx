@@ -7,6 +7,7 @@ import { weekLabel } from '@/lib/labels';
 import { Modal } from '@/components/modal';
 import { ExercisePicker } from '@/components/exercise-picker';
 import { Empty, ErrorNote, FieldLabel } from '@/components/ui-bits';
+import { EducationInfo } from '@/components/education-info';
 
 export type DraftEx = { key: string; id?: number; exerciseId: number; name: string; muscle: string; sets: string; minSets: string; maxSets: string; repsMin: string; repsMax: string; rir: string; weight: string };
 export type DraftDay = { key: string; id?: number; name: string; exercises: DraftEx[] };
@@ -164,7 +165,7 @@ export function MesocycleBuilder({ initial, mode, splitId, profileId, unit, delo
 
   return <main className="page-wrap enter">
     <button className="btn btn-ghost" style={{ padding: 0 }} onClick={cancel} data-testid="button-back"><ArrowLeft size={17}/> Plans</button>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 17 }}><div className="eyebrow">{mode === 'new' ? 'New mesocycle draft' : 'Mesocycle editor'}</div>{dirty ? <span className="badge badge-warning" data-testid="badge-unsaved">Unsaved changes</span> : <span className="badge badge-success">Nothing changed</span>}</div>
+     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 17 }}><div className="eyebrow"><span className="inline-term">{mode === 'new' ? 'New mesocycle draft' : 'Mesocycle editor'} <EducationInfo term="mesocycle" testId="info-mesocycle-builder" /></span></div>{dirty ? <span className="badge badge-warning" data-testid="badge-unsaved">Unsaved changes</span> : <span className="badge badge-success">Nothing changed</span>}</div>
     {banner}
     <div style={{ display: 'grid', gap: 10, margin: '10px 0 16px' }}>
       <FieldLabel label="NAME"><input className="field" data-testid="input-mesocycle-name" value={draft.name} maxLength={100} onChange={(e) => setDraft({ ...draft, name: e.target.value })}/></FieldLabel>
@@ -178,8 +179,8 @@ export function MesocycleBuilder({ initial, mode, splitId, profileId, unit, delo
         const isLocked = locked(w);
         return <div key={w.key} className={`week-head ${w.kind === 'loading' ? '' : 'recovery'}`} data-testid={`row-week-${wi + 1}`}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 13 }}>{w.kind === 'loading' ? `WEEK ${wi + 1}` : weekLabel(w.kind)}</div>
-            {w.kind === 'week_off' ? <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>No scheduled lifting. Not counted as missed.</div> : w.kind === 'deload' && !isLocked ? <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Reduced load and sets from your engine settings.</div> : null}
+             <div style={{ fontWeight: 800, fontSize: 13 }}>{w.kind === 'loading' ? `WEEK ${wi + 1}` : w.kind === 'deload' ? <span className="inline-term">{weekLabel(w.kind)} <EducationInfo term="deload" testId={`info-deload-week-${wi + 1}`} /></span> : weekLabel(w.kind)}</div>
+             {w.kind === 'week_off' ? <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>No scheduled lifting. Not counted as missed.</div> : w.kind === 'deload' && !isLocked ? <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Set and load adjustments follow your engine settings.</div> : null}
             {isLocked && <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', display: 'flex', gap: 4, alignItems: 'center', marginTop: 2 }}><Lock size={10}/> {w.state === 'completed' ? 'Completed' : 'In progress'}</div>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -235,7 +236,7 @@ export function MesocycleBuilder({ initial, mode, splitId, profileId, unit, delo
     </Modal>}
     {addRecovery && <Modal title="Add recovery week" close={() => setAddRecovery(false)}>
       <div style={{ display: 'grid', gap: 9 }}>
-        <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', textAlign: 'left', minHeight: 64 }} onClick={() => confirmAddRecovery('deload')} data-testid="button-recovery-deload"><span><b>Deload</b><br/><small style={{ fontWeight: 400 }}>Same days, reduced sets and load, higher RIR.</small></span></button>
+         <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', textAlign: 'left', minHeight: 64 }} onClick={() => confirmAddRecovery('deload')} data-testid="button-recovery-deload"><span><b>Deload</b><br/><small style={{ fontWeight: 400 }}>Same days, configured set/load adjustments, higher RIR.</small></span></button>
         <button className="btn btn-secondary" style={{ justifyContent: 'flex-start', textAlign: 'left', minHeight: 64 }} onClick={() => confirmAddRecovery('week_off')} data-testid="button-recovery-week-off"><span><b>Week off</b><br/><small style={{ fontWeight: 400 }}>No lifting. Counts as no missed workouts and does not hurt progression.</small></span></button>
       </div>
     </Modal>}

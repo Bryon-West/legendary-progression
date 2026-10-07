@@ -12,6 +12,7 @@ import { localToday } from '@/lib/dates';
 import { MesocycleBuilder, defaultWeeks, newWeekOcc, exFromInput, nk, type Draft, type DraftDay } from '@/components/mesocycle-builder';
 import { Empty, ErrorNote, Loading, QueryError } from '@/components/ui-bits';
 import { refreshTrainingData } from '@/lib/training-cache';
+import { EducationInfo } from '@/components/education-info';
 
 type Source = { createMode: MesocycleCreateInputCreateMode; templateId?: string; sourceWeekId?: number; description?: string };
 type Tab = 'template' | 'copy' | 'build';
@@ -95,9 +96,12 @@ export default function MesocycleNewPage() {
   const tabs: { id: Tab; label: string; icon: typeof Copy }[] = [{ id: 'template', label: 'Start from template', icon: LayoutTemplate }, { id: 'copy', label: 'Copy previous', icon: Copy }, { id: 'build', label: 'Build my own', icon: Hammer }];
   return <main className="page-wrap enter">
     <Link href="/splits" className="btn btn-ghost" style={{ textDecoration: 'none', padding: 0 }}><ArrowLeft size={17}/> Plans</Link>
-    <div className="eyebrow" style={{ marginTop: 10 }}>New mesocycle</div>
+    <div className="eyebrow" style={{ marginTop: 10 }}><span className="inline-term">New mesocycle <EducationInfo term="mesocycle" testId="info-mesocycle-create"/></span></div>
     <h1 className="display" style={{ fontSize: 44, margin: '8px 0 6px' }}>How do you want<br/>to start?</h1>
     <p style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 0 }}>Every option opens an editable draft. Nothing is saved until you press Save &amp; Exit.</p>
+    {profile.trainingMode === 'basic' && <div className="panel" role="note" style={{ padding: 14, margin: '12px 0', fontSize: 12, lineHeight: 1.55, color: 'hsl(var(--muted-foreground))' }}>
+      In Basic, plans organize your workout days. You choose your weight and reps as you train; guided progression stays off.
+    </div>}
     <div className="seg" style={{ gridTemplateColumns: '1fr', margin: '16px 0' }} role="tablist">{tabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" role="tab" aria-pressed={tab === id} onClick={() => setTab(id)} data-testid={`tab-${id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Icon size={17}/>{label.toUpperCase()}</button>)}</div>
      {tab === 'template' && (templates.isLoading ? <div className="skeleton" style={{ height: 150 }}/> : templates.isError ? <QueryError retry={() => void templates.refetch()}/> : <div style={{ display: 'grid', gap: 9 }}>{templates.data?.map((t) => {
        const loadingWeeks = t.defaultWeeks?.filter((week) => week.kind === 'loading').length ?? t.defaultLoadingRirs.length;

@@ -341,6 +341,42 @@ templateLayouts.push(
     defaultWeeks: sizeTwelveWeekPlan,
   },
 );
+templateLayouts.push(
+  {
+    id: "beta-upper-lower-size",
+    name: "Upper / Lower Size",
+    description: "Four editable training days alternating upper and lower body.",
+    days: [
+      { name: "Upper A", exercises: [["Barbell Bench Press", 3, 6, 10], ["Lat Pulldown", 3, 8, 12], ["Seated Cable Row", 2, 8, 12], ["Seated Dumbbell Shoulder Press", 2, 8, 12], ["Cable Lateral Raise", 2, 12, 20], ["Cable Rope Triceps Pushdown", 2, 10, 15], ["Dumbbell Curl", 2, 10, 15]] },
+      { name: "Lower A", exercises: [["Barbell Back Squat", 3, 6, 10], ["Romanian Deadlift", 3, 6, 10], ["Leg Press", 2, 10, 15], ["Seated Leg Curl", 2, 10, 15], ["Standing Calf Raise", 3, 10, 15]] },
+      { name: "Upper B", exercises: [["Incline Dumbbell Press", 3, 8, 12], ["Chest-Supported Lat Row", 3, 8, 12], ["Pec Deck Fly", 2, 12, 20], ["Machine Shoulder Press", 2, 8, 12], ["Face Pull", 2, 12, 20], ["Overhead Cable Triceps Extension", 2, 10, 15], ["Incline Dumbbell Curl", 2, 10, 15]] },
+      { name: "Lower B", exercises: [["Barbell Front Squat", 3, 6, 10], ["Barbell Hip Thrust", 3, 8, 12], ["Leg Extension", 2, 10, 15], ["Lying Leg Curl", 3, 10, 15], ["Seated Calf Raise", 3, 10, 15]] },
+    ],
+    defaultWeeks: hypertrophyEightWeekPlan,
+  },
+  {
+    id: "beta-push-pull-legs",
+    name: "Push / Pull / Legs",
+    description: "A three-day weekly split with one focused push, pull, and legs session.",
+    days: [
+      { name: "Push", exercises: [["Barbell Bench Press", 3, 6, 10], ["Incline Dumbbell Press", 3, 8, 12], ["Seated Dumbbell Shoulder Press", 2, 8, 12], ["Cable Lateral Raise", 3, 12, 20], ["Cable Rope Triceps Pushdown", 3, 10, 15]] },
+      { name: "Pull", exercises: [["Pull-Up", 3, 6, 10], ["Barbell Bent-Over Row", 3, 6, 10], ["Seated Cable Row", 2, 8, 12], ["Face Pull", 2, 12, 20], ["Dumbbell Curl", 3, 10, 15]] },
+      { name: "Legs", exercises: [["Barbell Back Squat", 3, 6, 10], ["Romanian Deadlift", 3, 6, 10], ["Leg Press", 2, 10, 15], ["Seated Leg Curl", 2, 10, 15], ["Standing Calf Raise", 3, 10, 15]] },
+    ],
+    defaultWeeks: hypertrophyEightWeekPlan,
+  },
+  {
+    id: "beta-full-body-hypertrophy",
+    name: "Full-Body Hypertrophy",
+    description: "Three balanced whole-body sessions with different exercise emphases.",
+    days: [
+      { name: "Full Body A", exercises: [["Barbell Bench Press", 3, 6, 10], ["Barbell Back Squat", 3, 6, 10], ["Seated Cable Row", 3, 8, 12], ["Romanian Deadlift", 2, 8, 12], ["Cable Lateral Raise", 2, 12, 20]] },
+      { name: "Full Body B", exercises: [["Incline Dumbbell Press", 3, 8, 12], ["Leg Press", 3, 8, 12], ["Lat Pulldown", 3, 8, 12], ["Seated Leg Curl", 2, 10, 15], ["Dumbbell Curl", 2, 10, 15]] },
+      { name: "Full Body C", exercises: [["Dumbbell Bench Press", 3, 8, 12], ["Barbell Front Squat", 3, 6, 10], ["Chest-Supported Dumbbell Row", 3, 8, 12], ["Barbell Hip Thrust", 2, 8, 12], ["Cable Rope Triceps Pushdown", 2, 10, 15]] },
+    ],
+    defaultWeeks: hypertrophyEightWeekPlan,
+  },
+);
 
 async function resolveTemplateLayouts() {
   const catalog = await db.select().from(exercisesTable).where(isNull(exercisesTable.profileId));
@@ -367,8 +403,8 @@ async function resolveTemplateLayouts() {
           targetSets,
           minimumWorkingSets: Math.max(1, targetSets - 1),
           maximumWorkingSets: Math.min(20, targetSets + 2),
-          targetRepsMin: 6,
-          targetRepsMax: 30,
+          targetRepsMin,
+          targetRepsMax,
           targetRir: 2,
           targetWeight: null,
         });
@@ -590,8 +626,8 @@ router.post("/mesocycles", async (req, res): Promise<void> => {
             targetSets: item.targetSets,
             minimumWorkingSets: item.minimumWorkingSets,
             maximumWorkingSets: item.maximumWorkingSets,
-            targetRepsMin: 6,
-            targetRepsMax: 30,
+            targetRepsMin: item.targetRepsMin,
+            targetRepsMax: item.targetRepsMax,
             targetRir: item.targetRir,
             targetWeight: item.targetWeight ?? null,
           });
@@ -769,8 +805,8 @@ router.put("/splits/:splitId", async (req, res): Promise<void> => {
             anchorWeek: previous.find(p => p.id === exercise.id)?.anchorWeek ?? 1,
             minimumWorkingSets: exercise.minimumWorkingSets,
             maximumWorkingSets: exercise.maximumWorkingSets,
-            targetRepsMin: 6,
-            targetRepsMax: 30,
+            targetRepsMin: exercise.targetRepsMin,
+            targetRepsMax: exercise.targetRepsMax,
             targetRir: exercise.targetRir,
             targetWeight: exercise.targetWeight ?? null,
           };

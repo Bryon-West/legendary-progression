@@ -293,3 +293,162 @@ test("authenticated profile updates persist across refresh, API restart, and re-
     if (profile) await cleanupProfile(profile.id);
   }
 });
+
+test("Calendar history is available without a mesocycle and stays account-scoped", async () => {
+  const userA = `${QA_USER_PREFIX}calendar-a-${randomUUID()}`;
+  const userB = `${QA_USER_PREFIX}calendar-b-${randomUUID()}`;
+  let profileA;
+  let profileB;
+  let apiInstance;
+  const startApi = async () => {
+    const server = createServer(
+      createApp({
+        authMiddleware: (req, _res, next) => {
+          req.auth = { userId: req.get("x-qa-user-id") ?? null };
+          next();
+        },
+      }),
+    );
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    return { server, api: `http://127.0.0.1:${address.port}/api` };
+  };
+  const stopApi = async () => {
+    if (!apiInstance?.server.listening) return;
+    const server = apiInstance.server;
+    apiInstance = undefined;
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  };
+  const insertSession = async (profileId, startedAt, dayName, options = {}) => {
+    const start = new Date(startedAt);
+    const [session] = await db
+      .insert(workoutSessionsTable)
+      .values({
+        profileId,
+        splitId: options.splitId ?? null,
+        splitName: options.splitName ?? null,
+        dayName,
+        status: options.status ?? "completed",
+        startedAt: start,
+        endedAt: options.status === "active" ? null : new Date(start.getTime() + 45 * 60_000),
+        trainingMode: options.trainingMode ?? "basic",
+      })
+      .returning();
+    return session;
+  };
+
+  try {
+    apiInstance = await startApi();
+    const profileAResponse = await requestAs(apiInstance.api, userA, "/profiles");
+    const profileBResponse = await requestAs(apiInstance.api, userB, "/profiles");
+    assert.equal(profileAResponse.status, 200);
+    assert.equal(profileBResponse.status, 200);
+    [profileA] = await profileAResponse.json();
+    [profileB] = await profileBResponse.json();
+    assert.ok(profileA?.id);
+    assert.ok(profileB?.id);
+
+    await db.update(profilesTable).set({ trainingMode: "basic" }).where(eq(profilesTable.id, profileA.id));
+    await db.update(profilesTable).set({ trainingMode: "legendary_pro" }).where(eq(profilesTable.id, profileB.id));
+    const emptyResponse = await requestAs(
+      apiInstance.api,
+      userA,
+      `/workouts/calendar-history?profileId=${profileA.id}`,
+    );
+    assert.equal(emptyResponse.status, 200);
+    assert.deepEqual(await emptyResponse.json(), []);
+    const emptyProResponse = await requestAs(
+      apiInstance.api,
+      userB,
+      `/workouts/calendar-history?profileId=${profileB.id}`,
+    );
+    assert.equal(emptyProResponse.status, 200);
+    assert.deepEqual(await emptyProResponse.json(), []);
+
+    const manual = await insertSession(profileA.id, "2026-10-06T18:30:00.000Z", "Manual session");
+    const completedSplit = await createSplit(profileA.id, "Completed historical mesocycle");
+    await db.update(trainingSplitsTable)
+      .set({ lifecycleStatus: "completed" })
+      .where(eq(trainingSplitsTable.id, completedSplit.id));
+    const completedPlanSession = await insertSession(
+      profileA.id,
+      "2026-10-07T18:30:00.000Z",
+      "Completed plan session",
+      { splitId: completedSplit.id, splitName: completedSplit.name, trainingMode: "legendary_pro" },
+    );
+
+    const endedSplit = await createSplit(profileA.id, "Ended-early historical mesocycle");
+    await db.update(trainingSplitsTable)
+      .set({ lifecycleStatus: "ended_early" })
+      .where(eq(trainingSplitsTable.id, endedSplit.id));
+    const endedPlanSession = await insertSession(
+      profileA.id,
+      "2026-10-08T18:30:00.000Z",
+      "Ended plan session",
+      { splitId: endedSplit.id, splitName: endedSplit.name },
+    );
+
+    const deletedSplit = await createSplit(profileA.id, "Deleted historical mesocycle");
+    const deletedPlanSession = await insertSession(
+      profileA.id,
+      "2026-10-09T18:30:00.000Z",
+      "Preserved session",
+      { splitId: deletedSplit.id, splitName: deletedSplit.name },
+    );
+    await db.delete(trainingSplitsTable).where(eq(trainingSplitsTable.id, deletedSplit.id));
+    const [preservedSession] = await db
+      .select({ splitId: workoutSessionsTable.splitId })
+      .from(workoutSessionsTable)
+      .where(eq(workoutSessionsTable.id, deletedPlanSession.id));
+    assert.equal(preservedSession.splitId, null);
+
+    await insertSession(profileA.id, "2026-10-10T18:30:00.000Z", "Still in progress", { status: "active" });
+    const otherAccountSession = await insertSession(profileB.id, "2026-10-11T18:30:00.000Z", "Other account");
+
+    const ownHistoryResponse = await requestAs(
+      apiInstance.api,
+      userA,
+      `/workouts/calendar-history?profileId=${profileA.id}`,
+    );
+    assert.equal(ownHistoryResponse.status, 200);
+    const ownHistory = await ownHistoryResponse.json();
+    assert.deepEqual(ownHistory.map((item) => item.id), [
+      manual.id,
+      completedPlanSession.id,
+      endedPlanSession.id,
+      deletedPlanSession.id,
+    ]);
+    assert.deepEqual(ownHistory.map((item) => item.startedAt.slice(0, 10)), [
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08",
+      "2026-10-09",
+    ]);
+    assert.ok(!ownHistory.some((item) => item.id === otherAccountSession.id));
+
+    const crossAccountResponse = await requestAs(
+      apiInstance.api,
+      userA,
+      `/workouts/calendar-history?profileId=${profileB.id}`,
+    );
+    assert.equal(crossAccountResponse.status, 404);
+    const otherHistoryResponse = await requestAs(
+      apiInstance.api,
+      userB,
+      `/workouts/calendar-history?profileId=${profileB.id}`,
+    );
+    assert.equal(otherHistoryResponse.status, 200);
+    const otherHistory = await otherHistoryResponse.json();
+    assert.deepEqual(otherHistory.map((item) => item.id), [otherAccountSession.id]);
+  } finally {
+    await stopApi();
+    if (profileA?.id) await cleanupProfile(profileA.id);
+    if (profileB?.id) await cleanupProfile(profileB.id);
+  }
+});

@@ -46,18 +46,20 @@ test("the Epley estimate prefers 225 x 8 over the heavier 230 x 5", () => {
   assert.equal(records[0].heaviestLoad?.setId, 2);
 });
 
-test("strength e1RM history only includes working sets in the 1-10 rep range", () => {
-  const records = derivePersonalRecords([
-    candidate(),
-    candidate({
-      sessionId: 2,
-      setId: 2,
-      actualWeight: 250,
-      actualReps: 12,
-    }),
-  ], "lb");
-  assert.equal(records[0].history[1].estimatedOneRepMax, null);
-  assert.equal(records[0].bestPerformance?.setId, 1);
+test("strength e1RM includes completed working sets at 1, 10, 11, and 15 reps, but not 16", () => {
+  const reps = [1, 10, 11, 15, 16];
+  const [record] = derivePersonalRecords(reps.map((actualReps) => candidate({
+    sessionId: actualReps,
+    setId: actualReps,
+    actualWeight: 100,
+    actualReps,
+  })), "lb");
+
+  assert.deepEqual(
+    record.history.map((entry) => entry.estimatedOneRepMax),
+    reps.map((actualReps) => actualReps <= 15 ? 100 * (1 + actualReps / 30) : null),
+  );
+  assert.equal(record.bestPerformance?.setId, 15);
 });
 
 test("bodyweight exercises retain load records without fabricating an e1RM", () => {

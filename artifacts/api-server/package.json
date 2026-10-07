@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:training-mode:qa": "esbuild src/lib/training-mode-qa.integration.test.mjs --bundle --platform=node --format=cjs --outfile=/tmp/training-mode-qa.integration.cjs --external:pg-native && NODE_ENV=production node --test /tmp/training-mode-qa.integration.cjs",
+    "test:beta-feedback:qa": "esbuild src/lib/beta-feedback-qa.integration.test.mjs --bundle --platform=node --format=cjs --outfile=/tmp/beta-feedback-qa.integration.cjs --external:pg-native && NODE_ENV=production node --test /tmp/beta-feedback-qa.integration.cjs",
     "test:v23c:qa": "node --test src/lib/personal-records-core.test.mjs && esbuild src/lib/v23c-qa.integration.test.mjs --bundle --platform=node --format=cjs --outfile=/tmp/v23c-qa.integration.cjs --external:pg-native && NODE_ENV=production node --test /tmp/v23c-qa.integration.cjs",
     "test:v24:accounts:qa": "esbuild src/lib/v24-accounts-qa.integration.test.mjs --bundle --platform=node --format=cjs --outfile=/tmp/v24-accounts-qa.integration.cjs --external:pg-native && NODE_ENV=production node --test /tmp/v24-accounts-qa.integration.cjs"
   },

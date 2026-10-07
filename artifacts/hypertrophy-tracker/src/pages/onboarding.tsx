@@ -26,7 +26,7 @@ export default function OnboardingPage() {
   const updateMode = useUpdateProfileTrainingMode();
   const [unit, setUnit] = useState<WeightUnit>("kg");
   const [experience, setExperience] = useState<TrainingExperience | null>(null);
-  const [trainingMode, setTrainingMode] = useState<"basic" | "legendary_pro">("legendary_pro");
+  const [trainingMode, setTrainingMode] = useState<"basic" | "legendary_pro" | null>(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState<"template" | "build" | null>(null);
 
@@ -34,7 +34,6 @@ export default function OnboardingPage() {
     if (!profile) return;
     setUnit(profile.weightUnit === "lb" ? "lb" : "kg");
     setExperience(profile.trainingExperience ?? null);
-    setTrainingMode(profile.trainingMode ?? "legendary_pro");
   }, [profile?.id, profile?.weightUnit, profile?.trainingExperience]);
 
   if (profilesQuery.isLoading || !userLoaded) return <Loading />;
@@ -49,6 +48,10 @@ export default function OnboardingPage() {
     setError("");
     if (!experience) {
       setError("Choose your training experience before continuing.");
+      return;
+    }
+    if (!trainingMode) {
+      setError("Choose Basic or Legendary Pro before continuing.");
       return;
     }
     const name = profile.name.trim() || user?.fullName?.trim() || "Athlete";
@@ -125,12 +128,13 @@ export default function OnboardingPage() {
         </p>
         <div className="seg" style={{ gridTemplateColumns: "1fr 1fr" }} role="group" aria-label="Choose your training mode">
           <button type="button" aria-pressed={trainingMode === "basic"} onClick={() => setTrainingMode("basic")} data-testid="onboarding-mode-basic">
-            Basic <small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Manual weight and reps</small>
+            Basic <small style={{ display: "block", fontWeight: 700, marginTop: 4 }}>FREE DURING BETA</small><small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Manual weight and reps</small>
           </button>
           <button type="button" aria-pressed={trainingMode === "legendary_pro"} onClick={() => setTrainingMode("legendary_pro")} data-testid="onboarding-mode-pro">
-            Legendary Pro <small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Guided progression</small>
+            Legendary Pro <small style={{ display: "block", fontWeight: 700, marginTop: 4 }}>FREE DURING BETA</small><small style={{ display: "block", fontWeight: 500, marginTop: 4 }}>Guided progression</small>
           </button>
         </div>
+        {!trainingMode && <p style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", lineHeight: 1.5, margin: "9px 0 0" }}>Select one mode to continue. Your choice stays saved until you change it.</p>}
       </section>
 
       <div className="eyebrow" style={{ marginBottom: 9 }}>How would you like to start?</div>
@@ -139,7 +143,7 @@ export default function OnboardingPage() {
           type="button"
           className="btn btn-primary"
           style={{ minHeight: 82, justifyContent: "space-between", textAlign: "left", padding: 14 }}
-          disabled={update.isPending || updateMode.isPending || !userLoaded}
+          disabled={update.isPending || updateMode.isPending || !userLoaded || !trainingMode}
           onClick={() => startTraining("template")}
           data-testid="onboarding-start-template"
         >
@@ -150,7 +154,7 @@ export default function OnboardingPage() {
           type="button"
           className="btn btn-secondary"
           style={{ minHeight: 82, justifyContent: "space-between", textAlign: "left", padding: 14 }}
-          disabled={update.isPending || updateMode.isPending || !userLoaded}
+          disabled={update.isPending || updateMode.isPending || !userLoaded || !trainingMode}
           onClick={() => startTraining("build")}
           data-testid="onboarding-build-own"
         >

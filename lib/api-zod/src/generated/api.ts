@@ -2478,6 +2478,24 @@ export const ListWorkoutsResponse = zod.array(ListWorkoutsResponseItem)
 
 
 /**
+ * @summary List all completed session dates for the account Calendar
+ */
+
+
+
+export const ListWorkoutCalendarHistoryQueryParams = zod.object({
+  "profileId": zod.coerce.number().int().min(1)
+})
+
+export const ListWorkoutCalendarHistoryResponseItem = zod.object({
+  "id": zod.number().int(),
+  "dayName": zod.string().nullable(),
+  "startedAt": zod.coerce.date()
+})
+export const ListWorkoutCalendarHistoryResponse = zod.array(ListWorkoutCalendarHistoryResponseItem)
+
+
+/**
  * @summary Restore the active session for a profile, if present
  */
 export const GetActiveWorkoutQueryParams = zod.object({
@@ -3552,6 +3570,133 @@ export const FinishWorkoutResponse = zod.object({
   "workingSetCount": zod.number().int(),
   "newPrCount": zod.number().int()
 })
+})
+
+
+/**
+ * @summary List beta feedback visible to authenticated athletes
+ */
+export const ListBetaFeedbackResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.number().int(),
+  "category": zod.enum(['bug', 'missing', 'suggestion', 'confusing']),
+  "description": zod.string(),
+  "reporterName": zod.string(),
+  "status": zod.enum(['reported', 'planned', 'fixed']),
+  "createdAt": zod.coerce.date()
+})),
+  "canManage": zod.boolean(),
+  "canManageManagers": zod.boolean()
+})
+
+
+/**
+ * @summary Submit beta feedback for the authenticated athlete
+ */
+export const createBetaFeedbackBodyDescriptionMin = 5;
+export const createBetaFeedbackBodyDescriptionMax = 2000;
+
+
+
+export const CreateBetaFeedbackBody = zod.object({
+  "category": zod.enum(['bug', 'missing', 'suggestion', 'confusing']),
+  "description": zod.string().min(createBetaFeedbackBodyDescriptionMin).max(createBetaFeedbackBodyDescriptionMax)
+})
+
+export const CreateBetaFeedbackResponse = zod.object({
+  "id": zod.number().int(),
+  "category": zod.enum(['bug', 'missing', 'suggestion', 'confusing']),
+  "description": zod.string(),
+  "reporterName": zod.string(),
+  "status": zod.enum(['reported', 'planned', 'fixed']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Change a feedback status (feedback manager or owner only)
+ */
+
+
+
+export const UpdateBetaFeedbackStatusParams = zod.object({
+  "feedbackId": zod.coerce.number().int().min(1)
+})
+
+export const UpdateBetaFeedbackStatusBody = zod.object({
+  "status": zod.enum(['reported', 'planned', 'fixed'])
+})
+
+export const UpdateBetaFeedbackStatusResponse = zod.object({
+  "id": zod.number().int(),
+  "category": zod.enum(['bug', 'missing', 'suggestion', 'confusing']),
+  "description": zod.string(),
+  "reporterName": zod.string(),
+  "status": zod.enum(['reported', 'planned', 'fixed']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Remove beta feedback (feedback manager or owner only)
+ */
+
+
+
+export const DeleteBetaFeedbackParams = zod.object({
+  "feedbackId": zod.coerce.number().int().min(1)
+})
+
+export const DeleteBetaFeedbackResponse = zod.object({
+  "deleted": zod.literal(true)
+})
+
+
+/**
+ * @summary List feedback managers and eligible accounts (owner only)
+ */
+export const ListBetaFeedbackManagersResponse = zod.object({
+  "managers": zod.array(zod.object({
+  "profileId": zod.number().int(),
+  "name": zod.string(),
+  "grantedAt": zod.coerce.date()
+})),
+  "candidates": zod.array(zod.object({
+  "profileId": zod.number().int(),
+  "name": zod.string()
+}))
+})
+
+
+/**
+ * @summary Grant feedback manager permission (owner only)
+ */
+
+
+
+export const GrantBetaFeedbackManagerBody = zod.object({
+  "targetProfileId": zod.number().int().min(1)
+})
+
+export const GrantBetaFeedbackManagerResponse = zod.object({
+  "profileId": zod.number().int(),
+  "name": zod.string(),
+  "grantedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Revoke feedback manager permission (owner only)
+ */
+
+
+
+export const RevokeBetaFeedbackManagerParams = zod.object({
+  "targetProfileId": zod.coerce.number().int().min(1)
+})
+
+export const RevokeBetaFeedbackManagerResponse = zod.object({
+  "revoked": zod.literal(true)
 })
 
 

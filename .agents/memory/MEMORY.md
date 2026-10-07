@@ -6,5 +6,6 @@
 - [V2.4 account scope](v24-account-scope.md) — keep legacy profiles unassigned and preserve data; no publishing, resets, payments, or social login without approval.
 - [pnpm workspace updates](pnpm-workspace-updates.md) — target dependency updates with a workspace filter and discard unrelated lockfile changes.
 - [PWA startup icons](legendary-dragon-branding.md) — Android shares launcher/startup icons; use L before the full dragon and refresh old installs when the manifest changes.
-- [Development schema sync](database-schema-sync.md) — represent migration-defined integrity rules in Drizzle; Publish diffs live dev/prod, and name drift can produce destructive prompts.
+- [Development schema sync](database-schema-sync.md) — represent historical rules in Drizzle; watch filtered previews, no-op defaults, and truncated constraint names.
 - [GitHub checkpoint auth](github-checkpoint-auth.md) — verify actual GitHub refs and push results; a provider connection notice may not mean the CLI can authenticate.
+- [Feedback access scope](feedback-access-scope.md) — keep feedback roles narrow; Development QA must respect its one persistent Owner instead of bootstrapping another.

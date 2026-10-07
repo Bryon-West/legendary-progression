@@ -1,4 +1,6 @@
 export * from "./legendary-v22";
+export * from "./beta-feedback";
+export * from "./beta-feedback-roles";
 // Export your models here. Add one export per file
 // export * from "./posts";
 //

@@ -16,3 +16,11 @@ Preserve the planned occurrence identity when starting or rescheduling a workout
 **Why:** V2.1 requires week-specific RIR and historical links to survive date changes. The same workout day repeats across weeks; inferring identity from today's date can create an unlinked session instead of completing the intended occurrence.
 
 **How to apply:** use the stable planned occurrence/week identity for programming and completion, and calendar dates only for scheduling and display.
+
+## Calendar history is mesocycle-independent
+
+The Calendar is always available. Show completed training from persisted sessions on each session's actual local start date, regardless of whether its mesocycle is active, ended, completed, or deleted. Planned dates are a separate overlay from a current planned, active, or paused mesocycle.
+
+**Why:** the user requires Calendar to remain a permanent training-history view; ending or removing a plan must not hide completed workouts.
+
+**How to apply:** query completed sessions by the authenticated profile without joining through mesocycle state, then combine those events with planned occurrences without duplicating completed plans at their scheduled dates.

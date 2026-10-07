@@ -5,6 +5,82 @@
  * API for hypertrophy workout tracking
  * OpenAPI spec version: 0.1.0
  */
+export type BetaFeedbackCategory = typeof BetaFeedbackCategory[keyof typeof BetaFeedbackCategory];
+
+
+export const BetaFeedbackCategory = {
+  bug: 'bug',
+  missing: 'missing',
+  suggestion: 'suggestion',
+  confusing: 'confusing',
+} as const;
+
+export type BetaFeedbackStatus = typeof BetaFeedbackStatus[keyof typeof BetaFeedbackStatus];
+
+
+export const BetaFeedbackStatus = {
+  reported: 'reported',
+  planned: 'planned',
+  fixed: 'fixed',
+} as const;
+
+export interface BetaFeedbackEntry {
+  id: number;
+  category: BetaFeedbackCategory;
+  description: string;
+  reporterName: string;
+  status: BetaFeedbackStatus;
+  createdAt: string;
+}
+
+export interface BetaFeedbackList {
+  entries: BetaFeedbackEntry[];
+  canManage: boolean;
+  canManageManagers: boolean;
+}
+
+export interface BetaFeedbackInput {
+  category: BetaFeedbackCategory;
+  /**
+     * @minLength 5
+     * @maxLength 2000
+     */
+  description: string;
+}
+
+export interface BetaFeedbackStatusUpdate {
+  status: BetaFeedbackStatus;
+}
+
+export interface BetaFeedbackDeleteResult {
+  deleted: true;
+}
+
+export interface BetaFeedbackManager {
+  profileId: number;
+  name: string;
+  grantedAt: string;
+}
+
+export interface BetaFeedbackManagerCandidate {
+  profileId: number;
+  name: string;
+}
+
+export interface BetaFeedbackManagersList {
+  managers: BetaFeedbackManager[];
+  candidates: BetaFeedbackManagerCandidate[];
+}
+
+export interface BetaFeedbackManagerInput {
+  /** @minimum 1 */
+  targetProfileId: number;
+}
+
+export interface BetaFeedbackManagerRevokeResult {
+  revoked: true;
+}
+
 export interface V22Document { [key: string]: unknown }
 
 export type LifecycleInputAction = typeof LifecycleInputAction[keyof typeof LifecycleInputAction];
@@ -1234,6 +1310,13 @@ export interface WorkoutSummary {
   readiness: WorkoutSummaryReadiness;
 }
 
+export interface WorkoutCalendarHistoryEntry {
+  id: number;
+  /** @nullable */
+  dayName: string | null;
+  startedAt: string;
+}
+
 export type ExerciseHistoryEntrySetType = typeof ExerciseHistoryEntrySetType[keyof typeof ExerciseHistoryEntrySetType];
 
 
@@ -1869,6 +1952,13 @@ to?: DateOnly;
 };
 
 export type ListWorkoutsParams = {
+profileId: number;
+};
+
+export type ListWorkoutCalendarHistoryParams = {
+/**
+ * @minimum 1
+ */
 profileId: number;
 };
 

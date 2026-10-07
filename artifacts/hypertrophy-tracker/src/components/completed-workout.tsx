@@ -6,12 +6,13 @@ import { StatusIcon, statusClass, statusLabel, type TargetStatus } from '@/compo
 import { READINESS, RECOVERY, formatRir, labelOf, weekLabel } from '@/lib/labels';
 import { fmtTotal, fmtWeight, type WeightUnit } from '@/lib/units';
 import { formatMetricValue, isMetricDrivenExercise, metricUnitLabel } from '@/lib/exercise-metrics';
+import { EducationInfo } from '@/components/education-info';
 
 export function SessionContext({ workout }: { workout: Pick<WorkoutSession, 'trainingMode' | 'readiness' | 'mesocycleWeek' | 'muscleRecovery'> & Partial<Pick<WorkoutSession, 'weekKindSnapshot' | 'targetRirSnapshot' | 'recoveryMode'>> }) {
   const rec = workout.muscleRecovery ?? [];
   const isPro = workout.trainingMode === "legendary_pro";
   return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }} data-testid="session-context">
-    {isPro && workout.mesocycleWeek != null && <span className="badge badge-red">{workout.weekKindSnapshot && workout.weekKindSnapshot !== 'loading' ? weekLabel(workout.weekKindSnapshot) : `Week ${workout.mesocycleWeek}${workout.targetRirSnapshot != null ? ` — ${formatRir(workout.targetRirSnapshot)} RIR` : ''}`}</span>}
+    {isPro && workout.mesocycleWeek != null && <span className="badge badge-red">{workout.weekKindSnapshot === 'deload' ? <span className="inline-term">{weekLabel(workout.weekKindSnapshot)} <EducationInfo term="deload" testId="info-deload-session-context"/></span> : workout.weekKindSnapshot && workout.weekKindSnapshot !== 'loading' ? weekLabel(workout.weekKindSnapshot) : `Week ${workout.mesocycleWeek}${workout.targetRirSnapshot != null ? ` — ${formatRir(workout.targetRirSnapshot)} RIR` : ''}`}</span>}
     {isPro && workout.readiness && <span className="badge">Readiness: {labelOf(READINESS, String(workout.readiness))}</span>}
     {isPro && rec.map((m) => <span key={m.muscleGroup} className="badge">{m.muscleGroup}: {labelOf(RECOVERY, String(m.status))}</span>)}
   </div>;
@@ -24,8 +25,8 @@ export function CompletedWorkout({ workout, unit }: { workout: WorkoutSession; u
     <div className="eyebrow" style={{ marginTop: 20 }}><span className="badge badge-success">COMPLETED</span> · {workout.endedAt ? new Date(workout.endedAt).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Completed session'}</div>
     <h1 className="display" style={{ fontSize: 44, margin: '8px 0 14px' }}>{workout.dayName || 'Workout'}</h1>
     <SessionContext workout={workout}/>
-    <div className="panel" style={{ padding: 17, marginBottom: 14 }}>
-      <div className="eyebrow">Total weight lifted</div>
+      <div className="panel" style={{ padding: 17, marginBottom: 14 }}>
+       <div className="eyebrow"><span className="inline-term">Total Weight Lifted <EducationInfo term="total_weight_lifted" testId="info-total-weight-lifted-detail" /></span></div>
       <div className="display metric" style={{ fontSize: 38, margin: '8px 0 12px' }} data-testid="text-session-total">{fmtTotal(workout.totalVolume, unit)}</div>
       {(workout.muscleTotals ?? []).length > 0 && <MuscleTotals totalKg={workout.totalVolume} muscleTotals={workout.muscleTotals ?? []} unit={unit}/>}
       <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 10 }}>Working sets only. Warm-ups, skipped and removed sets are excluded.</div>
